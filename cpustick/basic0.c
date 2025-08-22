@@ -24,6 +24,7 @@ enum cmdcode {
 #endif
 #if SCOPE && ! STICK_GUEST
     command_scope,
+    command_stream,
     command_ver,
 #endif
     command_hostname,
@@ -50,7 +51,9 @@ const char * const commands[] = {
     "zigflea",
 #endif
 #if SCOPE && ! STICK_GUEST
+// Command here
     "scope",
+    "stream",
     "ver",
 #endif
     "hostname",
@@ -813,7 +816,12 @@ basic0_run(char *text_in)
                 goto XXX_ERROR_XXX;
             }
 
+            // Call scope
             scope(number1, rise, fall, level, automatic, digital, number2, number3, number4);
+            break;
+        
+        case command_stream:
+            stream();
             break;
 
         case command_ver:

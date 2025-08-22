@@ -3,6 +3,7 @@
 #ifndef MAIN_INCLUDED
 
 #define VERSION  "2.27k"
+// version here
 
 //#define SODEBUG  1
 #define DEBUGGING  1  // enable to use mplab x debugger
@@ -170,6 +171,7 @@ enum {
 #include "parse2.h"
 #include "run2.h"
 #include "scope.h"
+#include "stream.h"
 
 #define os_yield()  // NULL
 

@@ -245,6 +245,7 @@ cdcacm_print(const byte *buffer, int length)
     assert(gpl() == 0);
 
     if (! cdcacm_attached || discard) {
+        // DISCARD here
         return;
     }
 
