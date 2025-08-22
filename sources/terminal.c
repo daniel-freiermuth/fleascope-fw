@@ -363,6 +363,7 @@ terminal_receive_internal(byte *buffer, int length)
             terminal_txid = -1;
         }
 
+        // discard here
         if (! discard) {
             if (buffer[j] == '\r') {
                 // this is a delayed reprint
@@ -444,6 +445,7 @@ terminal_edit(char *line)
 
 // this function causes us to discard typed characters while the
 // BASIC program is running, except Ctrl-C.
+// discarding here
 void
 terminal_command_discard(bool discard_in)
 {

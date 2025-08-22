@@ -1,7 +1,5 @@
 #include "main.h"
 
-#if SCOPE
-
 #if ! defined(__32MK0512GPK064__) && ! defined(__32MK0512MCM064__)
 #error  only __32MK__ interleaved adc dma is supported for now
 #endif
@@ -617,7 +615,8 @@ scope_result(int number1)
     for (i = trigger; i < trigger+SAMPLES+EXTRA; i++) {
         for (m = 0; m < magnify; m++) {
             bits = bitsbuffer[i%INTERLEAVE][(i/INTERLEAVE)%LENGTHOF(bitsbuffer[0])];
-            printf("%d,0x%x\n", adcbuffer[i%LENGTHOF(adcbuffer)], ptovbits(bits));
+            // Here we print to serial
+            printf("%d,%x\n", adcbuffer[i%LENGTHOF(adcbuffer)], ptovbits(bits));
             if (++l == SAMPLES+EXTRA) {
                 return;
             }
@@ -649,6 +648,7 @@ scope_end()
     pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger
 }
 
+// Entrypoint
 void scope(int number1, bool rise, bool fall, bool level, bool automatic, int digital, int number2, int number3, int number4)
 {
     if (! number1) {
@@ -858,4 +858,305 @@ wave(char *pattern, int hz)
     T2CONSET = _T2CON_ON_MASK;
 }
 
-#endif
+void set_capturing_pin(bool capturing)
+{
+    if (capturing) {
+        pin_set(PIN_E2, pin_type_digital_output, 0, 1);
+    } else {
+        pin_set(PIN_E2, pin_type_digital_output, 0, 0);
+    }
+}
+
+void set_waiting_pin(bool waiting)
+{
+    if (waiting) {
+        pin_set(PIN_E3, pin_type_digital_output, 0, 1);
+    } else {
+        pin_set(PIN_E3, pin_type_digital_output, 0, 0);
+    }
+}
+
+void stop_T3()
+{
+   T3CONCLR = _T3CON_ON_MASK;
+}
+
+void start_T3()
+{
+    T3CONSET = _T3CON_ON_MASK;
+}
+
+// Ideas for config
+// - bitwidth
+// - channels
+void
+stream_begin()
+{
+    int t;
+    int ps;
+    static int once;
+
+    // Clock Config
+    if (! once) {
+        once = 1;
+        /* unlock system for clock configuration */
+        SYSKEY = 0x00000000;
+        SYSKEY = 0xAA996655;
+        SYSKEY = 0x556699AA;
+
+        CFGCONbits.PMDLOCK = 0;
+
+        PMD1 = 0x00000310;  // EEMD CTMUMD DAC1
+        PMD2 = 0x0013001a;  // OPA5MD OPA2MD OPA1MD, CMP5MD C4MPMD CMP2MD
+        PMD3 = 0xfbc0ffff;  // all OC/IC except OC11MD OC6MD OC5MD OC4MD OC3MD OC2MD OC1MD
+        PMD4 = 0x0fff01f8;  // all PWM/T except T3 T2 T1
+        PMD5 = 0xf20f3f3f;  // all CAN/USB/I2C/SPI/U except USB1
+        PMD6 = 0x0f0d0300;  // all QE/PMP/REFO except REFO3 REFO4
+
+        CFGCONbits.PMDLOCK = 1;
+
+        /* Lock system since done with clock configuration */
+        SYSKEY = 0x33333333;
+    }
+    
+    // Setup pins
+    pin_declare(PIN_A0, pin_type_digital_output, 0);
+    pin_declare(PIN_A1, pin_type_digital_output, 0);
+    pin_declare(PIN_A2, pin_type_digital_output, 0);
+    pin_declare(PIN_A3, pin_type_digital_output, 0);
+    pin_declare(PIN_A4, pin_type_digital_output, 0);
+    pin_declare(PIN_A5, pin_type_digital_output, 0);
+    pin_declare(PIN_A6, pin_type_digital_output, 0);
+    pin_declare(PIN_A7, pin_type_digital_output, 0);
+    pin_declare(PIN_A8, pin_type_digital_output, 0);
+
+    pin_declare(PIN_E2, pin_type_digital_output, 0);
+    pin_declare(PIN_E3, pin_type_digital_output, 0);
+
+    set_waiting_pin(true);  // we are waiting for trigger
+    set_capturing_pin(false);  // we are waiting for trigger
+
+    // ???
+    RPE14R = 0;  // undo OC5 -> RE14
+    RPE15R = 0;  // undo OC6 -> RE15
+    RPG9R = 0;  // undo OC3 -> RG9
+    RPG8R = 0;  // undo OC4 -> RG8
+    RPG7R = 0;  // undo OC2 -> RG7
+    RPG6R = 0;  // undo OC1 -> RG6
+
+    // configure analog comparator voltage reference
+
+    // set dac3 to number2
+    DAC3CONbits.REFSEL = 3;  // Positive reference voltage = AVDD
+
+    //DAC3CONbits.DACOE = 1;  // enable DAC3OUT on CDAC3/RA8
+    DAC3CONbits.ON = 1;
+
+    // Configure adc trigger timer
+
+    // set TMR3 to 3.6 MHz divided by horizontal scale
+    int number1 = 20000; // 1.8 ksps -> 0.36 kHz timer with 5x interleave
+    if (number1 > 1000) {
+        ps = 16;
+    } else {
+        ps = 1;
+    }
+    t = (bus_frequency/1000000*number1*INTERLEAVE/ps + MSPS/2)/MSPS;  // 1:ps prescale
+    assert(t > 1 && t < 0x10000);  // 16 bit register
+
+    // use 100% of T3 trigger for adc4
+    T3CONCLR = _T3CON_ON_MASK;
+    g++;
+    TMR3 = 0;
+    PR3 = t-1;
+    assert(ps == 1 || ps == 16);
+    T3CON = (ps==16?4:0) <<_T3CON_TCKPS_POSITION;  // 1:ps prescale
+
+    // configure adc trigger output compares
+
+    // use 20% of T3 trigger for adc0
+    OC1CONbits.ON = 0;
+    g++;
+    OC1CONbits.OCTSEL = 1;  // timer 3
+    OC1CONbits.OCM = 5;  // initial low, continuous high pulses
+    OC1R = 0;
+    OC1RS = 2;
+    OC1CONbits.ON = 1;
+
+    // use 40% of T3 trigger for adc1
+    OC2CONbits.ON = 0;
+    g++;
+    OC2CONbits.OCTSEL = 1;  // timer 3
+    OC2CONbits.OCM = 5;  // initial low, continuous high pulses
+    OC2R = 0;
+    OC2RS = 2;
+    OC2CONbits.ON = 1;
+
+    // use 60% of T3 trigger for adc2
+    OC3CONbits.ON = 0;
+    g++;
+    OC3CONbits.OCTSEL = 1;  // timer 3
+    OC3CONbits.OCM = 5;  // initial low, continuous high pulses
+    OC3R = 0;
+    OC3RS = 2;
+    OC3CONbits.ON = 1;
+
+    // use 80% of T3 trigger for adc3
+    OC4CONbits.ON = 0;
+    g++;
+    OC4CONbits.OCTSEL = 1;  // timer 3
+    OC4CONbits.OCM = 5;  // initial low, continuous high pulses
+    OC4R = 0;
+    OC4RS = 2;
+    OC4CONbits.ON = 1;
+}
+
+// prepare for DMA to capture samples imminently -- THIS IS EVERYTHING EXCEPT "T3CONSET = _T3CON_ON_MASK;"
+void
+stream_capture_begin()
+{
+    current = 0;
+    currento = 0;
+    trigger = -1;
+
+    TMR3 = 0;
+
+    ADCDSTATbits.DMAEN = 1;
+    ADCCON3bits.DIGEN0 = 1;      // Enable ADC
+    ADCCON3bits.DIGEN1 = 1;      // Enable ADC
+    ADCCON3bits.DIGEN2 = 1;      // Enable ADC
+    ADCCON3bits.DIGEN3 = 1;      // Enable ADC
+    ADCCON3bits.DIGEN4 = 1;      // Enable ADC
+
+    DCH0CONbits.CHEN = 1;
+    DCH1CONbits.CHEN = 1;
+    DCH2CONbits.CHEN = 1;
+    DCH3CONbits.CHEN = 1;
+    DCH4CONbits.CHEN = 1;
+
+    CM1CONbits.CFSEL = 0;  // SYSCLK
+    CM1CONbits.CFDIV = 4;  // digital filter divide by 16 except at highest sample rate, when we divide by 2
+    CM1CONbits.CFLTREN = 1;  // digital filter divides by 3 again
+    CM1CONbits.HYSSEL = 2;  // medium hysteresis
+    CM1CONbits.CPOL = 1;  // 1 -> inverted (because CMP+ is DAC3)
+    CM1CONbits.CREF = 1;  // CMP+ is DAC3
+    CM1CONbits.CCH = 3;  // CMP- is RPB1
+    //RPC10R = 7;  // C1OUT on RC10
+    //CM1CONbits.COE = 1;  // enable C1OUT on RC10
+
+    // enable the comparator
+    delay(2);
+    CM1CONbits.ON = 1;
+    delay(2);
+}
+
+void
+stream_trigger()
+{
+    // temporarily turn off the timer interrupt
+    IEC0bits.T1IE = 0;
+
+    // start looking for trigger now
+    CM1CONbits.COUT = 0;
+    CM1CONbits.CEVT = 0;
+
+    // just start
+    start_T3();
+
+    if (run_stop) {
+        set_capturing_pin(true);  // we are capturing
+    }
+}
+
+void
+stream_capture_end(void)
+{
+    int sent = 0;
+    // wait for trigger and post samples; kill time and go easy on the bus
+    while (run_stop) {
+        while (sent < current) {
+            int v=0;
+            for (int i = 0; i < 4; i++) {
+                v += adcbuffer[(sent+i)%LENGTHOF(adcbuffer)];
+                sent++;
+            }
+            v = v >> 2;
+            printf("%c", v>>8);
+            printf("%c", v & 0xff);
+            sent++;
+        }
+        printf("\n");
+        IEC0bits.T1IE = 1;
+    }
+
+    // N.B. THIS STOPS EVERYTHING!
+    stop_T3();
+    g++;
+
+    ADCCON3bits.DIGEN0 = 0;      // Disable ADC
+    ADCCON3bits.DIGEN1 = 0;      // Disable ADC
+    ADCCON3bits.DIGEN2 = 0;      // Disable ADC
+    ADCCON3bits.DIGEN3 = 0;      // Disable ADC
+    ADCCON3bits.DIGEN4 = 0;      // Disable ADC
+    ADCDSTATbits.DMAEN = 0;
+
+    CM1CONbits.ON = 0;
+    g++;
+
+    DAC3CONbits.ON = 0;
+    g++;
+
+    DCH0ECONbits.CABORT = 1;
+    DCH1ECONbits.CABORT = 1;
+    DCH2ECONbits.CABORT = 1;
+    DCH3ECONbits.CABORT = 1;
+    DCH4ECONbits.CABORT = 1;
+}
+
+void
+stream_end()
+{
+    // N.B. turn OCs off before reassigning to pins!
+    OC1CONbits.ON = 0;
+    g++;
+    OC2CONbits.ON = 0;
+    g++;
+    OC3CONbits.ON = 0;
+    g++;
+    OC4CONbits.ON = 0;
+    g++;
+
+    RPE14R = 6;  // OC5 -> RE14
+    RPE15R = 6;  // OC6 -> RE15
+    RPG9R = 5;  // OC3 -> RG9
+    RPG8R = 5;  // OC4 -> RG8
+    RPG7R = 5;  // OC2 -> RG7
+    RPG6R = 5;  // OC1 -> RG6
+
+    set_capturing_pin(false);  // we are no longer capturing
+    set_waiting_pin(false);  // we are no longer waiting for trigger
+}
+
+// Entrypoint
+void stream()
+{
+    // Prepare board
+    // Also does something with regard to the analog trigger
+    stream_begin();
+
+    run_stop = 1;
+    main_command = NULL;
+    terminal_command_ack(false);
+    terminal_command_discard(true);
+
+    // Does more things with analog trigger
+    stream_capture_begin();
+
+    stream_trigger();
+
+    stream_capture_end();
+
+    terminal_command_discard(false);
+
+    stream_end();
+}
