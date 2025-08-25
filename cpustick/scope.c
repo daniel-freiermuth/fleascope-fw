@@ -1077,8 +1077,7 @@ stream_capture_end(void)
         while (sent < current) {
             int v=0;
             for (int i = 0; i < 4; i++) {
-                v += adcbuffer[(sent+i)%LENGTHOF(adcbuffer)];
-                sent++;
+                v += adcbuffer[sent++%LENGTHOF(adcbuffer)];
             }
             v = v >> 2;
             printf("%c", v>>8);
