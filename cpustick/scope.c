@@ -1084,6 +1084,7 @@ stream_capture_end(void)
 {
     int sent = 0;
     // wait for trigger and post samples; kill time and go easy on the bus
+    IEC0bits.T1IE = 1;
     while (run_stop) {
         while (sent < current) {
             int v=0;
@@ -1097,7 +1098,6 @@ stream_capture_end(void)
         }
         // Testing for writing the data away
         // printf("\n");
-        IEC0bits.T1IE = 1;
     }
 
     // N.B. THIS STOPS EVERYTHING!
