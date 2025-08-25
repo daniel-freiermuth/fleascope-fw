@@ -170,8 +170,9 @@ enum {
 #include "basic0.h"
 #include "parse2.h"
 #include "run2.h"
-#include "scope.h"
-#include "stream.h"
+#include "fleascope-hal.h"
+#include "scope-command.h"
+#include "stream-command.h"
 
 #define os_yield()  // NULL
 
