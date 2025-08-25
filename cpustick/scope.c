@@ -1095,7 +1095,8 @@ stream_capture_end(void)
             printf("%c", v & 0xff);
             sent++;
         }
-        printf("\n");
+        // Testing for writing the data away
+        // printf("\n");
         IEC0bits.T1IE = 1;
     }
 
