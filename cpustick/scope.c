@@ -955,7 +955,18 @@ stream_begin()
     // Configure adc trigger timer
 
     // set TMR3 to 3.6 MHz divided by horizontal scale
-    int number1 = 20000; // 1.8 ksps -> 0.36 kHz timer with 5x interleave
+    int number1 = 70;
+    //           20    ->   180 kHz timer
+    //           40    ->   90 kHz timer // not even without averaging
+    //           50 // not even without averaging
+    //           60 // doesn't work with averaging, but works without
+    //           70    ->   51 kHz // works well with averaging
+    //           80    ->   45 kHz timer //nice
+    //           1.250    ->  2.88 kHz timer
+    //           2.500    ->  1.44 kHz timer
+    //           5.000    ->  0.72 kHz timer
+    //           10.000    -> 0.36 kHz timer
+    //           20.000    -> 0.18 kHz timer
     if (number1 > 1000) {
         ps = 16;
     } else {
