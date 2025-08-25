@@ -1091,7 +1091,7 @@ stream_capture_end(void)
             for (int i = 0; i < 4; i++) {
                 v += adcbuffer[sent++%LENGTHOF(adcbuffer)];
             }
-            v = v >> 2;
+            v = (v + 2) >> 2;
             printf("%c", v>>8);
             printf("%c", v & 0xff);
             sent++;
