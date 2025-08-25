@@ -2,8 +2,13 @@
 
 #ifndef MAIN_INCLUDED
 
-#define VERSION  "2.27k"
-// version here
+// Versioning follows Semantic Versioning (semver.org):
+//   MAJOR — breaking change to the serial wire protocol:
+//            command removed, argument added as required, encoding changed
+//   MINOR — backwards-compatible addition:
+//            new optional command or argument with a defined default
+//   PATCH — bug fix, no protocol change
+#define VERSION  "3.0.0"
 
 //#define SODEBUG  1
 #define DEBUGGING  1  // enable to use mplab x debugger

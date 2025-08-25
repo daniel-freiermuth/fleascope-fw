@@ -4,6 +4,41 @@ All notable changes to the firmware are documented here.
 
 ---
 
+## [3.0.0] — 2025-08-25
+
+First git-tracked release, picking up where the hand-tracked 2.27k left off.
+
+### Added
+- **Analog stream command** (`stream`): continuous ADC capture streamed over USB.
+  - Up to 18 Msps using 5× interleaved ADC DMA on ra0, ra1, rb0, rb1, ra11.
+  - Configurable sample interval (1–20 000), trigger level/slew, delay samples,
+    and magnification (−10×, −5×, −2×, 1×, …).
+  - RC10 used as waveform output (CDAC2 or OC11).
+  - Data transmitted little-endian.
+- **CI pipeline**: GitLab CI build added (`.gitlab-ci.yml`, Dockerfile,
+  `build-distrobox.sh`).
+- **Wiring diagram**: `fleascope.drawio` added to document board wiring.
+- **`wave` promoted from command to statement**: `wave` can now appear anywhere
+  a statement is valid (previously command-only); parser and runner updated
+  accordingly. Tests added to `test/basic3.sh`.
+- `Versions` file added to track the hand-release history.
+
+### Changed
+- Fleascope code split into HAL (`fleascope-hal.c/.h`) and per-feature command
+  files (`scope-command.c/.h`, `stream-command.c/.h`) for better readability.
+- XC32 compiler parameters tuned.
+- Digital stream no longer uses DMA channels (timer-only path is sufficient).
+- Chunked USB sending reverted; little-endian wire encoding retained.
+
+### Fixed
+- Stream: double-increment of sample index.
+- Stream: redundant `\n` removed from packet output.
+- Stream: reset-once semantics — hardware state reset only once per command
+  invocation, not per packet.
+- Stream: integer rounding applied to sample-interval calculation.
+
+---
+
 ## [2.27k] — July 2024
 
 *(No detailed change notes; listed in `Versions` file.)*
