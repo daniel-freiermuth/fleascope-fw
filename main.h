@@ -2,7 +2,7 @@
 
 #ifndef MAIN_INCLUDED
 
-#define VERSION  "2.27k"
+#define VERSION  "2.27.1"
 // version here
 
 //#define SODEBUG  1
