@@ -1085,15 +1085,24 @@ stream_capture_end(void)
     int sent = 0;
     // wait for trigger and post samples; kill time and go easy on the bus
     IEC0bits.T1IE = 1;
+    uint8_t buffer[1024];  // Multiple of USB packet size
+    int buffer_pos = 0;
+
     while (run_stop) {
+        // TODO: Think about all int that could wrap
         while (sent < current) {
             int v=0;
+            // int v= adcbuffer[sent%LENGTHOF(adcbuffer)];
             for (int i = 0; i < 4; i++) {
                 v += adcbuffer[sent++%LENGTHOF(adcbuffer)];
             }
             v = (v + 2) >> 2;
-            printf("%c", v>>8);
-            printf("%c", v & 0xff);
+            buffer[buffer_pos++] = v & 0xFF;
+            buffer[buffer_pos++] = (v >> 8);
+            if (buffer_pos == sizeof(buffer)) {
+                cdcacm_print(buffer, sizeof(buffer));
+                buffer_pos = 0;
+            }
             sent++;
         }
         // Testing for writing the data away
@@ -1122,6 +1131,11 @@ stream_capture_end(void)
     DCH2ECONbits.CABORT = 1;
     DCH3ECONbits.CABORT = 1;
     DCH4ECONbits.CABORT = 1;
+
+    // Flush remaining data
+    if (buffer_pos > 0) {
+        cdcacm_print(buffer, buffer_pos);
+    }
 }
 
 void
