@@ -9,8 +9,9 @@
         <itemPath>../cpustick/cpustick.h</itemPath>
         <itemPath>../cpustick/parse2.h</itemPath>
         <itemPath>../cpustick/run2.h</itemPath>
-        <itemPath>../cpustick/scope.h</itemPath>
-        <itemPath>../cpustick/stream.h</itemPath>
+        <itemPath>../cpustick/fleascope-hal.h</itemPath>
+        <itemPath>../cpustick/scope-command.h</itemPath>
+        <itemPath>../cpustick/stream-command.h</itemPath>
       </logicalFolder>
       <logicalFolder name="sources" displayName="sources" projectFiles="true">
         <itemPath>../sources/adc.h</itemPath>
@@ -61,8 +62,9 @@
         <itemPath>../cpustick/cpustick.c</itemPath>
         <itemPath>../cpustick/parse2.c</itemPath>
         <itemPath>../cpustick/run2.c</itemPath>
-        <itemPath>../cpustick/scope.c</itemPath>
-        <itemPath>../cpustick/stream.c</itemPath>
+        <itemPath>../cpustick/scope-command.c</itemPath>
+        <itemPath>../cpustick/fleascope-hal.c</itemPath>
+        <itemPath>../cpustick/stream-command.c</itemPath>
       </logicalFolder>
       <logicalFolder name="sources" displayName="sources" projectFiles="true">
         <itemPath>../sources/adc.c</itemPath>
@@ -106,7 +108,7 @@
         <platformTool>snap</platformTool>
         <languageToolchain>XC32</languageToolchain>
         <languageToolchainVersion>4.35</languageToolchainVersion>
-        <platform>3</platform>
+        <platform>2</platform>
       </toolsSet>
       <packs>
         <pack name="PIC32MK-GP_DFP" vendor="Microchip" version="1.8.253"/>
