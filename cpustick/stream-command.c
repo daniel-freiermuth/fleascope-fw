@@ -35,10 +35,8 @@
 // - bitwidth
 // - channels
 void
-stream_begin()
+setup_board_stream()
 {
-    int t;
-    int ps;
     static int once;
 
     // Clock Config
@@ -88,15 +86,11 @@ stream_begin()
     RPG8R = 0;  // undo OC4 -> RG8
     RPG7R = 0;  // undo OC2 -> RG7
     RPG6R = 0;  // undo OC1 -> RG6
+}
 
-    // configure analog comparator voltage reference
-
-    // set dac3 to number2
-    DAC3CONbits.REFSEL = 3;  // Positive reference voltage = AVDD
-
-    //DAC3CONbits.DACOE = 1;  // enable DAC3OUT on CDAC3/RA8
-    DAC3CONbits.ON = 1;
-
+void setup_capture_timer() {
+    int t;
+    int ps;
     // Configure adc trigger timer
 
     // set TMR3 to 3.6 MHz divided by horizontal scale
@@ -168,7 +162,7 @@ stream_begin()
 
 // prepare for DMA to capture samples imminently -- THIS IS EVERYTHING EXCEPT "T3CONSET = _T3CON_ON_MASK;"
 void
-stream_capture_begin()
+prepare_dma()
 {
     reset_buffers();
 
@@ -186,47 +180,13 @@ stream_capture_begin()
     DCH2CONbits.CHEN = 1;
     DCH3CONbits.CHEN = 1;
     DCH4CONbits.CHEN = 1;
-
-    CM1CONbits.CFSEL = 0;  // SYSCLK
-    CM1CONbits.CFDIV = 4;  // digital filter divide by 16 except at highest sample rate, when we divide by 2
-    CM1CONbits.CFLTREN = 1;  // digital filter divides by 3 again
-    CM1CONbits.HYSSEL = 2;  // medium hysteresis
-    CM1CONbits.CPOL = 1;  // 1 -> inverted (because CMP+ is DAC3)
-    CM1CONbits.CREF = 1;  // CMP+ is DAC3
-    CM1CONbits.CCH = 3;  // CMP- is RPB1
-    //RPC10R = 7;  // C1OUT on RC10
-    //CM1CONbits.COE = 1;  // enable C1OUT on RC10
-
-    // enable the comparator
-    delay(2);
-    CM1CONbits.ON = 1;
-    delay(2);
 }
 
 void
-stream_trigger()
-{
-    // temporarily turn off the timer interrupt
-    IEC0bits.T1IE = 0;
-
-    // start looking for trigger now
-    CM1CONbits.COUT = 0;
-    CM1CONbits.CEVT = 0;
-
-    // just start
-    start_T3();
-
-    if (run_stop) {
-        set_capturing_pin(true);  // we are capturing
-    }
-}
-
-void
-stream_capture_end(void)
+stream_data(void)
 {
     int sent = 0;
     // wait for trigger and post samples; kill time and go easy on the bus
-    IEC0bits.T1IE = 1;
     short* adcbuffer = get_adc_buffer();
 
     while (run_stop) {
@@ -246,7 +206,9 @@ stream_capture_end(void)
         // Testing for writing the data away
         // printf("\n");
     }
+}
 
+void stop_capture() {
     // N.B. THIS STOPS EVERYTHING!
     stop_T3();
 
@@ -271,7 +233,7 @@ stream_capture_end(void)
 }
 
 void
-stream_end()
+restore_board()
 {
     // N.B. turn OCs off before reassigning to pins!
     OC1CONbits.ON = 0;
@@ -299,7 +261,8 @@ void stream()
 {
     // Prepare board
     // Also does something with regard to the analog trigger
-    stream_begin();
+    setup_board_stream();
+    setup_capture_timer();
 
     run_stop = 1;
     main_command = NULL;
@@ -307,13 +270,19 @@ void stream()
     terminal_command_discard(true);
 
     // Does more things with analog trigger
-    stream_capture_begin();
+    prepare_dma();
 
-    stream_trigger();
+    // just start
+    start_T3();
 
-    stream_capture_end();
+    if (run_stop) {
+        set_capturing_pin(true);  // we are capturing
+    }
+
+    stream_data();
+    stop_capture();
 
     terminal_command_discard(false);
 
-    stream_end();
+    restore_board();
 }
