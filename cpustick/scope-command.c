@@ -29,15 +29,13 @@
 //           20000 -> 0.9 ksps -> 0.18 kHz timer with 5x interleave
 
 int magnify;  // non-0 -> we allow each adc sample to be reported multiple times
-volatile int trigger;  // location of trigger start in adc buffer, including delay
 
 volatile int g;
 
+// Clock, pin and route configuration
 void
-scope_begin(int number1, int number2)
+setup_board_scope()
 {
-    int t;
-    int ps;
     static int once;
 
     if (! once) {
@@ -84,17 +82,12 @@ scope_begin(int number1, int number2)
     RPG8R = 0;  // undo OC4 -> RG8
     RPG7R = 0;  // undo OC2 -> RG7
     RPG6R = 0;  // undo OC1 -> RG6
+}
 
-    // configure analog comparator voltage reference
-
-    // set dac3 to number2
-    DAC3CONbits.REFSEL = 3;  // Positive reference voltage = AVDD
-    DAC3CONbits.DACDAT = number2 << 2;  // 10 bit input to 12 bit register
-
-    //DAC3CONbits.DACOE = 1;  // enable DAC3OUT on CDAC3/RA8
-    DAC3CONbits.ON = 1;
-
-    // configure adc trigger timer
+void setup_capture_timer_scope(int number1) {
+    int t;
+    int ps;
+    // configure adc capture timer
 
     // set TMR3 to 3.6 MHz divided by horizontal scale
     if (number1 > 1000) {
@@ -154,10 +147,9 @@ scope_begin(int number1, int number2)
 
 // prepare for DMA to capture samples imminently -- THIS IS EVERYTHING EXCEPT "T3CONSET = _T3CON_ON_MASK;"
 void
-scope_capture_begin(int number1, bool rise, bool fall)
+prepare_dma_scope()
 {
     reset_buffers();
-    trigger = -1;
 
     TMR3 = 0;
 
@@ -173,7 +165,17 @@ scope_capture_begin(int number1, bool rise, bool fall)
     DCH2CONbits.CHEN = 1;
     DCH3CONbits.CHEN = 1;
     DCH4CONbits.CHEN = 1;
+}
 
+void enable_analog_trigger(int number1, int number2, bool fall) {
+    // configure analog comparator voltage reference
+
+    // set dac3 to number2
+    DAC3CONbits.REFSEL = 3;  // Positive reference voltage = AVDD
+    DAC3CONbits.DACDAT = number2 << 2;  // 10 bit input to 12 bit register
+
+    //DAC3CONbits.DACOE = 1;  // enable DAC3OUT on CDAC3/RA8
+    DAC3CONbits.ON = 1;
     CM1CONbits.HYSPOL = fall?0:1;  // 0 -> rising edge; 1 -> falling edge
     CM1CONbits.CFSEL = 0;  // SYSCLK
     CM1CONbits.CFDIV = number1==1?1:4;  // digital filter divide by 16 except at highest sample rate, when we divide by 2
@@ -208,7 +210,7 @@ vtopbits(int bits)
 }
 
 void
-scope_trigger(bool level, bool automatic, bool rise, bool fall, int digital, int number2, int number3, int number4)
+wait_for_analog_trigger(TriggerEdge edge)
 {
     int i;
     int r;
@@ -217,8 +219,50 @@ scope_trigger(bool level, bool automatic, bool rise, bool fall, int digital, int
 
     loops = 1000000;  // XXX -- tune this!
 
-    // temporarily turn off the timer interrupt
-    IEC0bits.T1IE = 0;
+    // delay a sub-ms random time to make a better demo with 1kHz test signal on auto/level trigger!
+    r = random_32()%blips_per_ms;
+    for (i = 0; i < r; i++) {
+        blip();
+    }
+
+    loop = 0;
+
+    // wait for trigger
+    // start looking for trigger now
+    CM1CONbits.COUT = 0;
+    CM1CONbits.CEVT = 0;
+
+    switch (edge) {
+        case AUTO:
+            while (!CM1CONbits.COUT && loop++ <= loops && run_stop) {
+            }
+            break;
+        case LEVEL_AKA_MATCHING:
+            while (!CM1CONbits.COUT && run_stop) {
+            }
+            break;
+        case FALL_AKA_STOP:
+            while (!CM1CONbits.CEVT && run_stop) {
+            }
+            break;
+        case RISE_AKA_START:
+            while (!CM1CONbits.CEVT && run_stop) {
+            }
+            break;
+        default:
+            assert(0);
+    }
+}
+
+void
+wait_for_digital_trigger(TriggerEdge edge, int number2, int number3)
+{
+    int i;
+    int r;
+    int loop;
+    int loops;
+
+    loops = 1000000;  // XXX -- tune this!
 
     // delay a sub-ms random time to make a better demo with 1kHz test signal on auto/level trigger!
     r = random_32()%blips_per_ms;
@@ -226,110 +270,49 @@ scope_trigger(bool level, bool automatic, bool rise, bool fall, int digital, int
         blip();
     }
 
-    // start looking for trigger now
-    CM1CONbits.COUT = 0;
-    CM1CONbits.CEVT = 0;
-
     loop = 0;
 
     // wait for trigger
-    if (digital) {
-        int number2x;
-        int number3x;
-        bool triggered;
-        bool lasttriggered = -1;
+    int number2x;
+    int number3x;
+    bool value_found_now;
+    bool value_found_previously = -1;
 
-        number2x = vtopbits(number2);
-        number3x = vtopbits(number3);
+    number2x = vtopbits(number2);
+    number3x = vtopbits(number3);
 
-        if (automatic) {
-            for (;;) {
-                if ((PORTB & number3x) == number2x || loop++ > loops) {
-                    // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
-                    T3CONSET = _T3CON_ON_MASK;
-                    break;
-                }
-                if (! run_stop) {
-                    goto XXX_RETURN_XXX;
-                }
-            }
-        } else if (level) {
-            for (;;) {
-                if ((PORTB & number3x) == number2x) {
-                    // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
-                    T3CONSET = _T3CON_ON_MASK;
-                    break;
-                }
-                if (! run_stop) {
-                    goto XXX_RETURN_XXX;
-                }
-            }
-        } else {
-            assert(rise || fall);
-            assert(rise != fall);
-
-            for (;;) {
-                triggered = (PORTB & number3x) == number2x;
-                if (triggered == rise && lasttriggered == fall) {
-                    // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
-                    T3CONSET = _T3CON_ON_MASK;
-                    break;
-                }
-                lasttriggered = triggered;
-                if (! run_stop) {
-                    goto XXX_RETURN_XXX;
-                }
-            }
+    switch (edge) {
+    case AUTO:
+        while ((PORTB & number3x) != number2x && loop++ <= loops && run_stop) {
         }
-    } else {
-        if (automatic) {
-            for (;;) {
-                if (CM1CONbits.COUT || loop++ > loops) {
-                    // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
-                    T3CONSET = _T3CON_ON_MASK;
-                    break;
-                }
-                if (! run_stop) {
-                    goto XXX_RETURN_XXX;
-                }
-            }
-        } else if (level) {
-            for (;;) {
-                if (CM1CONbits.COUT) {
-                    // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
-                    T3CONSET = _T3CON_ON_MASK;
-                    break;
-                }
-                if (! run_stop) {
-                    goto XXX_RETURN_XXX;
-                }
-            }
-        } else {
-            for (;;) {
-                if (CM1CONbits.CEVT) {
-                    // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
-                    T3CONSET = _T3CON_ON_MASK;
-                    break;
-                }
-                if (! run_stop) {
-                    goto XXX_RETURN_XXX;
-                }
-            }
+        break;
+    case LEVEL_AKA_MATCHING:
+        while ((PORTB & number3x) != number2x && run_stop) {
         }
+        break;
+    case RISE_AKA_START:
+        value_found_now = (PORTB & number3x) == number2x;
+        value_found_previously = value_found_now;
+        while ((!value_found_now || value_found_previously == value_found_now) && run_stop) {
+            value_found_previously = value_found_now;
+            value_found_now = (PORTB & number3x) == number2x;
+        }
+        break;
+    case FALL_AKA_STOP:
+        value_found_now = (PORTB & number3x) == number2x;
+        value_found_previously = value_found_now;
+        while ((value_found_now || value_found_previously == value_found_now) && run_stop) {
+            value_found_previously = value_found_now;
+            value_found_now = (PORTB & number3x) == number2x;
+        }
+        break;
+    default:
+        assert(0);
     }
-
-    if (run_stop) {
-        trigger = number4;  // mark trigger, including delay
-
-        pin_set(PIN_E2, pin_type_digital_output, 0, 1);  // we have triggered
-    }
-
-XXX_RETURN_XXX:
-    pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger
 }
 
 void
-scope_capture_end(void)
+wait_for_end(uint wait_samples)
 {
     int i;
     int once;
@@ -341,7 +324,7 @@ scope_capture_end(void)
     }
 
     // wait for trigger and post samples; kill time and go easy on the bus
-    while (run_stop && get_current() < trigger+SAMPLES+EXTRA) {
+    while (run_stop && get_current() < wait_samples+SAMPLES+EXTRA) {
         // XXX -- this causes possible power supply noise on 2.6 hacked to use unregulated +/-5V for op amp
         //__asm__("wait");
         if (! once) {
@@ -357,11 +340,9 @@ scope_capture_end(void)
             IEC0bits.T1IE = 1;
         }
     }
+}
 
-    // resume timer interrupts
-    // XXX -- should this be after sample complete???
-    IEC0bits.T1IE = 1;
-
+void stop_capture_scope() {
     // N.B. THIS STOPS EVERYTHING!
     T3CONCLR = _T3CON_ON_MASK;
     g++;
@@ -387,7 +368,7 @@ scope_capture_end(void)
 }
 
 void
-scope_result(int number1)
+send_result(int number1, uint wait_samples)
 {
     int i;
     int bits;
@@ -396,7 +377,7 @@ scope_result(int number1)
     short* adcbuffer = get_adc_buffer();
 
     l = 0;
-    for (i = trigger; i < trigger+SAMPLES+EXTRA; i++) {
+    for (i = wait_samples; i < wait_samples+SAMPLES+EXTRA; i++) {
         for (m = 0; m < magnify; m++) {
             bits = bitsbuffer[i%INTERLEAVE][(i/INTERLEAVE)%get_bitbuffer_length()];
             // Here we print to serial
@@ -409,7 +390,7 @@ scope_result(int number1)
 }
 
 void
-scope_end()
+undo_board_config()
 {
     // N.B. turn OCs off before reassigning to pins!
     OC1CONbits.ON = 0;
@@ -433,43 +414,70 @@ scope_end()
 }
 
 // Entrypoint
-void scope(int number1, bool rise, bool fall, bool level, bool automatic, int digital, int number2, int number3, int number4)
+void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trigger_value, int bits_of_interest, int delay_samples)
 {
-    if (! number1) {
+    if (! sample_length) {
         return;
     }
 
     //memset(adcbuffer, 0, sizeof(adcbuffer));
     //memset(bitsbuffer, 0, sizeof(bitsbuffer));
 
-    // handle negative number1 magnification
+    // handle negative sample_length magnification
     magnify = 1;
-    if (number1 < 0) {
-        magnify = -number1;
-        number1 = 1;
+    if (sample_length < 0) {
+        magnify = -sample_length;
+        sample_length = 1;
     }
 
     //run_clear(false);
-    scope_begin(number1, number2);
+    setup_board_scope();
+    setup_capture_timer_scope(sample_length);
 
     run_stop = 1;
     main_command = NULL;
     terminal_command_ack(false);
     terminal_command_discard(true);
 
-    scope_capture_begin(number1, rise, fall);
+    prepare_dma_scope();
 
-    scope_trigger(level, automatic, rise, fall, digital, number2, number3, number4);
+    // temporarily turn off the timer interrupt
+    IEC0bits.T1IE = 0;
 
-    scope_capture_end();
+    switch (channel) {
+    case ANALOG:
+        enable_analog_trigger(sample_length, trigger_value, edge==FALL_AKA_STOP);
+        wait_for_analog_trigger(edge);
+        break;
+    case DIGITAL:
+        wait_for_digital_trigger(edge, trigger_value, bits_of_interest);
+        break;
+    default:
+        assert(0);
+    }
 
     if (run_stop) {
-        scope_result(number1);
+        // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
+        T3CONSET = _T3CON_ON_MASK;
+
+        pin_set(PIN_E2, pin_type_digital_output, 0, 1);  // we have triggered
+    } else {
+        pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger
+    } 
+
+    wait_for_end(delay_samples);
+    // resume timer interrupts
+    IEC0bits.T1IE = 1;
+
+    stop_capture_scope();
+
+    if (run_stop) {
+        send_result(sample_length, delay_samples);
     }
 
     run_stop = false;
     terminal_command_discard(false);
 
-    scope_end();
+    undo_board_config();
     //run_clear(false);
 }

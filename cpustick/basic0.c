@@ -543,11 +543,7 @@ basic0_run(char *text_in)
     int number3;
     int number4;
     bool magnify;
-    bool rise;
-    bool fall;
-    bool level;
-    bool automatic;
-    bool digital;
+    TriggerChannel channel;
     char *pattern;
 #endif
 
@@ -785,24 +781,24 @@ basic0_run(char *text_in)
             if (magnify) {
                 number1 = -number1;
             }
-            rise = false;
-            fall = false;
-            level = false;
-            automatic = false;
+            TriggerEdge edge;
             if (*text == '+') {
-                rise = true;
+                edge = RISE_AKA_START;
                 text++;
             } else if (*text == '-') {
-                fall = true;
+                edge = FALL_AKA_STOP;
                 text++;
             } else if (*text == '~') {
-                level = true;
-                automatic = true;
+                edge = AUTO;
                 text++;
             } else {
-                level = true;
+                edge = LEVEL_AKA_MATCHING;
             }
-            digital = *text == '0' && *(text+1) == 'x';
+            if (*text == '0' && *(text+1) == 'x') {
+                channel = DIGITAL;
+            } else {
+                channel = ANALOG;
+            }
             if (*text && (! run_input_const(&text, &number2) || number2 &~ 1023)) {
                 goto XXX_ERROR_XXX;
             }
@@ -817,7 +813,7 @@ basic0_run(char *text_in)
             }
 
             // Call scope
-            scope(number1, rise, fall, level, automatic, digital, number2, number3, number4);
+            scope(number1, edge, channel, number2, number3, number4);
             break;
         
         case command_stream:
