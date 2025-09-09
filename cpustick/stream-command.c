@@ -88,13 +88,10 @@ setup_board_stream()
     RPG6R = 0;  // undo OC1 -> RG6
 }
 
-void setup_capture_timer() {
-    int t;
-    int ps;
+void setup_capture_timer(uint t) {
     // Configure adc trigger timer
 
     // set TMR3 to 3.6 MHz divided by horizontal scale
-    int number1 = 70;
     //           20    ->   180 kHz timer
     //           40    ->   90 kHz timer // not even without averaging
     //           50 // not even without averaging
@@ -106,20 +103,13 @@ void setup_capture_timer() {
     //           5.000    ->  0.72 kHz timer
     //           10.000    -> 0.36 kHz timer
     //           20.000    -> 0.18 kHz timer
-    if (number1 > 1000) {
-        ps = 16;
-    } else {
-        ps = 1;
-    }
-    t = (bus_frequency/1000000*number1*INTERLEAVE/ps + MSPS/2)/MSPS;  // 1:ps prescale
     assert(t > 1 && t < 0x10000);  // 16 bit register
 
     // use 100% of T3 trigger for adc4
     stop_T3();
     TMR3 = 0;
     PR3 = t-1;
-    assert(ps == 1 || ps == 16);
-    T3CON = (ps==16?4:0) <<_T3CON_TCKPS_POSITION;  // 1:ps prescale
+    T3CON = 0 <<_T3CON_TCKPS_POSITION;  // 1:ps prescale
 
     // configure adc trigger output compares
 
@@ -177,25 +167,51 @@ prepare_dma()
 }
 
 void
-stream_data(void)
+stream_data(uint averaging, uint bitwidth)
 {
     int sent = 0;
     // wait for trigger and post samples; kill time and go easy on the bus
     short* adcbuffer = get_adc_buffer();
+    uint leftover = 0; // |•••••••••••••|new_value|older_value|partially_send_even_older_value|
+    uint leftover_bits = 0;
+
+    uint bits_per_sample;
+    if (averaging == 1) {
+        bits_per_sample = 12;
+    } else if (averaging == 2) {
+        bits_per_sample = 13;
+    } else if (averaging <= 4) {
+        bits_per_sample = 14;
+    } else {
+        bits_per_sample = 15;
+    }
+    
 
     while (run_stop) {
         // TODO: Think about all int that could wrap
         while (sent < get_current()) {
             int v=0;
             // int v= adcbuffer[sent%get_adcbuffer_length()];
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < averaging; i++) {
                 v += adcbuffer[sent++%get_adcbuffer_length()];
             }
-            sent++;
+            sent += 5 - averaging;
 
-            v = (v + 2) >> 2;
-            printf("%c", v & 0xFF);
-            printf("%c", (v >> 8));
+            int bits_to_shift = bits_per_sample - bitwidth;
+            if (bits_to_shift > 0) {
+                v = (v + (1 << (bits_to_shift -1))) >> bits_to_shift;
+            } else {
+                v = v << (-bits_to_shift);
+            }
+
+            leftover = leftover | (v << leftover_bits);
+            leftover_bits += bitwidth;
+
+            while (leftover_bits >= 8) {
+                printf("%c", leftover & 0xFF);
+                leftover >>= 8;
+                leftover_bits -= 8;
+            }
         }
         // Testing for writing the data away
         // printf("\n");
@@ -245,12 +261,12 @@ restore_board()
 }
 
 // Entrypoint
-void stream()
+void stream(uint sample_length, uint averaging, uint bitwidth)
 {
     // Prepare board
     // Also does something with regard to the analog trigger
     setup_board_stream();
-    setup_capture_timer();
+    setup_capture_timer(sample_length);
 
     run_stop = 1;
     main_command = NULL;
@@ -267,7 +283,7 @@ void stream()
         set_capturing_pin(true);  // we are capturing
     }
 
-    stream_data();
+    stream_data(averaging, bitwidth);
     stop_capture();
 
     terminal_command_discard(false);

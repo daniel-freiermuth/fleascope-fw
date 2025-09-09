@@ -547,6 +547,9 @@ basic0_run(char *text_in)
     bool magnify;
     TriggerChannel channel;
     char *pattern;
+    int sample_length;
+    int averaging;
+    int bitwidth;
 #endif
 
     text = text_in;
@@ -819,7 +822,17 @@ basic0_run(char *text_in)
             break;
         
         case command_stream:
-            stream();
+            
+            if (*text && (! run_input_const(&text, &sample_length))) {
+                goto XXX_ERROR_XXX;
+            }
+            if (*text && (! run_input_const(&text, &averaging) || averaging < 1 || averaging > 5)) {
+                goto XXX_ERROR_XXX;
+            }
+            if (*text && (! run_input_const(&text, &bitwidth) || bitwidth < 1 || bitwidth > 16)) {
+                goto XXX_ERROR_XXX;
+            }
+            stream(sample_length, averaging, bitwidth);
             break;
 
         case command_digital_stream:  // digital_stream 0x<mask> [<us_per_sample> [<n_samples_per_packet>]]
