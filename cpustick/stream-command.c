@@ -189,7 +189,7 @@ stream_data(uint averaging, uint bitwidth)
 
     while (run_stop) {
         // TODO: Think about all int that could wrap
-        while (sent < get_current()) {
+        while (run_stop && sent < get_current()) {
             int v=0;
             // int v= adcbuffer[sent%get_adcbuffer_length()];
             for (int i = 0; i < averaging; i++) {
