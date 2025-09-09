@@ -174,12 +174,6 @@ prepare_dma()
     ADCCON3bits.DIGEN2 = 1;      // Enable ADC
     ADCCON3bits.DIGEN3 = 1;      // Enable ADC
     ADCCON3bits.DIGEN4 = 1;      // Enable ADC
-
-    DCH0CONbits.CHEN = 1;
-    DCH1CONbits.CHEN = 1;
-    DCH2CONbits.CHEN = 1;
-    DCH3CONbits.CHEN = 1;
-    DCH4CONbits.CHEN = 1;
 }
 
 void
@@ -224,12 +218,6 @@ void stop_capture() {
 
     DAC3CONbits.ON = 0;
     while(DAC3CONbits.ON);
-
-    DCH0ECONbits.CABORT = 1;
-    DCH1ECONbits.CABORT = 1;
-    DCH2ECONbits.CABORT = 1;
-    DCH3ECONbits.CABORT = 1;
-    DCH4ECONbits.CABORT = 1;
 }
 
 void
