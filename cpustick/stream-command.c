@@ -8,8 +8,6 @@
 
 // hardware configuration: ra0, ra1, rb0, rb1, ra11 interleaved analog input
 
-// rc10 is wave out from CDAC2 or OC11
-
 #define SAMPLES  (2000*MSPS/20)  // approximate width of display canvas
 #define EXTRA  200  // extra samples in case web page wants to fine-scale
 
