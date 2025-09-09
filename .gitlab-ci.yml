@@ -1,0 +1,12 @@
+stages:
+  - build
+
+build:pic32:
+  stage: build
+  image: registry.gitlab.entrop.mywire.org/fleascope/stickos2/stickos2-compile:2025-09-09
+  script:
+    - cd pic32.X && make -f nbproject/Makefile-MK_GPK.mk SUBPROJECTS= .build-conf
+  artifacts:
+    name: "stickos2-firmware-$CI_COMMIT_SHA"
+    paths:
+      - pic32.X/dist/
