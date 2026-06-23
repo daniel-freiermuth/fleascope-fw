@@ -263,8 +263,8 @@ usb_isr(void)
         byte *data;
         int endpoint;
         int endpoint2;
-        short length;
-        short value;
+        uint16 length;
+        uint16 value;
         volatile struct bdt *bdt;
         struct setup *setup;
 

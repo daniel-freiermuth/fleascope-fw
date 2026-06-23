@@ -31,9 +31,9 @@
 struct setup {
     byte requesttype;  // 7:in, 6-5:type, 4-0:recip
     byte request;
-    short value;
-    short index;
-    short length;
+    uint16 value;
+    uint16 index;
+    uint16 length;
 };
 
 extern volatile bool usb_in_isr;  // set when in isr
@@ -51,7 +51,7 @@ extern byte int_ep;
 
 // initialize a setup data0 buffer
 void
-usb_setup(int in, int type, int recip, byte request, short value, short index, short length, struct setup *setup);
+usb_setup(int in, int type, int recip, byte request, uint16 value, uint16 index, uint16 length, struct setup *setup);
 
 // perform a usb host/device control transfer
 int
