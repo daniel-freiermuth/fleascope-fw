@@ -25,6 +25,7 @@ enum cmdcode {
 #if SCOPE && ! STICK_GUEST
     command_scope,
     command_stream,
+    command_digital_stream,
     command_ver,
 #endif
     command_hostname,
@@ -54,6 +55,7 @@ const char * const commands[] = {
 // Command here
     "scope",
     "stream",
+    "digital_stream",
     "ver",
 #endif
     "hostname",
@@ -818,6 +820,31 @@ basic0_run(char *text_in)
         
         case command_stream:
             stream();
+            break;
+
+        case command_digital_stream:  // digital_stream 0x<mask> [<us_per_sample> [<n_samples_per_packet>]]
+            if (!*text || !(*text == '0' && *(text+1) == 'x')) {
+                goto XXX_ERROR_XXX;
+            }
+            if (!run_input_const(&text, &number1) || number1 == 0 || (number1 & ~0x1ff)) {
+                goto XXX_ERROR_XXX;
+            }
+            number2 = 0;  // us_per_sample: default = free-run
+            number3 = 0;  // n_samples_per_packet: default = FW computes max
+            if (*text) {
+                if (!run_input_const(&text, &number2) || number2 < 0) {
+                    goto XXX_ERROR_XXX;
+                }
+            }
+            if (*text) {
+                if (!run_input_const(&text, &number3) || number3 <= 0) {
+                    goto XXX_ERROR_XXX;
+                }
+            }
+            if (*text) {
+                goto XXX_ERROR_XXX;
+            }
+            digital_stream(number1, number2, number3);
             break;
 
         case command_ver:

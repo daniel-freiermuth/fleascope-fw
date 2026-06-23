@@ -2,7 +2,7 @@
 
 #ifndef MAIN_INCLUDED
 
-#define VERSION  "2.27.1"
+#define VERSION  "2.28.0"
 // version here
 
 //#define SODEBUG  1
@@ -173,6 +173,7 @@ enum {
 #include "fleascope-hal.h"
 #include "scope-command.h"
 #include "stream-command.h"
+#include "digital-stream-command.h"
 
 #define os_yield()  // NULL
 

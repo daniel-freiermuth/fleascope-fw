@@ -11,3 +11,6 @@ typedef enum {
 } TriggerEdge;
 
 void scope(int number1, TriggerEdge edge, TriggerChannel channel, int number2, int number3, int number4);
+
+int ptovbits(int bits);
+int vtopbits(int bits);
