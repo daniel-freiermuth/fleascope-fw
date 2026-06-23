@@ -4,6 +4,21 @@ All notable changes to the firmware are documented here.
 
 ---
 
+## [3.1.0] — 2026-06-23
+
+### Added
+- **Digital stream command** (`digital_stream 0x<mask> <us_per_sample> <n_samples_per_packet>`):
+  streams continuous digital samples over USB as compact binary packets.
+  - Samples up to 9 virtual channels (b0–b8), mapped from PORTB pins rb4–rb6,
+    rb10–rb15 (same physical-to-virtual mapping as `scope`).
+  - Samples are packed LSB-first, lowest virtual channel first, into
+    `ceil(n_samples_per_packet × N / 8)` bytes per packet — no inline header.
+  - Host chooses `n_samples_per_packet` to balance throughput vs. latency
+    (max: `floor(63 × 8 / N)` samples fills one USB FS bulk packet).
+  - Uses a timer for accurate per-sample timing; does not require DMA.
+
+---
+
 ## [3.0.0] — 2025-08-25
 
 First git-tracked release, picking up where the hand-tracked 2.27k left off.
