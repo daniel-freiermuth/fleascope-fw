@@ -178,6 +178,7 @@ enum {
 #include "fleascope-hal.h"
 #include "scope-command.h"
 #include "stream-command.h"
+#include "digital-stream-command.h"
 
 #define os_yield()  // NULL
 
