@@ -547,9 +547,9 @@ basic0_run(char *text_in)
     bool magnify;
     TriggerChannel channel;
     char *pattern;
-    int sample_length;
-    int averaging;
-    int bitwidth;
+    int sample_length = 2333;  /* default: ~51 kHz (bus_frequency/1000000 * 70 * INTERLEAVE / MSPS) */
+    int averaging = 1;         /* default: no averaging */
+    int bitwidth = 16;         /* default: 16 bits/sample, two-byte little-endian */
 #endif
 
     text = text_in;
@@ -822,14 +822,16 @@ basic0_run(char *text_in)
             break;
         
         case command_stream:
-            
-            if (*text && (! run_input_const(&text, &sample_length))) {
+            if (*text && (! run_input_const(&text, &sample_length) ||
+                          sample_length < 2 || sample_length > 65535)) {
                 goto XXX_ERROR_XXX;
             }
-            if (*text && (! run_input_const(&text, &averaging) || averaging < 1 || averaging > 5)) {
+            if (*text && (! run_input_const(&text, &averaging) ||
+                          averaging < 1 || averaging > 5)) {
                 goto XXX_ERROR_XXX;
             }
-            if (*text && (! run_input_const(&text, &bitwidth) || bitwidth < 1 || bitwidth > 16)) {
+            if (*text && (! run_input_const(&text, &bitwidth) ||
+                          bitwidth < 1 || bitwidth > 16)) {
                 goto XXX_ERROR_XXX;
             }
             stream(sample_length, averaging, bitwidth);
