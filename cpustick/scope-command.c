@@ -300,7 +300,6 @@ wait_for_digital_trigger(TriggerEdge edge, int number2, int number3)
         break;
     case FALL_AKA_STOP:
         value_found_now = (PORTB & number3x) == number2x;
-        value_found_previously = value_found_now;
         while ((value_found_now || value_found_previously == value_found_now) && run_stop) {
             value_found_previously = value_found_now;
             value_found_now = (PORTB & number3x) == number2x;
