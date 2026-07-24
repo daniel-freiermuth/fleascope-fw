@@ -167,7 +167,7 @@ prepare_dma()
 void
 stream_data(uint averaging, uint bitwidth)
 {
-    int sent = 0;
+    uint sent = 0;
     // wait for trigger and post samples; kill time and go easy on the bus
     short* adcbuffer = get_adc_buffer();
     uint leftover = 0; // |•••••••••••••|new_value|older_value|partially_send_even_older_value|
@@ -186,8 +186,8 @@ stream_data(uint averaging, uint bitwidth)
     
 
     while (run_stop) {
-        // TODO: Think about all int that could wrap
-        while (run_stop && sent < get_current()) {
+        // wrap-safe: unsigned difference cast to signed detects current ahead of sent
+        while (run_stop && (int)(get_current() - sent) > 0) {
             int v=0;
             // int v= adcbuffer[sent%get_adcbuffer_length()];
             for (int i = 0; i < averaging; i++) {

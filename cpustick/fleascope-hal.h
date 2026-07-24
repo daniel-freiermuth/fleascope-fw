@@ -4,7 +4,7 @@
 void wave(char *pattern, int hz);
 void scope_initialize();
 void reset_buffers();
-int get_current();
+uint get_current();
 short(* get_bits_buffer())[2*128*10];
 short* get_adc_buffer();
 void start_T3();
