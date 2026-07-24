@@ -199,10 +199,10 @@ digital_stream(int channel_mask, int us_per_sample, int n_samples_per_packet)
         n_samples_per_packet = (63 * 8) / nchans;
     }
 
-    // Clamp to the maximum that fits in the 63-byte buffer to prevent
-    // stack buffer overflow when the host supplies a too-large value.
+    // Reject values that would overflow the 63-byte packet buffer.
     if (n_samples_per_packet > (63 * 8) / nchans) {
-        n_samples_per_packet = (63 * 8) / nchans;
+        printf("n_samples_per_packet too large (max %d)\n", (63 * 8) / nchans);
+        return;
     }
 
     packet_bits  = n_samples_per_packet * nchans;
