@@ -12,7 +12,7 @@ CASSERT(LENGTHOF(adcbuffer)%LENGTHOF(dmabuffer[0][0]) == 0);
 CASSERT(sizeof(bitsbuffer) == sizeof(adcbuffer));
 
 // N.B. both of these can be larger than adcbuffer, as they wrap adcbuffer!
-volatile int current;  // current location where dma isr is filling adcbuffer
+volatile uint current;  // current location where dma isr is filling adcbuffer
 
 volatile int currento;  // current % LENGTHOF(adcbuffer) maintained for performance
 
@@ -82,7 +82,7 @@ void reset_buffers()
     currento = 0;
 }
 
-int get_current()
+uint get_current()
 {
     return current;
 }
