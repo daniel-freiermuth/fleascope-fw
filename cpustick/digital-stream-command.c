@@ -71,6 +71,13 @@ setup_timer_digital_stream(int us_per_sample)
     }
 
     bus_mhz = (int)(bus_frequency / 1000000);
+
+    // Cap us_per_sample to prevent signed integer overflow in the
+    // multiplication below.  Capped values still exceed the 16-bit timer
+    // maximum and will be clamped to 65535 as intended.
+    if (bus_mhz > 0 && us_per_sample > 2147483647 / bus_mhz) {
+        us_per_sample = 2147483647 / bus_mhz;
+    }
     t = us_per_sample * bus_mhz;
 
     if (t < 2) {
