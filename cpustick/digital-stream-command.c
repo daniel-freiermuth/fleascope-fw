@@ -72,11 +72,10 @@ setup_timer_digital_stream(int us_per_sample)
 
     bus_mhz = (int)(bus_frequency / 1000000);
 
-    // Cap us_per_sample to prevent signed integer overflow in the
-    // multiplication below.  Capped values still exceed the 16-bit timer
-    // maximum and will be clamped to 65535 as intended.
+    // Reject values that would overflow the signed multiplication below.
     if (bus_mhz > 0 && us_per_sample > 2147483647 / bus_mhz) {
-        us_per_sample = 2147483647 / bus_mhz;
+        printf("us_per_sample too large (max %d)\n", 2147483647 / bus_mhz);
+        return -1;
     }
     t = us_per_sample * bus_mhz;
 
@@ -220,6 +219,10 @@ digital_stream(int channel_mask, int us_per_sample, int n_samples_per_packet)
     use_timer = 0;
     if (us_per_sample > 0) {
         use_timer = setup_timer_digital_stream(us_per_sample);
+        if (use_timer < 0) {
+            restore_board_digital_stream();
+            return;
+        }
     }
 
     run_stop = 1;
