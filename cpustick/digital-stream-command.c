@@ -64,6 +64,7 @@ setup_timer_digital_stream(int us_per_sample)
 {
     int bus_mhz;
     int ps;
+    int tckps;
     int t;
 
     if (us_per_sample <= 0) {
@@ -72,9 +73,11 @@ setup_timer_digital_stream(int us_per_sample)
 
     bus_mhz = (int)(bus_frequency / 1000000);
 
-    // Reject values that would overflow the signed multiplication below.
-    if (bus_mhz > 0 && us_per_sample > 2147483647 / bus_mhz) {
-        printf("us_per_sample too large (max %d)\n", 2147483647 / bus_mhz);
+    // Reject periods the timer cannot reach even with the 1:256 prescaler.
+    // This limit (65535 * 256 / bus_mhz) is far below INT_MAX / bus_mhz, so
+    // it also keeps the multiplication below from overflowing.
+    if (bus_mhz > 0 && us_per_sample > 65535 * 256 / bus_mhz) {
+        printf("us_per_sample too large (max %d)\n", 65535 * 256 / bus_mhz);
         return -1;
     }
     t = us_per_sample * bus_mhz;
@@ -83,19 +86,20 @@ setup_timer_digital_stream(int us_per_sample)
         return 0;
     }
 
+    // Type B timer prescalers: TCKPS 0..7 -> 1:1,2,4,8,16,32,64,256.
+    // Pick the smallest one that fits PR3; the guard above ensures 1:256 does.
+    tckps = 0;
     ps = 1;
-    if (t > 65535) {
-        ps = 16;
-        t = us_per_sample * bus_mhz / 16;
-        if (t > 65535) {
-            t = 65535;
-        }
+    while (t / ps > 65535) {
+        tckps++;
+        ps = (tckps == 7) ? 256 : (1 << tckps);
     }
+    t = t / ps;
 
     stop_T3();
     TMR3 = 0;
     PR3 = (uint16)t - 1;
-    T3CON = (ps == 16 ? 4 : 0) << _T3CON_TCKPS_POSITION;
+    T3CON = tckps << _T3CON_TCKPS_POSITION;
     start_T3();
 
     IFS0bits.T3IF = 0;
