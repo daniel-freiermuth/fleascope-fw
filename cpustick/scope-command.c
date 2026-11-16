@@ -84,10 +84,22 @@ setup_board_scope()
     RPG6R = 0;  // undo OC1 -> RG6
 }
 
-void setup_capture_timer_scope(int number1) {
+int setup_capture_timer_scope(int number1) {
     int t;
     int ps;
+    int bus_mhz;
+    int max;
     // configure adc capture timer
+
+    // Reject sample intervals whose 1:16 count does not fit the 16-bit PR3.
+    // max is the largest number1 for which t below is <= 0xffff (31457 at
+    // 120 MHz); it also keeps the multiplication below from overflowing.
+    bus_mhz = (int)(bus_frequency / 1000000);
+    max = ((0x10000*MSPS - MSPS/2)*16 - 1) / (bus_mhz*INTERLEAVE);
+    if (number1 > max) {
+        printf("sample interval too large (max %d)\n", max);
+        return -1;
+    }
 
     // set TMR3 to 3.6 MHz divided by horizontal scale
     if (number1 > 1000) {
@@ -143,6 +155,8 @@ void setup_capture_timer_scope(int number1) {
     OC4R = 4*t/INTERLEAVE-1;
     OC4RS = 4*t/INTERLEAVE+1;
     OC4CONbits.ON = 1;
+
+    return 0;
 }
 
 // prepare for DMA to capture samples imminently -- THIS IS EVERYTHING EXCEPT "T3CONSET = _T3CON_ON_MASK;"
@@ -432,7 +446,10 @@ void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trig
 
     //run_clear(false);
     setup_board_scope();
-    setup_capture_timer_scope(sample_length);
+    if (setup_capture_timer_scope(sample_length) < 0) {
+        undo_board_config();
+        return;
+    }
 
     run_stop = 1;
     main_command = NULL;
