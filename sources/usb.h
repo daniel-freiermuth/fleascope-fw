@@ -67,9 +67,10 @@ usb_host_detach(void);
 
 // *** device ***
 
-// enqueue a packet to the usb engine for transfer to/from the host
+// enqueue a packet to the usb engine for transfer to/from the host;
+// tx is 0 (rx), 1 (tx), or -1 (just re-enable the endpoint)
 void
-usb_device_enqueue(int endpoint, bool tx, byte *buffer, int length);
+usb_device_enqueue(int endpoint, int tx, byte *buffer, int length);
 
 typedef void (*usb_reset_cbfn)(void);
 typedef int (*usb_control_cbfn)(struct setup *setup, byte *buffer, int length);
