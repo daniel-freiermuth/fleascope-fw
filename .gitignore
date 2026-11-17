@@ -1,6 +1,12 @@
-pic32.X/nbproject/Makefile-genesis.properties
-pic32.X/nbproject/private/configurations.xml
-pic32.X/build/**
+# MPLAB X regenerates these from nbproject/configurations.xml
+pic32.X/nbproject/Makefile-*
+pic32.X/nbproject/private/
+pic32.X/.generated_files/
+pic32.X/build/
+pic32.X/dist/
+# root Makefile output
+/out/
+# sh build.sh linux / test/
 stickos/obj.*/
 test/*.log
 test/fleascope-calc-test
