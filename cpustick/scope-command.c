@@ -478,9 +478,8 @@ void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trig
         T3CONSET = _T3CON_ON_MASK;
 
         pin_set(PIN_E2, pin_type_digital_output, 0, 1);  // we have triggered
-    } else {
-        pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger
-    } 
+    }
+    pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger
 
     wait_for_end(delay_samples);
     // resume timer interrupts
