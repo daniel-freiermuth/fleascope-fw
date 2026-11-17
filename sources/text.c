@@ -9,7 +9,7 @@
 // 0x80 - 0xbf -> subtract 0x40 and follow with a space
 // 0xc0 - 0xff -> generate 2+(c-0xc0) spaces
 
-#if _WIN32
+#if STICK_GUEST
 void
 text_compress(
     IN char *text,

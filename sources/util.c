@@ -92,7 +92,7 @@ byteswap(uint32 x, uint32 size)
 int
 gpl(void)
 {
-#if ! _WIN32
+#if ! STICK_GUEST
     int oldlevel;
 
     oldlevel = (_CP0_GET_STATUS() >> 10) & 7;
@@ -112,7 +112,7 @@ gpl(void)
 int
 splx(int level)
 {
-#if ! _WIN32
+#if ! STICK_GUEST
     int csr;
     int oldlevel;
 
@@ -529,7 +529,7 @@ isprint(int c)
 static uint16 sr = 0x2000;
 #endif
 
-#if _WIN32
+#if STICK_GUEST
 uint16
 get_sr(void)
 {
