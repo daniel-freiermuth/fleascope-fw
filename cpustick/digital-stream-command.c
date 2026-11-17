@@ -26,28 +26,7 @@
 static void
 setup_board_digital_stream(void)
 {
-    static int once;
-
-    if (!once) {
-        once = 1;
-
-        SYSKEY = 0x00000000;
-        SYSKEY = 0xAA996655;
-        SYSKEY = 0x556699AA;
-
-        CFGCONbits.PMDLOCK = 0;
-
-        PMD1 = 0x00000310;
-        PMD2 = 0x0013001a;
-        PMD3 = 0xfbc0ffff;
-        PMD4 = 0x0fff01f8;
-        PMD5 = 0xf20f3f3f;
-        PMD6 = 0x0f0d0300;
-
-        CFGCONbits.PMDLOCK = 1;
-
-        SYSKEY = 0x33333333;
-    }
+    configure_pmd_once();
 
     pin_oc_unroute();
 

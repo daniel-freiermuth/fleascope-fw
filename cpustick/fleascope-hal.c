@@ -107,6 +107,35 @@ int get_adcbuffer_length()
     return LENGTHOF(adcbuffer);
 }
 
+// one-time peripheral module disable (PMD) configuration
+void
+configure_pmd_once()
+{
+    static int once;
+
+    if (! once) {
+        once = 1;
+        /* unlock system for clock configuration */
+        SYSKEY = 0x00000000;
+        SYSKEY = 0xAA996655;
+        SYSKEY = 0x556699AA;
+
+        CFGCONbits.PMDLOCK = 0;
+
+        PMD1 = 0x00000310;  // EEMD CTMUMD DAC1
+        PMD2 = 0x0013001a;  // OPA5MD OPA2MD OPA1MD, CMP5MD C4MPMD CMP2MD
+        PMD3 = 0xfbc0ffff;  // all OC/IC except OC11MD OC6MD OC5MD OC4MD OC3MD OC2MD OC1MD
+        PMD4 = 0x0fff01f8;  // all PWM/T except T3 T2 T1
+        PMD5 = 0xf20f3f3f;  // all CAN/USB/I2C/SPI/U except USB1
+        PMD6 = 0x0f0d0300;  // all QE/PMP/REFO except REFO3 REFO4
+
+        CFGCONbits.PMDLOCK = 1;
+
+        /* Lock system since done with clock configuration */
+        SYSKEY = 0x33333333;
+    }
+}
+
 
 
 void
