@@ -109,11 +109,11 @@
         <targetPluginBoard></targetPluginBoard>
         <platformTool>snap</platformTool>
         <languageToolchain>XC32</languageToolchain>
-        <languageToolchainVersion>4.35</languageToolchainVersion>
+        <languageToolchainVersion>6.00</languageToolchainVersion>
         <platform>2</platform>
       </toolsSet>
       <packs>
-        <pack name="PIC32MK-GP_DFP" vendor="Microchip" version="1.8.253"/>
+        <pack name="PIC32MK-GP_DFP" vendor="Microchip" version="1.10.264"/>
       </packs>
       <ScriptingSettings>
       </ScriptingSettings>

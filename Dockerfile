@@ -4,15 +4,22 @@
 #   - base image by digest
 #   - Arch packages from the Arch Linux Archive snapshot of 2025-09-08, whose
 #     repo databases are pinned by sha256
-#   - AUR packages by git commit; each PKGBUILD verifies its own sources
-#     (microchip-mplabxc32-bin checks the XC32 v4.35 installer's sha256)
+#   - XC32 from Microchip's official installer, by URL and sha256
 #   - the PIC32MK-GP device pack by URL and sha256
-# Not yet verified: that an image built from this file compiles firmware
-# byte-identical to the published image both CI files pin (sha256:cdbbfd3b...).
-# That image also carries a full MPLAB X 6.25 install, which this file replaces
-# with the standalone device pack. Compare `xc32-gcc --version` and the built
-# hex against that image before switching CI to a rebuilt image.
+# Bump XC32_VERSION/DFP_VERSION together with pic32.X/nbproject/configurations.xml
+# (languageToolchainVersion, PIC32MK-GP_DFP pack version) and
+# pic32.X/nbproject/Makefile-local-MK_GPK.mk (MP_*_DIR, DFP_DIR).
+# This image carries XC32 6.00, not the 4.35 of the image both CI files pin
+# today (sha256:cdbbfd3b...), so its firmware differs from that image's. Test
+# the built hex on hardware before switching CI to an image built from this file.
 FROM archlinux:base-20250622.0.370030@sha256:a921b6864609280975d8269df323c2f4f478cdc9d0f5479e70c3fb5e710d1b11
+
+ARG XC32_VERSION=6.00
+ARG XC32_SHA256=18e28f71a2ce3ff4ced7fe76cef8bf22a8e65b968ed48481c296c82adffc806d
+ARG DFP_VERSION=1.10.264
+ARG DFP_SHA256=f8a5dfcc7ba39e928f0ef6a029930438434691574c0c7ed7fd2e0d2bf408094d
+# DFP_DIR as baked into the generated Makefile-local-MK_GPK.mk
+ARG DFP_DIR=/opt/microchip/mplabx/v6.25/packs/Microchip/PIC32MK-GP_DFP/${DFP_VERSION}
 
 # Package signatures are not checked: some packager keys that signed the
 # snapshot have since expired, so pacman rejects them. Integrity comes from the
@@ -28,37 +35,25 @@ RUN echo "Server = $ALA/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist && \
         704d3644e4a2738de7af6dadcea509161187ee6dbc1630c8a840028743e77bdc /var/lib/pacman/sync/extra.db \
         | sha256sum -c - && \
     pacman -Su --noconfirm && \
-    pacman -S --noconfirm --needed base-devel git sudo
+    pacman -S --noconfirm --needed make && \
+    pacman -Scc --noconfirm
 
-# Create non-root user for building AUR packages
-RUN useradd -m auruser && \
-    echo "auruser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+# Official Microchip installer; needs root, which the image build has.
+# XC32 >= 6.00 has no license check, so -O3 needs no PRO key.
+RUN curl -fsSL -o /tmp/xc32.run \
+      "https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc32-v${XC32_VERSION}-full-install-linux-x64-installer.run" && \
+    echo "${XC32_SHA256}  /tmp/xc32.run" | sha256sum -c - && \
+    chmod +x /tmp/xc32.run && \
+    /tmp/xc32.run --mode unattended --unattendedmodeui none \
+      --prefix /opt/microchip/xc32/v${XC32_VERSION} && \
+    rm /tmp/xc32.run && \
+    /opt/microchip/xc32/v${XC32_VERSION}/bin/xc32-gcc --version
 
-RUN pacman -Scc --noconfirm
-
-# Switch to the new user
-USER auruser
-WORKDIR /home/auruser
-
-# AUR packages in dependency order, each pinned to a commit of its AUR repo
-RUN set -e; \
-    for pkg in \
-        ucl=05e860626c00a73a260d2499b2b846ffe1e4760b \
-        tclkit=cc7d83c4a5bf790f9607b149c9cba0314d067a10 \
-        sdx=9347f2e264aa297437b9d61303009d1d7ca881b6 \
-        bitrock-unpacker=73eeb7199997117b522afa8e9b9b460b0cea5cbc \
-        microchip-mplabxc32-bin=c618d981bf0f065f41a97ca4b974ecae3e54265d; \
-    do \
-        name=${pkg%%=*}; \
-        git clone https://aur.archlinux.org/$name.git; \
-        git -C $name checkout --detach ${pkg#*=}; \
-        (cd $name && makepkg -si --noconfirm); \
-        rm -rf $name; \
-    done
-
-# Device family pack, at the path pic32.X/nbproject/Makefile-local-MK_GPK.mk expects
-RUN curl -fsSLo dfp.atpack https://packs.download.microchip.com/Microchip.PIC32MK-GP_DFP.1.8.253.atpack && \
-    echo "fc93177e89006834954da5ad26b2850bd82e61fac64152df3aadc80b1d096cf5  dfp.atpack" | sha256sum -c - && \
-    sudo mkdir -p /opt/microchip/mplabx/v6.25/packs/Microchip/PIC32MK-GP_DFP/1.8.253 && \
-    sudo bsdtar -xf dfp.atpack -C /opt/microchip/mplabx/v6.25/packs/Microchip/PIC32MK-GP_DFP/1.8.253 && \
-    rm dfp.atpack
+# XC32 >= 5.00 ships no device support; it comes only from the DFP.
+RUN curl -fsSL -o /tmp/dfp.atpack \
+      "https://packs.download.microchip.com/Microchip.PIC32MK-GP_DFP.${DFP_VERSION}.atpack" && \
+    echo "${DFP_SHA256}  /tmp/dfp.atpack" | sha256sum -c - && \
+    mkdir -p "${DFP_DIR}" && \
+    bsdtar -xf /tmp/dfp.atpack -C "${DFP_DIR}" && \
+    rm /tmp/dfp.atpack && \
+    test -f "${DFP_DIR}/xc32/32MK0512GPK064/p32MK0512GPK064.ld"
