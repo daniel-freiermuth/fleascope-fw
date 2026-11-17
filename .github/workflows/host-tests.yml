@@ -1,0 +1,42 @@
+# Builds the STICK_GUEST (host) StickOS interpreter and runs the golden-output
+# regression suite in test/, i.e. what review.sh asks contributors to do by hand.
+name: host-tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  golden:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # builds DEBUG and RELEASE; RELEASE is -O, so Ubuntu's gcc also applies _FORTIFY_SOURCE
+      - name: Build host interpreter
+        run: sh build.sh linux
+
+      - name: Golden output (test.sh)
+        working-directory: test
+        run: sh test.sh
+
+      - name: Golden output (test3.sh)
+        working-directory: test
+        run: sh test3.sh
+
+      - name: Golden output, release build (test.sh -r)
+        working-directory: test
+        run: sh test.sh -r
+
+      - name: Golden output, release build (test3.sh -r)
+        working-directory: test
+        run: sh test3.sh -r
+
+      - name: cpustick/help.c matches basic0.c
+        run: |
+          sh help.sh
+          git diff --exit-code -- cpustick/help.c

@@ -4,6 +4,16 @@ All notable changes to the firmware are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Host interpreter tests in CI**: the STICK_GUEST interpreter now builds with GCC on
+  Linux (`sh build.sh linux debug`), and GitHub Actions (`.github/workflows/host-tests.yml`)
+  runs the golden-output suites `test/test.sh` and `test/test3.sh` plus a `help.c`
+  staleness check on every pull request.
+
+---
+
 ## [3.1.0] — 2026-06-23
 
 ### Added
