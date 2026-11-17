@@ -13,7 +13,7 @@ jobs:
   build-pic32:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/daniel-freiermuth/stickos2-compile:2025-09-09
+      image: ghcr.io/daniel-freiermuth/stickos2-compile:2025-09-09@sha256:cdbbfd3bb45e298666bc97e5d231f2ecdeccf599d96733b9f294f97fbc08fa5b
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}

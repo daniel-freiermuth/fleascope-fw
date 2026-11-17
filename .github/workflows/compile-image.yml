@@ -1,8 +1,9 @@
 name: compile-image
 
 # Builds the firmware toolchain image from ./Dockerfile and publishes it to GHCR.
-# Tagged <date>-<short sha>: the Dockerfile installs whatever Arch/AUR currently ships,
-# so every rebuild is a new toolchain. Tags are never reused; bump build.yml deliberately.
+# Tagged <date>-<short sha>; tags are never reused. The Dockerfile pins its inputs, but a
+# rebuild is not yet verified to match the image build.yml pins, so switch build.yml (by
+# digest) to a new image only after comparing its toolchain (see the Dockerfile header).
 # Only main (or a manual dispatch) publishes, so unreviewed branches can't push images.
 on:
   push:
