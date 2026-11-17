@@ -3,7 +3,7 @@ stages:
 
 build:pic32:
   stage: build
-  image: registry.gitlab.entrop.mywire.org/fleascope/stickos2/stickos2-compile:2025-09-09
+  image: registry.gitlab.entrop.mywire.org/fleascope/stickos2/stickos2-compile:2025-09-09@sha256:cdbbfd3bb45e298666bc97e5d231f2ecdeccf599d96733b9f294f97fbc08fa5b
   script:
     - cd pic32.X && make -f nbproject/Makefile-MK_GPK.mk SUBPROJECTS= .build-conf
   artifacts:
