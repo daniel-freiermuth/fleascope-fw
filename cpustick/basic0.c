@@ -548,7 +548,7 @@ basic0_run(char *text_in)
     bool magnify;
     TriggerChannel channel;
     char *pattern;
-    int sample_length = 2333;  /* default: ~51 kHz (bus_frequency/1000000 * 70 * INTERLEAVE / MSPS) */
+    int timer_period_ticks = 2333;  /* default: ~51 kHz (bus_frequency/1000000 * 70 * INTERLEAVE / MSPS) */
     int averaging = 1;         /* default: no averaging */
     int bitwidth = 16;         /* default: 16 bits/sample, two-byte little-endian */
 #endif
@@ -823,8 +823,8 @@ basic0_run(char *text_in)
             break;
         
         case command_stream:
-            if (*text && (! run_input_const(&text, &sample_length) ||
-                          sample_length < 2 || sample_length > 65535)) {
+            if (*text && (! run_input_const(&text, &timer_period_ticks) ||
+                          timer_period_ticks < 2 || timer_period_ticks > 65535)) {
                 goto XXX_ERROR_XXX;
             }
             if (*text && (! run_input_const(&text, &averaging) ||
@@ -835,7 +835,7 @@ basic0_run(char *text_in)
                           bitwidth < 1 || bitwidth > 16)) {
                 goto XXX_ERROR_XXX;
             }
-            stream(sample_length, averaging, bitwidth);
+            stream(timer_period_ticks, averaging, bitwidth);
             break;
 
         case command_digital_stream:  // digital_stream 0x<mask> [<us_per_sample> [<n_samples_per_packet>]]

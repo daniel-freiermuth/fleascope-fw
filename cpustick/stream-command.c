@@ -5,9 +5,34 @@
 #error  only __32MK__ interleaved adc dma is supported for now
 #endif
 
-// XXX -- is there any way to use dma counts to get accurate trigger position mid-capture???
+// Command: stream [<timer_period_ticks> [<averaging> [<bitwidth>]]]
+//
+//   timer_period_ticks  2..65535, default 2333 (~51 kHz). Written to PR3 as
+//                       period-1, so Timer3 (1:1 prescale, bus clock) fires
+//                       once every timer_period_ticks bus-clock ticks.
+//   averaging           1..5, default 1. Number of the 5 interleaved ADC
+//                       samples per timer period that are summed per output
+//                       sample; the remaining 5-averaging are dropped.
+//   bitwidth            1..16, default 16. Bits emitted per output sample.
+//
+// Streams analog samples until run_stop is cleared. One output sample is
+// produced per timer period, i.e. bus_clock / timer_period_ticks samples/s.
+//
+// Wire format: raw binary, no header, no framing.
+// - Each output sample is the sum of `averaging` 12-bit ADC readings, so it
+//   has bits_per_sample significant bits:
+//       averaging 1 -> 12, 2 -> 13, 3..4 -> 14, 5 -> 15
+// - The sum is scaled to bitwidth bits: if bitwidth < bits_per_sample it is
+//   right-shifted by (bits_per_sample - bitwidth) with round-half-up;
+//   otherwise it is left-shifted by (bitwidth - bits_per_sample).
+// - Samples are packed back-to-back LSB-first into a continuous bitstream
+//   (sample n occupies bits [n*bitwidth, (n+1)*bitwidth) of the stream, bit 0
+//   of each byte first). A byte is sent as soon as 8 bits are available;
+//   trailing bits that do not fill a byte when streaming stops are discarded.
+//   bitwidth 16 therefore yields two-byte little-endian samples.
 
 // hardware configuration: ra0, ra1, rb0, rb1, ra11 interleaved analog input
+
 
 // Ideas for config
 // - bitwidth
@@ -182,11 +207,11 @@ restore_board()
 }
 
 // Entrypoint
-void stream(uint sample_length, uint averaging, uint bitwidth)
+void stream(uint timer_period_ticks, uint averaging, uint bitwidth)
 {
     // Prepare board
     setup_board_stream();
-    setup_capture_timer(sample_length);
+    setup_capture_timer(timer_period_ticks);
 
     run_stop = 1;
     main_command = NULL;

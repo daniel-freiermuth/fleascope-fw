@@ -1,1 +1,1 @@
-void stream(uint sample_length, uint averaging, uint bitwidth);
+void stream(uint timer_period_ticks, uint averaging, uint bitwidth);
