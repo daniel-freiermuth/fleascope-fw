@@ -1,5 +1,6 @@
-# CI toolchain image (see .gitlab-ci.yml). Every input is pinned to a fixed
-# version and checksum, so a rebuild cannot silently pick up a different one:
+# CI toolchain image (see .gitlab-ci.yml and .github/workflows/build.yml). Every
+# input is pinned to a fixed version and checksum, so a rebuild cannot silently
+# pick up a different one:
 #   - base image by digest
 #   - Arch packages from the Arch Linux Archive snapshot of 2025-09-08, whose
 #     repo databases are pinned by sha256
@@ -7,10 +8,10 @@
 #     (microchip-mplabxc32-bin checks the XC32 v4.35 installer's sha256)
 #   - the PIC32MK-GP device pack by URL and sha256
 # Not yet verified: that an image built from this file compiles firmware
-# byte-identical to the published image .gitlab-ci.yml pins. That image also
-# carries a full MPLAB X 6.25 install, which this file replaces with the
-# standalone device pack. Compare `xc32-gcc --version` and the built hex
-# against that image before switching CI to a rebuilt image.
+# byte-identical to the published image both CI files pin (sha256:cdbbfd3b...).
+# That image also carries a full MPLAB X 6.25 install, which this file replaces
+# with the standalone device pack. Compare `xc32-gcc --version` and the built
+# hex against that image before switching CI to a rebuilt image.
 FROM archlinux:base-20250622.0.370030@sha256:a921b6864609280975d8269df323c2f4f478cdc9d0f5479e70c3fb5e710d1b11
 
 # Package signatures are not checked: some packager keys that signed the
