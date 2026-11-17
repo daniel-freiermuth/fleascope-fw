@@ -1,0 +1,20 @@
+# Host unit test for the Flea-Scope timer, packet and packing math in
+# cpustick/fleascope-calc.h; GitHub counterpart of the GitLab test:host job.
+name: calc-tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  fleascope-calc:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: fleascope-calc host unit test
+        run: sh test/testcalc.sh
