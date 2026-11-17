@@ -70,15 +70,20 @@ typedef unsigned int uintptr;
 
 #if GCC
 
+#include <stddef.h>
 #include <inttypes.h>
-#include <bits/wordsize.h>
+#include <stdlib.h>
 typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef int32_t int32;
 typedef uint32_t uint32;
 typedef uintptr_t uintptr;
 typedef intptr_t intptr;
-typedef uint32 size_t;
+
+// N.B. not <unistd.h>: its write() is warn_unused_result under _FORTIFY_SOURCE
+// (Ubuntu's default with -O), which -Werror turns into an error
+extern int isatty(int);
+extern int usleep(unsigned int);
 
 #else // GCC
 
@@ -102,6 +107,8 @@ typedef unsigned int uintptr;
 #define assert_ram(x)  assert(x)
 
 extern void write(int, const void *, size_t);
+
+// N.B. glibc no longer declares gets() in C11 mode, but still exports it
 extern char *gets(char *);
 
 #define inline
@@ -225,7 +232,7 @@ extern byte big_buffer[768];
 typedef void (*flash_upgrade_ram_begin_f)(void);
 
 void
-#if ! _WIN32
+#if ! STICK_GUEST
 __longramfunc__
 __attribute__((nomips16))
 #endif

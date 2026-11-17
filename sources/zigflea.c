@@ -381,7 +381,7 @@ static byte payload[ZB_PAYLOAD_SIZE];
 
 // this function is called when a packet is ready to be received.
 void
-#if ! _WIN32
+#if ! STICK_GUEST
 __ISR(_EXTERNAL_1_VECTOR, PIC32IPL4)
 #endif
 zb_isr(void)

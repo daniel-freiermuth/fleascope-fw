@@ -5,6 +5,7 @@
 #if STICK_GUEST && __unix__
 #include <signal.h>
 #include <sys/time.h>
+#include <sys/times.h>
 #endif
 
 #if SODEBUG
@@ -25,7 +26,7 @@ enum { msecs_per_debounce = 4 }; // tunable
 
 // called by pit0 every tick
 void
-#if ! _WIN32
+#if ! STICK_GUEST
 __ISR(_TIMER_1_VECTOR, PIC32IPL4)
 #endif
 timer_isr(void)
@@ -101,7 +102,16 @@ timer_ms(void)
 #if _WIN32
     ms = GetTickCount();
 #else
-    ms = times(NULL)*10;
+    static clock_t t0;
+    clock_t t;
+
+    // N.B. times() starts near 2^32 jiffies on Linux; count from our first call
+    // so the int32 math below cannot overflow (for ~2.5 days of runtime)
+    t = times(NULL);
+    if (! t0) {
+        t0 = t;
+    }
+    ms = (int32)((unsigned long)t - (unsigned long)t0)*10;
 #endif
     ms *= isatty(0)?1:10;
 

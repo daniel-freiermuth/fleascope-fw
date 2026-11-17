@@ -1,5 +1,6 @@
 #if __unix__
 #include <signal.h>
+#include <stdio.h>
 #else
 #include <windows.h>
 #include <stdio.h>
