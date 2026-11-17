@@ -9,24 +9,6 @@
 
 // hardware configuration: ra0, ra1, rb0, rb1, ra11 interleaved analog input
 
-#define SAMPLES  (2000*MSPS/20)  // approximate width of display canvas
-#define EXTRA  200  // extra samples in case web page wants to fine-scale
-
-// command line:
-// <sampleinterval> [+-=](<voltage>|0x<bits>) [<slew>|0x<mask>] [<delaysamples>]
-//          -10    -> 18  Msps -> 3.6  MHz timer with 5x interleave and 10x magnification
-//          -5     -> 18  Msps -> 3.6  MHz timer with 5x interleave and 5x magnification
-//          -2     -> 18  Msps -> 3.6  MHz timer with 5x interleave and 2x magnification
-// number1 = 1     -> 18  Msps -> 3.6  MHz timer with 5x interleave
-//           2     -> 9   Msps -> 1.8  MHz timer with 5x interleave
-//           5     -> 3.6 Msps -> 0.72 MHz timer with 5x interleave
-//           10    -> 1.8 Msps -> 0.36 MHz timer with 5x interleave
-//           20    -> 0.9 Msps -> 0.18 MHz timer with 5x interleave
-//           50    -> 360 ksps -> 72   kHz timer with 5x interleave
-//           ...
-//           10000 -> 1.8 ksps -> 0.36 kHz timer with 5x interleave
-//           20000 -> 0.9 ksps -> 0.18 kHz timer with 5x interleave
-
 // adcbuffer is an integral dmabuffer size so we don't need to checks for wraps mid-copy
 
 
@@ -169,7 +151,7 @@ void
 stream_data(uint averaging, uint bitwidth)
 {
     uint sent = 0;
-    // wait for trigger and post samples; kill time and go easy on the bus
+    // post samples; kill time and go easy on the bus
     short* adcbuffer = get_adc_buffer();
     uint leftover = 0; // |•••••••••••••|new_value|older_value|partially_send_even_older_value|
     uint leftover_bits = 0;
@@ -208,12 +190,6 @@ void stop_capture() {
     ADCCON3bits.DIGEN3 = 0;      // Disable ADC
     ADCCON3bits.DIGEN4 = 0;      // Disable ADC
     ADCDSTATbits.DMAEN = 0;
-
-    CM1CONbits.ON = 0;
-    while(CM1CONbits.ON);
-
-    DAC3CONbits.ON = 0;
-    while(DAC3CONbits.ON);
 }
 
 void
@@ -244,7 +220,6 @@ restore_board()
 void stream(uint sample_length, uint averaging, uint bitwidth)
 {
     // Prepare board
-    // Also does something with regard to the analog trigger
     setup_board_stream();
     setup_capture_timer(sample_length);
 
@@ -253,15 +228,12 @@ void stream(uint sample_length, uint averaging, uint bitwidth)
     terminal_command_ack(false);
     terminal_command_discard(true);
 
-    // Does more things with analog trigger
     prepare_dma();
 
     // just start
     start_T3();
 
-    if (run_stop) {
-        set_capturing_pin(true);  // we are capturing
-    }
+    set_capturing_pin(true);  // we are capturing
 
     stream_data(averaging, bitwidth);
     stop_capture();
