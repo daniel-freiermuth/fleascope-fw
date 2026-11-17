@@ -1,4 +1,5 @@
 #include "main.h"
+#include "fleascope-calc.h"
 
 #if ! defined(__32MK0512GPK064__) && ! defined(__32MK0512MCM064__)
 #error  only __32MK__ is supported for digital stream
@@ -63,42 +64,23 @@ static int
 setup_timer_digital_stream(int us_per_sample)
 {
     int bus_mhz;
-    int ps;
     int tckps;
-    int t;
-
-    if (us_per_sample <= 0) {
-        return 0;
-    }
+    int pr3;
+    int rv;
 
     bus_mhz = (int)(bus_frequency / 1000000);
 
-    // Reject periods the timer cannot reach even with the 1:256 prescaler.
-    // This limit (65535 * 256 / bus_mhz) is far below INT_MAX / bus_mhz, so
-    // it also keeps the multiplication below from overflowing.
-    if (bus_mhz > 0 && us_per_sample > 65535 * 256 / bus_mhz) {
-        printf("us_per_sample too large (max %d)\n", 65535 * 256 / bus_mhz);
-        return -1;
+    rv = ds_timer_config(us_per_sample, bus_mhz, &tckps, &pr3);
+    if (rv < 0) {
+        printf("us_per_sample too large (max %d)\n", ds_max_us_per_sample(bus_mhz));
     }
-    t = us_per_sample * bus_mhz;
-
-    if (t < 2) {
-        return 0;
+    if (rv <= 0) {
+        return rv;
     }
-
-    // Type B timer prescalers: TCKPS 0..7 -> 1:1,2,4,8,16,32,64,256.
-    // Pick the smallest one that fits PR3; the guard above ensures 1:256 does.
-    tckps = 0;
-    ps = 1;
-    while (t / ps > 65535) {
-        tckps++;
-        ps = (tckps == 7) ? 256 : (1 << tckps);
-    }
-    t = t / ps;
 
     stop_T3();
     TMR3 = 0;
-    PR3 = (uint16)t - 1;
+    PR3 = pr3;
     T3CON = tckps << _T3CON_TCKPS_POSITION;
     start_T3();
 
@@ -111,21 +93,12 @@ digital_stream_data(int channel_mask, int use_timer,
                     int packet_bits, int packet_bytes)
 {
     int nchans;
-    int chan_pos[9];
-    int i;
+    int chan_pos[DS_CHANNELS];
     int bit_pos;
-    int byte_idx;
-    int bit_idx;
     int vbits;
-    int bit;
-    byte buffer[63];  // max 63 bytes = 1 USB FS bulk packet
+    byte buffer[DS_PACKET_BYTES_MAX];
 
-    nchans = 0;
-    for (i = 0; i < 9; i++) {
-        if (channel_mask & (1 << i)) {
-            chan_pos[nchans++] = i;
-        }
-    }
+    nchans = ds_channel_positions(channel_mask, chan_pos);
 
     bit_pos = 0;
 
@@ -140,18 +113,7 @@ digital_stream_data(int channel_mask, int use_timer,
 
         vbits = ptovbits(PORTB) & channel_mask;
 
-        for (i = 0; i < nchans; i++) {
-            bit      = (vbits >> chan_pos[i]) & 1;
-            byte_idx = bit_pos >> 3;
-            bit_idx  = bit_pos & 7;
-
-            if (bit_idx == 0) {
-                buffer[byte_idx] = 0;
-            }
-            buffer[byte_idx] |= (byte)(bit << bit_idx);
-
-            bit_pos++;
-        }
+        bit_pos = ds_pack_sample(buffer, bit_pos, vbits, chan_pos, nchans);
 
         if (bit_pos >= packet_bits) {
             printf_write((char *)buffer, packet_bytes);
@@ -161,11 +123,7 @@ digital_stream_data(int channel_mask, int use_timer,
 
     // Flush any partial packet on stop (zero-pad to packet_bytes).
     if (bit_pos > 0) {
-        int tail;
-        tail = (bit_pos + 7) >> 3;
-        for (i = tail; i < packet_bytes; i++) {
-            buffer[i] = 0;
-        }
+        ds_pad_packet(buffer, bit_pos, packet_bytes);
         printf_write((char *)buffer, packet_bytes);
     }
 }
@@ -189,33 +147,21 @@ void
 digital_stream(int channel_mask, int us_per_sample, int n_samples_per_packet)
 {
     int use_timer;
+    int chan_pos[DS_CHANNELS];
     int nchans;
     int packet_bits;
     int packet_bytes;
 
-    nchans = 0;
-    {
-        int i;
-        for (i = 0; i < 9; i++) {
-            if (channel_mask & (1 << i)) {
-                nchans++;
-            }
-        }
-    }
+    nchans = ds_channel_positions(channel_mask, chan_pos);
 
-    // If the host didn't supply n_samples_per_packet, default to the maximum
-    // that fits in one 63-byte USB FS bulk packet.
-    if (n_samples_per_packet <= 0) {
-        n_samples_per_packet = (63 * 8) / nchans;
-    }
-
-    // Reject values that would overflow the 63-byte packet buffer.
-    if (n_samples_per_packet > (63 * 8) / nchans) {
-        printf("n_samples_per_packet too large (max %d)\n", (63 * 8) / nchans);
+    // A missing n_samples_per_packet (<= 0) defaults to the maximum that fits
+    // in one 63-byte USB FS bulk packet; larger values would overflow the
+    // packet buffer and are rejected.
+    packet_bits = ds_packet_bits(nchans, n_samples_per_packet);
+    if (packet_bits < 0) {
+        printf("n_samples_per_packet too large (max %d)\n", ds_max_samples_per_packet(nchans));
         return;
     }
-
-    packet_bits  = n_samples_per_packet * nchans;
     packet_bytes = (packet_bits + 7) >> 3;
 
     setup_board_digital_stream();
