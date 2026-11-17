@@ -1,10 +1,12 @@
 name: compile-image
 
 # Builds the firmware toolchain image from ./Dockerfile and publishes it to GHCR.
-# Tagged by build date: the Dockerfile installs whatever Arch/AUR currently ships,
-# so every rebuild is a new toolchain. Bump the tag in build.yml deliberately.
+# Tagged <date>-<short sha>: the Dockerfile installs whatever Arch/AUR currently ships,
+# so every rebuild is a new toolchain. Tags are never reused; bump build.yml deliberately.
+# Only main (or a manual dispatch) publishes, so unreviewed branches can't push images.
 on:
   push:
+    branches: [main]
     paths:
       - Dockerfile
       - .github/workflows/compile-image.yml
@@ -22,7 +24,7 @@ jobs:
 
       - name: Compute tag
         id: tag
-        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=$(date -u +%Y-%m-%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -36,7 +38,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/stickos2-compile:${{ steps.tag.outputs.date }}
+          tags: ghcr.io/${{ github.repository_owner }}/stickos2-compile:${{ steps.tag.outputs.tag }}
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -20,7 +20,10 @@ jobs:
       # Image defaults to the unprivileged `auruser`; the runner workspace is root-owned.
       options: --user root
     steps:
+      # Build and name the PR head (like GitLab's $CI_COMMIT_SHA), not GitHub's synthetic merge commit.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Build firmware
         working-directory: pic32.X
@@ -28,5 +31,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: stickos2-firmware-${{ github.sha }}
+          name: stickos2-firmware-${{ github.event.pull_request.head.sha || github.sha }}
           path: pic32.X/dist/
