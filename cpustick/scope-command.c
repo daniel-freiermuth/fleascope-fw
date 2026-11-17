@@ -29,8 +29,6 @@
 //           10000 -> 1.8 ksps -> 0.36 kHz timer with 5x interleave
 //           20000 -> 0.9 ksps -> 0.18 kHz timer with 5x interleave
 
-int magnify;  // non-0 -> we allow each adc sample to be reported multiple times
-
 volatile int g;
 
 // Clock, pin and route configuration
@@ -344,7 +342,7 @@ void stop_capture_scope() {
 }
 
 void
-send_result(int number1, uint wait_samples)
+send_result(int magnify, uint wait_samples)
 {
     int i;
     int bits;
@@ -385,21 +383,10 @@ undo_board_config()
 }
 
 // Entrypoint
-void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trigger_value, int bits_of_interest, int delay_samples)
+void scope(int sample_length, int magnify, TriggerEdge edge, TriggerChannel channel, int trigger_value, int bits_of_interest, int delay_samples)
 {
-    if (! sample_length) {
-        return;
-    }
-
     //memset(adcbuffer, 0, sizeof(adcbuffer));
     //memset(bitsbuffer, 0, sizeof(bitsbuffer));
-
-    // handle negative sample_length magnification
-    magnify = 1;
-    if (sample_length < 0) {
-        magnify = -sample_length;
-        sample_length = 1;
-    }
 
     //run_clear(false);
     setup_board_scope();
@@ -445,7 +432,7 @@ void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trig
     stop_capture_scope();
 
     if (run_stop) {
-        send_result(sample_length, delay_samples);
+        send_result(magnify, delay_samples);
     }
 
     run_stop = false;

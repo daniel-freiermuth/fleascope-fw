@@ -781,11 +781,8 @@ basic0_run(char *text_in)
                 magnify = true;
                 text++;
             }
-            if (*text && (! basic_const(&text, &number1) || number1 == 0)) {
+            if (*text && (! basic_const(&text, &number1) || number1 <= 0)) {
                 goto XXX_ERROR_XXX;
-            }
-            if (magnify) {
-                number1 = -number1;
             }
             TriggerEdge edge;
             if (*text == '+') {
@@ -819,7 +816,7 @@ basic0_run(char *text_in)
             }
 
             // Call scope
-            scope(number1, edge, channel, number2, number3, number4);
+            scope(magnify ? 1 : number1, magnify ? number1 : 1, edge, channel, number2, number3, number4);
             break;
         
         case command_stream:
