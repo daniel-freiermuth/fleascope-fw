@@ -61,6 +61,7 @@ grep -v "^#" <<EOF | while read TARGET BUILD CPU
   stickos windows.STICK_GUEST 795L.PIC32.__32MX795F512L__
   stickos windows.STICK_GUEST UNO32.CHIPKIT.PIC32.__32MX320F128H__
   stickos windows.STICK_GUEST MAX32.CHIPKIT.PIC32.__32MX795F512L__
+  stickos linux.STICK_GUEST.GCC MK0512GPK.PIC32
 EOF
 do
   for MODE in DEBUG RELEASE; do
@@ -117,7 +118,7 @@ do
     
     echo
   done
-done
+done || exit 1  # N.B. the while loop runs in a subshell; propagate its exit 1
 
 echo "build done!"
 

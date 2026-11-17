@@ -6,7 +6,8 @@
 # build/Makefile.linux
 
 # compiler flags
-CFLAGS = -g \
+# N.B. gnu11, because C23 (the GCC 15+ default) makes bool/true/false keywords
+CFLAGS = -g -std=gnu11 \
           -Werror \
           -fno-builtin \
           $(foreach a,$(subst ., ,$(TARGET)),-D$(a)) \
@@ -18,6 +19,9 @@ CFLAGS = -g \
 
 ifeq (RELEASE,$(findstring RELEASE,$(MODE)))
 CFLAGS += -O
+else
+# main.h derives _DEBUG/NDEBUG from SODEBUG for non-Windows guests
+CFLAGS += -DSODEBUG=1
 endif
 
 # Generate 32 bit binaries, even when building on a 64 bit system.
