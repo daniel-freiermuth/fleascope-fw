@@ -108,6 +108,9 @@
     <ClInclude Include="vars.h">
       <Filter>stickos</Filter>
     </ClInclude>
+    <ClInclude Include="guestio.h">
+      <Filter>stickos</Filter>
+    </ClInclude>
     <ClInclude Include="..\main.h" />
     <ClInclude Include="..\sources\printf.h">
       <Filter>sources</Filter>

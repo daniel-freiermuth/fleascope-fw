@@ -22,21 +22,24 @@
 
 #if STICK_GUEST
 #define __32MK0512GPK064__  1
-#else
-#define NULL ((void*)0)
 #endif
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef int32_t int32;
+typedef uint32_t uint32;
+typedef intptr_t intptr;
+typedef uintptr_t uintptr;
 
 #if ! STICK_GUEST
 
 #include <myplib.h>
-typedef unsigned char uint8;
-typedef unsigned short uint16;
-typedef int int32;
-typedef unsigned int uint32;
 
 #define MCU_CORE_BITS 32
-typedef int intptr;
-typedef unsigned int uintptr;
 
 #define asm_halt()  asm("SDBBP 0");
 
@@ -68,62 +71,25 @@ typedef unsigned int uintptr;
 
 #endif  // WIN32
 
-#if GCC
-
-#include <stddef.h>
-#include <inttypes.h>
-#include <stdlib.h>
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef int32_t int32;
-typedef uint32_t uint32;
-typedef uintptr_t uintptr;
-typedef intptr_t intptr;
-
-// N.B. not <unistd.h>: its write() is warn_unused_result under _FORTIFY_SOURCE
-// (Ubuntu's default with -O), which -Werror turns into an error
-extern int isatty(int);
-extern int usleep(unsigned int);
-
-#else // GCC
-
+#if _WIN32
 #define _WIN32_WINNT 0x0601
 #include <windows.h>
-extern int isatty(int);
-#if ! NO_UINT_TYPEDEFS
-typedef unsigned char uint8;
-typedef unsigned short uint16;
-typedef  int int32;
-typedef unsigned int uint32;
-typedef int intptr;
-typedef unsigned int uintptr;
+#undef MAX_PATH
+#if _MSC_VER && ! __STDC_VERSION__
+#define inline  __inline  // MSVC knows C's inline only under /std:c11 or later
 #endif
-#define NO_UINT_TYPEDEFS  1
-
-#endif // ! GCC
+#else
+#include <stdlib.h>  // exit()
+#endif
 
 #include <assert.h>
 #define ASSERT(x)  assert(x)
 #define assert_ram(x)  assert(x)
 
-extern void write(int, const void *, size_t);
-
-// N.B. glibc no longer declares gets() in C11 mode, but still exports it
-extern char *gets(char *);
-
-#define inline
-#undef MAX_PATH
-
 #endif  // ! STICK_GUEST
 
-typedef unsigned char bool;
 typedef unsigned char byte;
 typedef unsigned int uint;
-
-enum {
-    false,
-    true
-};
 
 #define IN
 #define OUT

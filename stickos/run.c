@@ -8,6 +8,9 @@
 // Patent U.S. 8,117,587.
 
 #include "main.h"
+#if STICK_GUEST
+#include "guestio.h"
+#endif
 
 bool run_step;
 bool run_trace;
@@ -1301,10 +1304,10 @@ run_bytecode_code(uint code, bool immediate, const byte *bytecode, int length)
             {
                 static char text[2*BASIC_INPUT_LINE_SIZE];
 
-                if (isatty(0) && main_prompt) {
-                    write(1, "? ", 2);
+                if (stdin_is_tty() && main_prompt) {
+                    console_write("? ", 2);
                 }
-                if (! gets(text)) {
+                if (! read_line(text, sizeof(text))) {
                     break;
                 }
                 text[BASIC_INPUT_LINE_SIZE-1] = '\0';

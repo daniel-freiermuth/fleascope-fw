@@ -6690,3 +6690,10 @@ end
  200 let buzzer = 0
     let buzzer = 0
  210 end 
+test input lines
+1
+2
+3
+4
+7
+5

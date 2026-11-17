@@ -3,6 +3,9 @@
 // console transport.
 
 #include "main.h"
+#if STICK_GUEST
+#include "guestio.h"
+#endif
 #include <stdarg.h>
 extern bool debugger_attached;
 
@@ -272,15 +275,13 @@ static char printf_buffer[BASIC_OUTPUT_LINE_SIZE+2];  // 2 for \r\n
 static char printf_buffer[BASIC_OUTPUT_LINE_SIZE+1];  // 1 for \n
 #endif
 
-static bool open;
-
 int
 printf_write(char *buffer, int n)
 {
     static uint32 last_scsi_attached_count;
 
 #if STICK_GUEST
-    write(1, buffer, n);
+    console_write(buffer, n);
     return n;
 #else
     terminal_print((byte *)buffer, n);
