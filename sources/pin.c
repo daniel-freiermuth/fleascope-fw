@@ -1180,6 +1180,32 @@ pin_assign(int assign, int pin)
     }
 }
 
+#if ! STICK_GUEST && (defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__))
+// route OC1-OC6 to their output pins
+void
+pin_oc_route(void)
+{
+    RPE14R = 6;  // OC5 -> RE14
+    RPE15R = 6;  // OC6 -> RE15
+    RPG9R = 5;  // OC3 -> RG9
+    RPG8R = 5;  // OC4 -> RG8
+    RPG7R = 5;  // OC2 -> RG7
+    RPG6R = 5;  // OC1 -> RG6
+}
+
+// disconnect OC1-OC6 from their output pins
+void
+pin_oc_unroute(void)
+{
+    RPE14R = 0;  // undo OC5 -> RE14
+    RPE15R = 0;  // undo OC6 -> RE15
+    RPG9R = 0;  // undo OC3 -> RG9
+    RPG8R = 0;  // undo OC4 -> RG8
+    RPG7R = 0;  // undo OC2 -> RG7
+    RPG6R = 0;  // undo OC1 -> RG6
+}
+#endif
+
 extern void
 pin_initialize(void)
 {
@@ -1220,12 +1246,7 @@ pin_initialize(void)
     ANSELG = 0x0000;
     //CNPUG = ~ANSELG;  // keep inputs at low power  // XXX -- WHY DOES THIS BREAK TOASTER ANALOG INPUT???
 
-    RPE14R = 6;  // OC5 -> RE14
-    RPE15R = 6;  // OC6 -> RE15
-    RPG9R = 5;  // OC3 -> RG9
-    RPG8R = 5;  // OC4 -> RG8
-    RPG7R = 5;  // OC2 -> RG7
-    RPG6R = 5;  // OC1 -> RG6
+    pin_oc_route();
 #else
 #error
 #endif
