@@ -2,6 +2,9 @@
 // this file implements the core interval timer used internally.
 
 #include "main.h"
+#if STICK_GUEST
+#include "guestio.h"
+#endif
 #if STICK_GUEST && __unix__
 #include <signal.h>
 #include <sys/time.h>
@@ -113,7 +116,7 @@ timer_ms(void)
     }
     ms = (int32)((unsigned long)t - (unsigned long)t0)*10;
 #endif
-    ms *= isatty(0)?1:10;
+    ms *= stdin_is_tty()?1:10;
 
     return ms;
 }

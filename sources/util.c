@@ -2,6 +2,12 @@
 // this file implements generic utility functions.
 
 #include "main.h"
+#if STICK_GUEST
+#include "guestio.h"
+#if ! _WIN32
+#include <unistd.h>  // usleep()
+#endif
+#endif
 
 void
 write32(byte *addr, uint32 data)
@@ -181,7 +187,7 @@ delay(int32 ms)
 {
 #if STICK_GUEST
     // we sleep quicker for unit tests
-    ms = isatty(0)?(ms):(ms)/10;
+    ms = stdin_is_tty()?(ms):(ms)/10;
 #if _WIN32
     Sleep(ms);
 #else

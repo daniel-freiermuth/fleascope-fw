@@ -2171,3 +2171,6 @@ trace on
 run
 EOF
 
+echo test input lines
+# a NUL ends the line's text but not the line; an overlong line is truncated and its rest discarded
+printf 'print 1\000junk\nprint 2\nprint 3%300s\nprint 4\n10 dim a\n20 input a\n30 print a\nrun\n7\000junk\nprint 5\n' x | "$BASIC" -q

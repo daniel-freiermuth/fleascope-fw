@@ -1,11 +1,17 @@
+#if _WIN32
+// N.B. must precede every CRT header, since <corecrt.h> fixes the POSIX-name deprecation on first inclusion
+#define _CRT_NONSTDC_NO_WARNINGS  1
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 #if __unix__
 #include <signal.h>
-#include <stdio.h>
-#else
-#include <windows.h>
-#include <stdio.h>
+
 #endif
+#include <stdio.h>
 #include "main.h"
+#include "guestio.h"
 
 int serial_baudrate;
 bool zb_present = true;
@@ -36,6 +42,43 @@ flash_upgrade(uint32 fsys_frequency)
 void
 clone(bool and_run)
 {
+}
+
+bool
+stdin_is_tty(void)
+{
+    return isatty(0);
+}
+
+void
+console_write(const char *buffer, int length)
+{
+    // N.B. a failed console write has nowhere to be reported; the if only consumes
+    // write()'s result, which glibc declares warn_unused_result under _FORTIFY_SOURCE
+    if (write(1, buffer, length) < 0) {
+        return;
+    }
+}
+
+char *
+read_line(char *buffer, int size)
+{
+    int c;
+    int n;
+
+    // N.B. only a real '\n' ends the line; an embedded NUL just ends its text, as with gets()
+    n = 0;
+    while ((c = getchar()) != EOF && c != '\n') {
+        // keep what fits; discard the rest of an overlong line
+        if (n < size-1) {
+            buffer[n++] = (char)c;
+        }
+    }
+    if (c == EOF && ! n) {
+        return NULL;
+    }
+    buffer[n] = '\0';
+    return buffer;
 }
 
 #define BASIC_INPUT_LINE_SIZE  72
@@ -108,7 +151,7 @@ generate_help(
     char line3[1024];
 
     on = false;
-    while (line = line1, gets(line)) {
+    while (line = line1, read_line(line, sizeof(line1))) {
         if (strstr(line, "GENERATE_HELP_BEGIN")) {
             on = true;
         }
@@ -189,10 +232,10 @@ main(int argc, char **argv)
         basic0_run("help about");
     }
     for (;;) {
-        if (isatty(0) && main_prompt) {
-            write(1, "> ", 2);
+        if (stdin_is_tty() && main_prompt) {
+            console_write("> ", 2);
         }
-        if (! gets(text)) {
+        if (! read_line(text, sizeof(text))) {
             break;
         }
         text[BASIC_INPUT_LINE_SIZE-1] = '\0';

@@ -630,6 +630,7 @@
     <ClInclude Include="..\sources\util.h" />
     <ClInclude Include="basic.h" />
     <ClInclude Include="code.h" />
+    <ClInclude Include="guestio.h" />
     <ClInclude Include="..\main.h" />
     <ClInclude Include="parse.h" />
     <ClInclude Include="run.h" />
