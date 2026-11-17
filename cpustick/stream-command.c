@@ -1,4 +1,5 @@
 #include "main.h"
+#include "fleascope-calc.h"
 
 #if ! defined(__32MK0512GPK064__) && ! defined(__32MK0512MCM064__)
 #error  only __32MK__ interleaved adc dma is supported for now
@@ -173,21 +174,11 @@ stream_data(uint averaging, uint bitwidth)
     uint leftover = 0; // |•••••••••••••|new_value|older_value|partially_send_even_older_value|
     uint leftover_bits = 0;
 
-    uint bits_per_sample;
-    if (averaging == 1) {
-        bits_per_sample = 12;
-    } else if (averaging == 2) {
-        bits_per_sample = 13;
-    } else if (averaging <= 4) {
-        bits_per_sample = 14;
-    } else {
-        bits_per_sample = 15;
-    }
-    
+    uint bits_per_sample = stream_bits_per_sample(averaging);
+    byte out[3];
 
     while (run_stop) {
-        // wrap-safe: unsigned difference cast to signed detects current ahead of sent
-        while (run_stop && (int)(get_current() - sent) > 0) {
+        while (run_stop && stream_samples_pending(get_current(), sent)) {
             int v=0;
             // int v= adcbuffer[sent%get_adcbuffer_length()];
             for (int i = 0; i < averaging; i++) {
@@ -195,20 +186,11 @@ stream_data(uint averaging, uint bitwidth)
             }
             sent += 5 - averaging;
 
-            int bits_to_shift = bits_per_sample - bitwidth;
-            if (bits_to_shift > 0) {
-                v = (v + (1 << (bits_to_shift -1))) >> bits_to_shift;
-            } else {
-                v = v << (-bits_to_shift);
-            }
+            v = stream_scale_sample(v, bits_per_sample, bitwidth);
 
-            leftover = leftover | (v << leftover_bits);
-            leftover_bits += bitwidth;
-
-            while (leftover_bits >= 8) {
-                printf("%c", leftover & 0xFF);
-                leftover >>= 8;
-                leftover_bits -= 8;
+            int n = stream_pack_sample(&leftover, &leftover_bits, v, bitwidth, out);
+            for (int i = 0; i < n; i++) {
+                printf("%c", out[i]);
             }
         }
         // Testing for writing the data away

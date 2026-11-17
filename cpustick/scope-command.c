@@ -1,4 +1,5 @@
 #include "main.h"
+#include "fleascope-calc.h"
 
 #if ! defined(__32MK0512GPK064__) && ! defined(__32MK0512MCM064__)
 #error  only __32MK__ interleaved adc dma is supported for now
@@ -88,26 +89,16 @@ int setup_capture_timer_scope(int number1) {
     int t;
     int ps;
     int bus_mhz;
-    int max;
     // configure adc capture timer
 
-    // Reject sample intervals whose 1:16 count does not fit the 16-bit PR3.
-    // max is the largest number1 for which t below is <= 0xffff (31457 at
-    // 120 MHz); it also keeps the multiplication below from overflowing.
+    // Reject sample intervals whose 1:16 count does not fit the 16-bit PR3
+    // (above 31457 at 120 MHz); this also keeps the count from overflowing.
     bus_mhz = (int)(bus_frequency / 1000000);
-    max = ((0x10000*MSPS - MSPS/2)*16 - 1) / (bus_mhz*INTERLEAVE);
-    if (number1 > max) {
-        printf("sample interval too large (max %d)\n", max);
+    t = scope_timer_count(number1, bus_mhz, &ps);
+    if (t < 0) {
+        printf("sample interval too large (max %d)\n", scope_max_interval(bus_mhz));
         return -1;
     }
-
-    // set TMR3 to 3.6 MHz divided by horizontal scale
-    if (number1 > 1000) {
-        ps = 16;
-    } else {
-        ps = 1;
-    }
-    t = (bus_frequency/1000000*number1*INTERLEAVE/ps + MSPS/2)/MSPS;  // 1:ps prescale
     assert(t > 1 && t < 0x10000);  // 16 bit register
 
     // use 100% of T3 trigger for adc4
