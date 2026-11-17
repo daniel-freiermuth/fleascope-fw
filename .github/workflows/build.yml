@@ -1,0 +1,24 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-pic32:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.gitlab.entrop.mywire.org/fleascope/stickos2/stickos2-compile:2025-09-09
+      # Image defaults to the unprivileged `auruser`; the runner workspace is root-owned.
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build firmware
+        working-directory: pic32.X
+        run: make -f nbproject/Makefile-MK_GPK.mk SUBPROJECTS= .build-conf
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stickos2-firmware-${{ github.sha }}
+          path: pic32.X/dist/
