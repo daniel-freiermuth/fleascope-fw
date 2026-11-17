@@ -12,6 +12,7 @@
         <itemPath>../cpustick/fleascope-hal.h</itemPath>
         <itemPath>../cpustick/scope-command.h</itemPath>
         <itemPath>../cpustick/stream-command.h</itemPath>
+        <itemPath>../cpustick/digital-stream-command.h</itemPath>
       </logicalFolder>
       <logicalFolder name="sources" displayName="sources" projectFiles="true">
         <itemPath>../sources/adc.h</itemPath>
@@ -65,6 +66,7 @@
         <itemPath>../cpustick/scope-command.c</itemPath>
         <itemPath>../cpustick/fleascope-hal.c</itemPath>
         <itemPath>../cpustick/stream-command.c</itemPath>
+        <itemPath>../cpustick/digital-stream-command.c</itemPath>
       </logicalFolder>
       <logicalFolder name="sources" displayName="sources" projectFiles="true">
         <itemPath>../sources/adc.c</itemPath>
