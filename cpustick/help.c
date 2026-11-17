@@ -235,25 +235,7 @@ static const char * const help_variables =
 
 static const char * const help_pins =
 "pi\256names:\n"
-#if defined(__32MX250F128B__)
-"\3000/8\3031/9\3032/10\3023/11\3024/12\3025/13\3026/14\3027/15\n"
-"\300------\015------\015------\015------\015------\015------\015------\015--------+\n"
-"\300ra0\303ra1\323ra4\333\274POR\224A\n"
-"\377 |\304A+8\n"
-"\300rb0\303rb1\303rb2\303rb3\303rb4\303rb5\313rb7\303\274POR\224B\n"
-"\300rb8\303rb9\333rb13\302rb14\302rb15\302|\304B+8\n"
-"\n"
-"al\254pin\263suppor\264genera\254purpos\245digita\254input/output\n"
-"ra[0-1],rb[0-3,13-15\235\035potentia\254analo\247inpu\264pin\263(mV)\n"
-"rb[2,5,7,9,13\235\035potentia\254analo\247outpu\264(PWM\011pin\263(mV)\n"
-"rb[2,5,7,9,13\235\035potentia\254serv\257outpu\264(PWM\011pin\263(us)\n"
-"rb[2,5,7,9,13\235\035potentia\254frequenc\271outpu\264pin\263(Hz)\n"
-"rb\030(u2\011\035potentia\254uar\264inpu\264pin\263(receive\244byte)\n"
-"rb1\024(u2\011\035potentia\254uar\264outpu\264pin\263(transmi\264byte)\n"
-"\n"
-"i2c: rb8=SCL1, rb9=SDA1\n"  // XXX -- why don't other MCUs show these?
-"qspi: ra4=SDI2, rb13=SDO2, rb14=SS2, rb15=SCK2\n"  // XXX -- why don't other MCUs show these?
-#elif defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
 "\303ICSP\306GN\2043V\0235V\300a0\300a1\300a2\300a3\300a4\300a5\300a6\300a7\300a8\n"
 "\300U\370e2\n"
 "\300S\361GN\204SCOPE\n"
@@ -275,28 +257,7 @@ static const char * const help_pins =
 "i2c: a6=SDA, a7=SCL\n"  // XXX -- why don't other MCUs show these?
 "qspi: b0=SDO, b1=SDI, b2=SCK, b3=SS\n"  // XXX -- why don't other MCUs show these?
 #else
-"\3000/8\3031/9\3032/10\3023/11\3024/12\3025/13\3026/14\3027/15\n"
-"\300------\015------\015------\015------\015------\015------\015------\015--------+\n"
-"\300an0\303an1\303an2\303an3\303an4\303an5\303an6\303an7\303\274POR\224B\n"
-"\300an8\303an9\303an10\302an11\302an12\302an13\302an14\302an15\302|\304B+8\n"
-"\310rc1\303rc2\303rc3\303rc4\333\274POR\224C\n"
-"\340rc12\302rc13\302rc14\302rc15\302|\304C+8\n"
-"\300rd0\303rd1\303rd2\303rd3\303rd4\303rd5\303rd6\303rd7\303\274POR\224D\n"
-"\300rd8\303rd9\303rd10\302rd11\302rd12\302rd13\302rd14\302rd15\302|\304D+8\n"
-"\300re0\303re1\303re2\303re3\303re4\303re5\303re6\303re7\303\274POR\224E\n"
-"\300re8\303re9\363|\304E+8\n"
-"\300rf0\303rf1\303rf2\303rf3\303rf4\303rf5\323\274POR\224F\n"
-"\300rf8\333rf12\302rf13\322|\304F+8\n"
-"\300rg0\303rg1\303rg2\303rg3\323rg6\303rg7\303\274POR\224G\n"
-"\300rg8\303rg9\323rg12\302rg13\302rg14\302rg15\302|\304G+8\n"
-"\n"
-"al\254pin\263suppor\264genera\254purpos\245digita\254input/output\n"
-"an\037\035potentia\254analo\247inpu\264pin\263(mV)\n"
-"rd[0-4\235\035potentia\254analo\247outpu\264(PWM\011pin\263(mV)\n"
-"rd[0-4\235\035potentia\254serv\257outpu\264(PWM\011pin\263(us)\n"
-"rd[0-4\235\035potentia\254frequenc\271outpu\264pin\263(Hz)\n"
-"rf\024(u2\011\035potentia\254uar\264inpu\264pin\263(receive\244byte)\n"
-"rf\025(u2\011\035potentia\254uar\264outpu\264pin\263(transmi\264byte)\n"
+#error
 #endif
 ;
 
