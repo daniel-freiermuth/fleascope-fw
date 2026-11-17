@@ -13,7 +13,13 @@ case `uname 2>/dev/null` in
     ;;
 esac
 
-if [ X${1:-} = X-r ]; then
+if [ "$build" = linux ]; then
+  if [ X${1:-} = X-r ]; then
+    BASIC="../stickos/obj.linux.MK0512GPK.RELEASE/stickos"
+  else
+    BASIC="../stickos/obj.linux.MK0512GPK.DEBUG/stickos"
+  fi
+elif [ X${1:-} = X-r ]; then
   BASIC="../stickos/PIC32/basic.exe"
 else
   BASIC="../stickos/PIC32/basic.exe"

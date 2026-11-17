@@ -788,7 +788,7 @@ for more information:
 
 see also:
   https://rtestardi.github.io/StickOS/
-Welcome to StickOS BASIC for Microchip PIC32MK0512GPK v2.27!
+Welcome to StickOS BASIC for Microchip PIC32MK0512GPK v3.1.0!
 Copyright (c) 2008-2024; all rights reserved.  Patent U.S. 8,117,587.
 https://github.com/rtestardi/StickOS2
 rtestardi@live.com

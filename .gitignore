@@ -1,3 +1,5 @@
 pic32.X/nbproject/Makefile-genesis.properties
 pic32.X/nbproject/private/configurations.xml
 pic32.X/build/**
+stickos/obj.*/
+test/*.log
