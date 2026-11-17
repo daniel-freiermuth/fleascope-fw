@@ -508,6 +508,10 @@ terminal_command_error(int offset)
     char buffer[2+BASIC_INPUT_LINE_SIZE+1];
 
     assert(offset < BASIC_INPUT_LINE_SIZE);
+    // assert() compiles away in release builds; keep the caret inside buffer anyway.
+    if (offset >= BASIC_INPUT_LINE_SIZE) {
+        offset = BASIC_INPUT_LINE_SIZE-1;
+    }
 
     offset += 2;  // prompt -- revisit, this is decided elsewhere!
 
