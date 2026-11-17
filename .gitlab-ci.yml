@@ -1,5 +1,6 @@
 stages:
   - build
+  - test
 
 build:pic32:
   stage: build
@@ -10,3 +11,10 @@ build:pic32:
     name: "stickos2-firmware-$CI_COMMIT_SHA"
     paths:
       - pic32.X/dist/
+
+test:host:
+  stage: test
+  image: gcc:14
+  needs: []
+  script:
+    - sh test/testcalc.sh
