@@ -324,7 +324,7 @@ XXX_DONE_XXX:
 struct line *
 code_line(IN enum bytecode code, IN const byte *name, IN bool print, IN bool library_ok, OUT bool *in_library)
 {
-    bool library;
+    int library;  // N.B. not bool: the loop below increments it past true
     int line_number;
     struct line *line;
 

@@ -173,7 +173,7 @@ usb_device_default()
 
 // enqueue a packet to the usb engine for transfer to/from the host
 void
-usb_device_enqueue(int endpoint, bool tx, byte *buffer, int length)
+usb_device_enqueue(int endpoint, int tx, byte *buffer, int length)
 {
     int ep;
     bool odd;
@@ -182,7 +182,7 @@ usb_device_enqueue(int endpoint, bool tx, byte *buffer, int length)
 
     assert(endpoint < LENGTHOF(endpoints));
 
-    if (tx != (bool)-1) {
+    if (tx != -1) {
         // transfer up to one packet at a time
         assert(endpoints[endpoint].packetsize);
         length = MIN(length, endpoints[endpoint].packetsize);
