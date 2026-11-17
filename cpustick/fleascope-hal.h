@@ -3,6 +3,7 @@
 
 void wave(char *pattern, int hz);
 void scope_initialize();
+void configure_pmd_once();
 void reset_buffers();
 uint get_current();
 short(* get_bits_buffer())[2*128*10];
