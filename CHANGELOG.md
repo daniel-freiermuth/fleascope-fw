@@ -20,6 +20,14 @@ All notable changes to the firmware are documented here.
   `install-toolchain.sh` installs both from Microchip's official downloads,
   pinned by sha256, and both CI files run it on a stock Ubuntu 24.04.
   `Dockerfile` and the `compile-image` workflow are removed.
+- **Build:** the firmware is built with a hand-written root `Makefile` (`make fetch-dfp && make`, output in
+  `out/`) instead of the committed MPLAB X generated makefiles. Sources are picked up by wildcard. CI artifacts
+  moved from `pic32.X/dist/MK_GPK/production/` to `out/`.
+- MPLAB X generated files (`pic32.X/nbproject/Makefile-*.mk`, `pic32.X/.generated_files/`) are no longer committed.
+
+### Removed
+- Unreferenced legacy build files: `build/Makefile.sourcery`, `cpustick/Makefile.cpustick`,
+  `stickos/basic.vcproj`.
 
 ---
 
