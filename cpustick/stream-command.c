@@ -9,9 +9,6 @@
 
 // hardware configuration: ra0, ra1, rb0, rb1, ra11 interleaved analog input
 
-// adcbuffer is an integral dmabuffer size so we don't need to checks for wraps mid-copy
-
-
 // Ideas for config
 // - bitwidth
 // - channels
