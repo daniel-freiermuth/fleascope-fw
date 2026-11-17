@@ -1,4 +1,5 @@
 #include "main.h"
+#include "digital-stream-timer.h"
 
 #if ! defined(__32MK0512GPK064__) && ! defined(__32MK0512MCM064__)
 #error  only __32MK__ is supported for digital stream
@@ -63,42 +64,23 @@ static int
 setup_timer_digital_stream(int us_per_sample)
 {
     int bus_mhz;
-    int ps;
+    int count;
     int tckps;
-    int t;
-
-    if (us_per_sample <= 0) {
-        return 0;
-    }
+    int rv;
 
     bus_mhz = (int)(bus_frequency / 1000000);
 
-    // Reject periods the timer cannot reach even with the 1:256 prescaler.
-    // This limit (65535 * 256 / bus_mhz) is far below INT_MAX / bus_mhz, so
-    // it also keeps the multiplication below from overflowing.
-    if (bus_mhz > 0 && us_per_sample > 65535 * 256 / bus_mhz) {
-        printf("us_per_sample too large (max %d)\n", 65535 * 256 / bus_mhz);
-        return -1;
+    rv = compute_t3(us_per_sample, bus_mhz, &count, &tckps);
+    if (rv < 0) {
+        printf("us_per_sample too large (max %d)\n", DIGITAL_STREAM_MAX_US(bus_mhz));
     }
-    t = us_per_sample * bus_mhz;
-
-    if (t < 2) {
-        return 0;
+    if (rv <= 0) {
+        return rv;
     }
-
-    // Type B timer prescalers: TCKPS 0..7 -> 1:1,2,4,8,16,32,64,256.
-    // Pick the smallest one that fits PR3; the guard above ensures 1:256 does.
-    tckps = 0;
-    ps = 1;
-    while (t / ps > 65535) {
-        tckps++;
-        ps = (tckps == 7) ? 256 : (1 << tckps);
-    }
-    t = t / ps;
 
     stop_T3();
     TMR3 = 0;
-    PR3 = (uint16)t - 1;
+    PR3 = (uint16)count - 1;
     T3CON = tckps << _T3CON_TCKPS_POSITION;
     start_T3();
 
