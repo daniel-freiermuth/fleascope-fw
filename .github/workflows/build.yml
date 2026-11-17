@@ -2,13 +2,21 @@ name: build
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+  packages: read
 
 jobs:
   build-pic32:
     runs-on: ubuntu-latest
     container:
-      image: registry.gitlab.entrop.mywire.org/fleascope/stickos2/stickos2-compile:2025-09-09
+      image: ghcr.io/daniel-freiermuth/stickos2-compile:2025-09-09
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
       # Image defaults to the unprivileged `auruser`; the runner workspace is root-owned.
       options: --user root
     steps:
