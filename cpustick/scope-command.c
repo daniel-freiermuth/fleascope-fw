@@ -256,10 +256,8 @@ wait_for_analog_trigger(TriggerEdge edge)
             }
             break;
         case FALL_AKA_STOP:
-            while (!CM1CONbits.CEVT && run_stop) {
-            }
-            break;
         case RISE_AKA_START:
+            // edge polarity is configured in enable_analog_trigger()
             while (!CM1CONbits.CEVT && run_stop) {
             }
             break;
