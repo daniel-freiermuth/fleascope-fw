@@ -49,12 +49,7 @@ setup_board_digital_stream(void)
         SYSKEY = 0x33333333;
     }
 
-    RPE14R = 0;
-    RPE15R = 0;
-    RPG9R  = 0;
-    RPG8R  = 0;
-    RPG7R  = 0;
-    RPG6R  = 0;
+    pin_oc_unroute();
 
     set_waiting_pin(false);
     set_capturing_pin(false);
@@ -131,12 +126,7 @@ digital_stream_data(int channel_mask, int use_timer,
 static void
 restore_board_digital_stream(void)
 {
-    RPE14R = 6;
-    RPE15R = 6;
-    RPG9R  = 5;
-    RPG8R  = 5;
-    RPG7R  = 5;
-    RPG6R  = 5;
+    pin_oc_route();
 
     set_capturing_pin(false);
     set_waiting_pin(false);

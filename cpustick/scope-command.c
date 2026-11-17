@@ -77,12 +77,7 @@ setup_board_scope()
     pin_set(PIN_E2, pin_type_digital_output, 0, 0);  // we are waiting for trigger
     pin_set(PIN_E3, pin_type_digital_output, 0, 1);  // we are waiting for trigger
 
-    RPE14R = 0;  // undo OC5 -> RE14
-    RPE15R = 0;  // undo OC6 -> RE15
-    RPG9R = 0;  // undo OC3 -> RG9
-    RPG8R = 0;  // undo OC4 -> RG8
-    RPG7R = 0;  // undo OC2 -> RG7
-    RPG6R = 0;  // undo OC1 -> RG6
+    pin_oc_unroute();
 }
 
 int setup_capture_timer_scope(int number1) {
@@ -407,12 +402,7 @@ undo_board_config()
     OC4CONbits.ON = 0;
     g++;
 
-    RPE14R = 6;  // OC5 -> RE14
-    RPE15R = 6;  // OC6 -> RE15
-    RPG9R = 5;  // OC3 -> RG9
-    RPG8R = 5;  // OC4 -> RG8
-    RPG7R = 5;  // OC2 -> RG7
-    RPG6R = 5;  // OC1 -> RG6
+    pin_oc_route();
 
     pin_set(PIN_E2, pin_type_digital_output, 0, 0);  // we have no longer triggered
     pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger

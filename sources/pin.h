@@ -144,3 +144,11 @@ pin_assign(int assign, int pin);
 extern void
 pin_initialize(void);
 
+#if ! STICK_GUEST && (defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__))
+void
+pin_oc_route(void);
+
+void
+pin_oc_unroute(void);
+#endif
+
