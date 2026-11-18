@@ -37,3 +37,16 @@ source file needs no build edits.
 
 `pic32.X/` is an MPLAB X *prebuilt* project for flashing and debugging: it loads `out/pic32.X.production.elf`
 (run `make` first) and has no source list of its own.
+
+## Testing
+
+```sh
+make test        # all host tests; needs only a host C compiler, not XC32
+make unit-test   # Unity unit tests: test/unit/test_*.c
+make golden-test # STICK_GUEST interpreter (sh build.sh linux) against test/basic.txt, test/basic3.txt
+make help-check  # cpustick/help.c matches basic0.c (regenerate with sh help.sh)
+```
+
+Unit tests use [Unity](https://github.com/ThrowTheSwitch/Unity) (vendored in `test/unity/`, v2.7.0). Each
+`test/unit/test_*.c` is built into its own executable and picked up automatically. Unit-testable code has no SFR
+access or I/O; see `cpustick/fleascope-calc.h`.

@@ -1,0 +1,22 @@
+# Host tests (no XC32): Unity unit tests, the golden-output interpreter suites
+# and the cpustick/help.c freshness check. Same command as GitLab's test:host.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  host:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      # the RELEASE guest build is -O, so Ubuntu's gcc also applies _FORTIFY_SOURCE
+      - run: make test

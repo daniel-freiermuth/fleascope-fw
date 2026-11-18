@@ -9,4 +9,3 @@ pic32.X/dist/
 # sh build.sh linux / test/
 stickos/obj.*/
 test/*.log
-test/fleascope-calc-test

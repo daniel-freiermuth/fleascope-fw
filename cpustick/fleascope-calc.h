@@ -1,8 +1,8 @@
 // Pure Flea-Scope computations: timer periods, packet sizing and bit packing
 // for the scope, stream and digital_stream commands.
 //
-// No SFR access and no I/O, so test/fleascope-calc-test.c can compile this
-// header with a host compiler (see test/testcalc.sh).  Keep it that way.
+// No SFR access and no I/O, so test/unit/test_fleascope_calc.c can compile this
+// header with a host compiler (make unit-test).  Keep it that way.
 //
 // Requires MSPS and INTERLEAVE (fleascope-hal.h).
 
