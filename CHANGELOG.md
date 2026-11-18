@@ -28,6 +28,8 @@ All notable changes to the firmware are documented here.
   instead of hand-written typedefs, so the sources compile as C17 and C23. The host
   interpreter (`build/Makefile.linux`) is now built as C23 (`-std=gnu2x`) instead of
   `-std=gnu11`; the firmware keeps XC32's default (`gnu17`).
+- **MPLAB X:** `pic32.X` is now a prebuilt project that loads `out/pic32.X.production.elf` for
+  flashing and debugging. It has no source list to keep in sync, so `make check-mplabx` is removed.
 
 ### Fixed
 - Host interpreter: console input no longer uses `gets()` (removed from C11 and from the
