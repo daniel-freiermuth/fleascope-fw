@@ -14,10 +14,12 @@ All notable changes to the firmware are documented here.
 
 ### Changed
 - Toolchain moved from XC32 4.35 to XC32 6.00 (GCC 13 base) and
-  PIC32MK-GP_DFP 1.8.253 to 1.10.264. The CI image installs both from
-  Microchip's official downloads, pinned by sha256. The old image used an AUR
-  package that patched out XC32's license check to get `-O3`. XC32 6.00
-  provides `-O3` without a license.
+  PIC32MK-GP_DFP 1.8.253 to 1.10.264. The old CI image used an AUR package
+  that patched out XC32's license check to get `-O3`. XC32 6.00 provides
+  `-O3` without a license, so CI no longer needs a prebuilt Docker image:
+  `install-toolchain.sh` installs both from Microchip's official downloads,
+  pinned by sha256, and both CI files run it on a stock Ubuntu 24.04.
+  `Dockerfile` and the `compile-image` workflow are removed.
 
 ---
 
