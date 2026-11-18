@@ -8,9 +8,13 @@ All notable changes to the firmware are documented here.
 
 ### Added
 - **Host interpreter tests in CI**: the STICK_GUEST interpreter now builds with GCC on
-  Linux (`sh build.sh linux debug`), and GitHub Actions (`.github/workflows/host-tests.yml`)
-  runs the golden-output suites `test/test.sh` and `test/test3.sh` plus a `help.c`
-  staleness check on every pull request.
+  Linux (`sh build.sh linux debug`), and CI runs the golden-output suites `test/test.sh`
+  and `test/test3.sh` plus a `help.c` staleness check on every pull request.
+- **`make test`** runs all host tests (`unit-test`, `golden-test`, `help-check`); GitLab
+  (`test:host`) and GitHub (`.github/workflows/test.yml`) both run exactly this. It replaces
+  `test/testcalc.sh` and the `calc-tests`/`host-tests` workflows.
+- **Unity** (v2.7.0, vendored in `test/unity/`) for host unit tests; the
+  `fleascope-calc.h` test moved to `test/unit/test_fleascope_calc.c`.
 
 ### Changed
 - Toolchain moved from XC32 4.35 to XC32 6.00 (GCC 13 base) and

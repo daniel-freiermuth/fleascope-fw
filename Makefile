@@ -2,6 +2,7 @@
 #
 #   make                  build out/pic32.X.production.{elf,hex,map}
 #   make fetch-dfp        download the pinned PIC32MK-GP device pack
+#   make test             host tests: unit-test, golden-test, help-check
 #   make clean
 #
 # Override XC32_ROOT / DFP_DIR on the command line or in the environment if
@@ -53,7 +54,7 @@ LDFLAGS := -mprocessor=$(PROCESSOR) -mdfp="$(DFP_DIR)" \
            -Wl,--gc-sections,--no-code-in-dinit,--no-dinit-in-serial-mem \
            -Wl,-Map=$(TARGET).map,--memorysummary,$(BUILD_DIR)/memoryfile.xml
 
-.PHONY: all clean fetch-dfp check-dfp FORCE
+.PHONY: all clean fetch-dfp check-dfp test unit-test guest golden-test help-check FORCE
 all: $(TARGET).hex
 
 $(TARGET).hex: $(TARGET).elf
@@ -111,7 +112,48 @@ fetch-dfp:
 	  rm -rf "$(DFP_FETCH_DIR)"; mv -T "$$tmp/x" "$(DFP_FETCH_DIR)"; \
 	fi
 
+# ---- host tests (no XC32 needed) -----------------------------------------
+
+HOST_CC     ?= cc
+HOST_DIR    := $(BUILD_DIR)/host
+UNITY_DIR   := test/unity
+HOST_CFLAGS := -std=gnu99 -Wall -Wextra -Werror -I$(UNITY_DIR) -Icpustick
+
+# Unity tests: each test/unit/test_*.c is one executable, linked with Unity.
+# One .c per compiler invocation, so each -MMD .d file covers its own source.
+UNIT_TESTS := $(sort $(wildcard test/unit/test_*.c))
+UNIT_BINS  := $(UNIT_TESTS:test/unit/%.c=$(HOST_DIR)/%)
+UNITY_OBJ  := $(HOST_DIR)/unity.o
+
+$(UNITY_OBJ): $(UNITY_DIR)/unity.c
+	@mkdir -p $(@D)
+	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -c -o $@ $<
+
+$(HOST_DIR)/%: test/unit/%.c $(UNITY_OBJ)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -o $@ $< $(UNITY_OBJ)
+
+test: unit-test golden-test help-check
+
+unit-test: $(UNIT_BINS)
+	@set -e; for t in $^; do $$t; done
+
+# STICK_GUEST interpreter on the host, DEBUG and RELEASE; build.sh tracks its
+# own dependencies, so this is cheap when nothing changed.
+GUEST := stickos/obj.linux.MK0512GPK.DEBUG/stickos
+guest:
+	sh build.sh linux
+
+# Golden-output regression suites; test.sh / test3.sh -u re-bless them.
+golden-test: guest
+	cd test && sh test.sh && sh test3.sh && sh test.sh -r && sh test3.sh -r
+
+# cpustick/help.c is generated from basic0.c by the interpreter (help.sh).
+help-check: guest
+	@cd cpustick && ../$(GUEST) help <basic0.c | cmp -s - help.c || \
+	  { echo "cpustick/help.c is stale; run 'sh help.sh' and commit it" >&2; exit 1; }
+
 clean:
 	rm -rf $(BUILD_DIR)
 
--include $(OBJS:.o=.d)
+-include $(OBJS:.o=.d) $(UNIT_BINS:=.d) $(UNITY_OBJ:.o=.d)
