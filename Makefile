@@ -53,7 +53,7 @@ LDFLAGS := -mprocessor=$(PROCESSOR) -mdfp="$(DFP_DIR)" \
            -Wl,--gc-sections,--no-code-in-dinit,--no-dinit-in-serial-mem \
            -Wl,-Map=$(TARGET).map,--memorysummary,$(BUILD_DIR)/memoryfile.xml
 
-.PHONY: all clean fetch-dfp check-dfp check-mplabx FORCE
+.PHONY: all clean fetch-dfp check-dfp FORCE
 all: $(TARGET).hex
 
 $(TARGET).hex: $(TARGET).elf
@@ -93,17 +93,6 @@ $(BUILD_DIR)/obj/%.o: %.c $(COMPILE_STAMP) | check-dfp
 check-dfp: $(filter fetch-dfp,$(MAKECMDGOALS))
 	@test -f "$(DFP_DIR)/Microchip.PIC32MK-GP_DFP.pdsc" || \
 	  { echo "PIC32MK-GP_DFP $(DFP_VERSION) not found (DFP_DIR='$(DFP_DIR)'); run 'make fetch-dfp' or set DFP_DIR" >&2; exit 1; }
-
-# The MPLAB X project must list the same sources in the same order as SRCS:
-# the link order sets the image layout, so any difference means the IDE
-# builds a different binary from CI.
-MPLABX_CONF := pic32.X/nbproject/configurations.xml
-check-mplabx:
-	@xml=$$(sed -n 's#^ *<itemPath>\.\./\(.*\.c\)</itemPath>$$#\1#p' $(MPLABX_CONF) | tr '\n' ' '); \
-	if [ "$$(echo $$xml)" != "$(strip $(SRCS))" ]; then \
-	  echo "$(MPLABX_CONF) source list differs from the Makefile's SRCS (order matters)" >&2; \
-	  echo "  xml:  $$xml" >&2; echo "  make: $(strip $(SRCS))" >&2; exit 1; \
-	fi
 
 # Download and extract next to DFP_FETCH_DIR (same filesystem), then install
 # with a single rename, so the pdsc at DFP_FETCH_DIR only ever appears with a

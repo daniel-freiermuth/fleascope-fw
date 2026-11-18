@@ -7,7 +7,6 @@ build:pic32:
   image: ubuntu:24.04@sha256:73b999393d07f2bf65a40373778a44dc9a6d54ad7718d29247d8ff9413c4d6a8
   script:
     - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl make unzip
-    - make check-mplabx
     - sh install-toolchain.sh
     - make -j"$(nproc)"
   artifacts:

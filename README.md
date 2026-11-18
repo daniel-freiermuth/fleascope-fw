@@ -31,8 +31,9 @@ make            # -> out/pic32.X.production.hex (.elf, .map alongside)
 ```
 
 Override `XC32_ROOT=` / `DFP_DIR=` if they are installed elsewhere; an MPLAB X install under
-`/opt/microchip/mplabx/v*/packs` is found automatically. The root `Makefile` is the authoritative build and picks up
-every `.c` file under `cpustick/`, `sources/` and `stickos/`, linked in sorted order per directory. `pic32.X/` remains
-an MPLAB X project for flashing and debugging. New source files must also be added to
-`pic32.X/nbproject/configurations.xml` at the same sorted position, so that the IDE links the same image as CI;
-`make check-mplabx` (run in CI) fails if the two lists differ.
+`/opt/microchip/mplabx/v*/packs` is found automatically. The root `Makefile` is the only build description and picks
+up every `.c` file under `cpustick/`, `sources/` and `stickos/`, linked in sorted order per directory, so adding a
+source file needs no build edits.
+
+`pic32.X/` is an MPLAB X *prebuilt* project for flashing and debugging: it loads `out/pic32.X.production.elf`
+(run `make` first) and has no source list of its own.
