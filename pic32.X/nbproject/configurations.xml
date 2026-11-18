@@ -61,12 +61,12 @@
       <logicalFolder name="cpustick" displayName="cpustick" projectFiles="true">
         <itemPath>../cpustick/basic0.c</itemPath>
         <itemPath>../cpustick/cpustick.c</itemPath>
+        <itemPath>../cpustick/digital-stream-command.c</itemPath>
+        <itemPath>../cpustick/fleascope-hal.c</itemPath>
         <itemPath>../cpustick/parse2.c</itemPath>
         <itemPath>../cpustick/run2.c</itemPath>
         <itemPath>../cpustick/scope-command.c</itemPath>
-        <itemPath>../cpustick/fleascope-hal.c</itemPath>
         <itemPath>../cpustick/stream-command.c</itemPath>
-        <itemPath>../cpustick/digital-stream-command.c</itemPath>
       </logicalFolder>
       <logicalFolder name="sources" displayName="sources" projectFiles="true">
         <itemPath>../sources/adc.c</itemPath>

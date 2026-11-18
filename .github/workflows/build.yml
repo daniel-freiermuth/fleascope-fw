@@ -21,10 +21,15 @@ jobs:
         run: sudo sh install-toolchain.sh
 
       - name: Build firmware
-        working-directory: pic32.X
-        run: make -f nbproject/Makefile-MK_GPK.mk SUBPROJECTS= .build-conf
+        run: |
+          make check-mplabx
+          make -j"$(nproc)"
 
       - uses: actions/upload-artifact@v4
         with:
           name: stickos2-firmware-${{ github.event.pull_request.head.sha || github.sha }}
-          path: pic32.X/dist/
+          path: |
+            out/pic32.X.production.hex
+            out/pic32.X.production.elf
+            out/pic32.X.production.map
+            out/memoryfile.xml
