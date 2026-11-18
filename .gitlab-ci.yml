@@ -7,12 +7,16 @@ build:pic32:
   image: ubuntu:24.04@sha256:73b999393d07f2bf65a40373778a44dc9a6d54ad7718d29247d8ff9413c4d6a8
   script:
     - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl make unzip
+    - make check-mplabx
     - sh install-toolchain.sh
-    - cd pic32.X && make -f nbproject/Makefile-MK_GPK.mk SUBPROJECTS= .build-conf
+    - make -j"$(nproc)"
   artifacts:
     name: "stickos2-firmware-$CI_COMMIT_SHA"
     paths:
-      - pic32.X/dist/
+      - out/pic32.X.production.hex
+      - out/pic32.X.production.elf
+      - out/pic32.X.production.map
+      - out/memoryfile.xml
 
 test:host:
   stage: test

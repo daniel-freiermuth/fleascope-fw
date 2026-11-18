@@ -1,11 +1,12 @@
 #!/bin/sh
-# Installs the PIC32 firmware toolchain that pic32.X/nbproject/Makefile-local-MK_GPK.mk
-# expects: XC32 from Microchip's official installer and the PIC32MK-GP device pack,
-# both pinned by URL and sha256. Used by CI (.gitlab-ci.yml, .github/workflows/build.yml);
-# needs root to write /opt, plus curl, unzip and sha256sum.
-# Bump XC32_VERSION/DFP_VERSION together with pic32.X/nbproject/configurations.xml
-# (languageToolchainVersion, PIC32MK-GP_DFP pack version) and Makefile-local-MK_GPK.mk
-# (MP_*_DIR, DFP_DIR).
+# Installs the PIC32 firmware toolchain where the root Makefile finds it by default
+# (XC32_ROOT, and the MPLAB X pack path DFP_DIR falls back to): XC32 from Microchip's
+# official installer and the PIC32MK-GP device pack, both pinned by URL and sha256.
+# Used by CI (.gitlab-ci.yml, .github/workflows/build.yml); needs root to write /opt,
+# plus curl, unzip and sha256sum.
+# Bump XC32_VERSION/DFP_VERSION together with the root Makefile (XC32_VERSION,
+# DFP_VERSION, DFP_SHA256) and pic32.X/nbproject/configurations.xml
+# (languageToolchainVersion, PIC32MK-GP_DFP pack version).
 set -eu
 
 XC32_VERSION=6.00
