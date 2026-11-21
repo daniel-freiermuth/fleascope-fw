@@ -75,6 +75,7 @@ All notable changes to the firmware are documented here.
   The rounded sample now saturates at `(1 << bitwidth) - 1`.
 - `printf` with a conversion the firmware doesn't implement (e.g. `%i`) used a garbage
   length; it now prints nothing for it.
+- `memcmp()` returned the wrong sign for byte differences beyond ±127.
 
 ### Removed
 - Unreferenced legacy build files: `build/Makefile.sourcery`, `cpustick/Makefile.cpustick`,

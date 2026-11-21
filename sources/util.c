@@ -283,7 +283,7 @@ memset(void *p,  int d, size_t n)
 int
 memcmp(const void *d,  const void *s, size_t n)
 {
-    char c;
+    int c;
     const uint8 *dtemp = d;
     const uint8 *stemp = s;
 
