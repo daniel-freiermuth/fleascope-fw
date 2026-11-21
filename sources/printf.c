@@ -73,7 +73,6 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
     int width;
     int length;
     int prec;
-    int32 value;
     const char *p;
     char temp[1+MAXDIGITS+1];
 
@@ -131,13 +130,11 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
                 c = *++p;
             }
 
-            if (c == 'b' || c == 'd' || c == 'u' || c == 'o' || c == 'x' || c == 'X') {
-                value = va_arg(ap, int);
-            }
-
+            // q: the converted text; temp, unless the argument is a string
+            q = temp;
             switch (c) {
                 case 'b':
-                    j = convert((uintptr)value, 2, temp);
+                    j = convert((uintptr)va_arg(ap, int), 2, temp);
                     break;
                 case 'c':
                     temp[0] = (char)va_arg(ap, int);
@@ -145,13 +142,13 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
                     j = 1;
                     break;
                 case 'd':
-                    j = convert((uintptr)value, (unsigned)-10, temp);
+                    j = convert((uintptr)va_arg(ap, int), (unsigned)-10, temp);
                     break;
                 case 'u':
-                    j = convert((uintptr)value, 10, temp);
+                    j = convert((uintptr)va_arg(ap, int), 10, temp);
                     break;
                 case 'o':
-                    j = convert((uintptr)value, 8, temp);
+                    j = convert((uintptr)va_arg(ap, int), 8, temp);
                     break;
                 case 's':
                     q = va_arg(ap, char *);
@@ -159,13 +156,15 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
                     break;
                 case 'x':
                 case 'X':
-                    j = convert((uintptr)value & 0xffffffff, 16, temp);
+                    j = convert((uintptr)va_arg(ap, int) & 0xffffffff, 16, temp);
                     break;
                 case 'p':
                     j = convert((uintptr)va_arg(ap, void *), 16, temp);
                     break;
                 default:
+                    // unsupported conversion (e.g. %i): print nothing
                     assert(0);
+                    j = 0;
                     break;
             }
 
@@ -180,14 +179,8 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
                 i += width-j;
             }
 
-            if (c == 's') {
-                if (i < length) {
-                    strncpy(buffer+i, q, (size_t)MIN(j, length-i));
-                }
-            } else {
-                if (i < length) {
-                    strncpy(buffer+i, temp, (size_t)MIN(j, length-i));
-                }
+            if (i < length) {
+                strncpy(buffer+i, q, (size_t)MIN(j, length-i));
             }
             i += j;
         } else {

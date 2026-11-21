@@ -73,6 +73,8 @@ All notable changes to the firmware are documented here.
 - Stream: with `bitwidth` below the sample's bit count, near-full-scale readings rounded up
   to `1 << bitwidth` and were sent as 0, with the carry bit leaking into the next sample.
   The rounded sample now saturates at `(1 << bitwidth) - 1`.
+- `printf` with a conversion the firmware doesn't implement (e.g. `%i`) used a garbage
+  length; it now prints nothing for it.
 
 ### Removed
 - Unreferenced legacy build files: `build/Makefile.sourcery`, `cpustick/Makefile.cpustick`,
