@@ -33,7 +33,7 @@ parse2_line(IN char *text_in, OUT int *length_out, OUT byte *bytecode, OUT int *
             break;
         }
     }
-    if (i == LENGTHOF(keywords) || i == code_private) {
+    if (i == LENGTHOF(keywords) || keywords[i].code == code_private) {
         goto XXX_ERROR_XXX;
     }
 
@@ -61,8 +61,8 @@ parse2_line(IN char *text_in, OUT int *length_out, OUT byte *bytecode, OUT int *
             break;
 
         default:
-            assert(0);
-            break;
+            // no compiler for this bytecode; refuse rather than emit it
+            goto XXX_ERROR_XXX;
     }
 
     if (*text) {
