@@ -399,12 +399,17 @@ void scope(int sample_length, int magnify, TriggerEdge edge, TriggerChannel chan
 
     prepare_dma_scope();
 
+    // N.B. enable_analog_trigger() waits with delay(), which counts timer 1
+    // interrupts, so it must run before they are turned off
+    if (channel == ANALOG) {
+        enable_analog_trigger(sample_length, trigger_value, edge==FALL_AKA_STOP);
+    }
+
     // temporarily turn off the timer interrupt
     IEC0bits.T1IE = 0;
 
     switch (channel) {
     case ANALOG:
-        enable_analog_trigger(sample_length, trigger_value, edge==FALL_AKA_STOP);
         wait_for_analog_trigger(edge);
         break;
     case DIGITAL:
