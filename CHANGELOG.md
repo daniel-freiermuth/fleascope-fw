@@ -6,6 +6,13 @@ All notable changes to the firmware are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- **The firmware `.hex` can be installed with `upgrade` again.** Since the switch to XC32 6.00
+  and the root `Makefile`, xc32-bin2hex output had data records of 2, 9 and 11 bytes, which
+  `upgrade` rejects ("bad count"; it then aborts before writing anything). The build now
+  normalizes the file to whole words and checks it (`tools/normalize-hex.py`,
+  `tools/check-upgrade-hex.py`), including the configuration words.
+
 ### Added
 - **Host interpreter tests in CI**: the STICK_GUEST interpreter now builds with GCC on
   Linux (`make guest`), and CI runs the golden-output suites `test/test.sh`

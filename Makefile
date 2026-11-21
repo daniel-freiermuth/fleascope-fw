@@ -56,10 +56,20 @@ LDFLAGS := -mprocessor=$(PROCESSOR) -mdfp="$(DFP_DIR)" \
            -Wl,-Map=$(TARGET).map,--memorysummary,$(BUILD_DIR)/memoryfile.xml
 
 .PHONY: all clean fetch-dfp check-dfp test unit-test guest golden-test help help-check FORCE
+# a .hex that failed normalization or the upgrade check must not look up to date
+.DELETE_ON_ERROR:
 all: $(TARGET).hex
 
-$(TARGET).hex: $(TARGET).elf
+PYTHON ?= python3
+
+# The HEX must be installable with the in-firmware `upgrade` command, the only
+# update path for devices without a programmer: normalize it to whole words
+# (xc32-bin2hex ends records mid-word, which upgrade rejects) and check it
+# against upgrade's rules and the pinned configuration words.
+$(TARGET).hex: $(TARGET).elf tools/normalize-hex.py tools/check-upgrade-hex.py
 	$(BIN2HEX) $<
+	$(PYTHON) tools/normalize-hex.py $@ $@
+	$(PYTHON) tools/check-upgrade-hex.py $@
 
 # Command stamps: each holds the effective command line and is rewritten only
 # when it changes. Objects depend on the compile command and the image on the

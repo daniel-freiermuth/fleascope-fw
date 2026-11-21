@@ -22,13 +22,19 @@ See the StickOS® BASIC website: [https://rtestardi.github.io/StickOS/](https://
 
 ## Building the firmware
 
-Requires MPLAB XC32 v6.00 (default location `/opt/microchip/xc32/v6.00`) and the PIC32MK-GP device pack 1.10.264.
-`sudo sh install-toolchain.sh` installs both, pinned by sha256, as CI does.
+Requires MPLAB XC32 v6.00 (default location `/opt/microchip/xc32/v6.00`), the PIC32MK-GP device pack 1.10.264, and
+Python 3. `sudo sh install-toolchain.sh` installs XC32 and the pack, pinned by sha256, as CI does.
 
 ```sh
 make fetch-dfp   # once, if the pack is not installed: downloads it to ~/.mchp_packs (sha256-checked)
 make            # -> out/pic32.X.production.hex (.elf, .map alongside)
 ```
+
+The `.hex` is what the device's `upgrade` command installs (paste it into the terminal after `upgrade`); for devices
+without a programmer that is the only way to update. The build rewrites xc32-bin2hex's output into whole 32-bit words
+(`tools/normalize-hex.py`), since `upgrade` rejects anything else, and fails unless the file passes
+`tools/check-upgrade-hex.py`: upgrade's record and address rules, room left for the next upgrade's staging area, and
+the pinned configuration words (a wrong oscillator or USB setting would leave the device unreachable over USB).
 
 Override `XC32_ROOT=` / `DFP_DIR=` if they are installed elsewhere; an MPLAB X install under
 `/opt/microchip/mplabx/v*/packs` is found automatically. The root `Makefile` is the only build description and picks
