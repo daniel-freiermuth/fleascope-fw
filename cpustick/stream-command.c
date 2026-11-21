@@ -150,11 +150,14 @@ stream_data(uint averaging, uint bitwidth)
 
     uint bits_per_sample = stream_bits_per_sample(averaging);
     byte out[3];
+    // one USB packet; cdcacm sends at most 63 bytes per packet (short packets
+    // end each transfer), so 63-byte writes map to packets one to one
+    byte chunk[63];
+    int used = 0;
 
     while (run_stop) {
         while (run_stop && stream_samples_pending(get_current(), sent)) {
             int v=0;
-            // int v= adcbuffer[sent%get_adcbuffer_length()];
             for (int i = 0; i < averaging; i++) {
                 v += adcbuffer[sent++%get_adcbuffer_length()];
             }
@@ -164,11 +167,22 @@ stream_data(uint averaging, uint bitwidth)
 
             int n = stream_pack_sample(&leftover, &leftover_bits, v, bitwidth, out);
             for (int i = 0; i < n; i++) {
-                printf("%c", out[i]);
+                chunk[used++] = out[i];
+                if (used == sizeof(chunk)) {
+                    printf_write((char *)chunk, used);
+                    used = 0;
+                }
             }
         }
-        // Testing for writing the data away
-        // printf("\n");
+
+        // caught up with the adc (or stopped): send what is packed now, so a
+        // byte still leaves as soon as it is complete at slow sample rates.
+        // While the bus is busy, cdcacm appends this to its open buffer, so
+        // packets stay full.
+        if (used) {
+            printf_write((char *)chunk, used);
+            used = 0;
+        }
     }
 }
 
