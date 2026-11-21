@@ -313,6 +313,7 @@ flash_upgrade(void)
     done = false;
     error = false;
     begun = false;
+    extend = 0;  // Intel HEX: upper address bits are 0 until a :04 record
 
     do {
         // wait for an hex command line
