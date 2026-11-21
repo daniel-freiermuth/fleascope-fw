@@ -48,17 +48,33 @@ scope_samples_taken(int copied, int periods, int ring)
     return copied + (INTERLEAVE*periods - copied%ring + ring) % ring;
 }
 
-// Edge triggers are located in the recorded data, as the poll loop notices
-// them late.  Both searches return the newest sample s in (lo, hi] whose
-// condition is true when rise (false when ! rise) while sample s-1's is not,
-// or -1 if there is none.  Absolute sample s is at s % ring in the adc ring
-// and at bits[(s % INTERLEAVE)*lane + (s / INTERLEAVE) % lane] in the
-// INTERLEAVE digital lanes of length lane.  Ring indices are stepped rather
-// than divided per sample: the search runs while sampling overwrites the ring.
-
-// condition: adc[s] >= threshold
+// Sample positions held across a `current` rebase (by `rebase`, a multiple of
+// the ring) are off by `rebase`; this returns x in the same epoch as ref.
+// Ring indices are unaffected by rebasing.
 static inline int
-scope_find_analog_edge(const short *adc, int ring, int hi, int lo, int threshold, bool rise)
+scope_same_epoch(int x, int ref, int rebase)
+{
+    if (x - ref > rebase/2) {
+        return x - rebase;
+    }
+    if (ref - x > rebase/2) {
+        return x + rebase;
+    }
+    return x;
+}
+
+// Triggers are located in the recorded data, as the poll loop notices them
+// late.  Both searches return a sample s in (lo, hi] whose condition is `to`
+// while sample s-1's is not, or -1 if there is none.  Absolute sample s is at
+// s % ring in the adc ring and at bits[(s % INTERLEAVE)*lane + (s / INTERLEAVE)
+// % lane] in the INTERLEAVE digital lanes of length lane.  Ring indices are
+// stepped rather than divided per sample: the search runs while sampling
+// overwrites the ring.
+
+// Condition adc[s] >= threshold; returns the newest crossing, the one the
+// comparator (with its filter and hysteresis) has just reported.
+static inline int
+scope_find_analog_edge(const short *adc, int ring, int hi, int lo, int threshold, bool to)
 {
     int s;
     int o;
@@ -70,7 +86,7 @@ scope_find_analog_edge(const short *adc, int ring, int hi, int lo, int threshold
     for (s = hi; s > lo; s--) {
         o = o ? o-1 : ring-1;
         before = adc[o] >= threshold;
-        if (now == rise && before != rise) {
+        if (now == to && before != to) {
             return s;
         }
         now = before;
@@ -78,9 +94,10 @@ scope_find_analog_edge(const short *adc, int ring, int hi, int lo, int threshold
     return -1;
 }
 
-// condition: (bits[s] & mask) == value
+// Condition (bits[s] & mask) == value; returns the oldest transition, as the
+// recorded PORTB samples are exactly what the trigger condition tests.
 static inline int
-scope_find_digital_edge(const short *bits, int lane, int hi, int lo, int value, int mask, bool rise)
+scope_find_digital_edge(const short *bits, int lane, int hi, int lo, int value, int mask, bool to)
 {
     int s;
     int l;
@@ -88,21 +105,21 @@ scope_find_digital_edge(const short *bits, int lane, int hi, int lo, int value, 
     bool now;
     bool before;
 
-    l = hi % INTERLEAVE;
-    k = (hi / INTERLEAVE) % lane;
-    now = (bits[l*lane + k] & mask) == value;
-    for (s = hi; s > lo; s--) {
-        if (l) {
-            l--;
+    l = lo % INTERLEAVE;
+    k = (lo / INTERLEAVE) % lane;
+    before = (bits[l*lane + k] & mask) == value;
+    for (s = lo+1; s <= hi; s++) {
+        if (l < INTERLEAVE-1) {
+            l++;
         } else {
-            l = INTERLEAVE-1;
-            k = k ? k-1 : lane-1;
+            l = 0;
+            k = k < lane-1 ? k+1 : 0;
         }
-        before = (bits[l*lane + k] & mask) == value;
-        if (now == rise && before != rise) {
+        now = (bits[l*lane + k] & mask) == value;
+        if (now == to && before != to) {
             return s;
         }
-        now = before;
+        before = now;
     }
     return -1;
 }

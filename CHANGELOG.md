@@ -45,9 +45,9 @@ All notable changes to the firmware are documented here.
 
 ### Changed
 - `scope` samples continuously while waiting for the trigger (previously sampling
-  started at the trigger). Rising/falling edge triggers are located in the recorded
-  data, so the trigger position stays exact to the sample when the ADC copy interrupt
-  delays trigger detection.
+  started at the trigger). Trigger events are latched in hardware (comparator CEVT,
+  PORTB change notification) so none is missed while the ADC copy interrupt runs,
+  and their position is taken from the recorded data, exact to the sample.
 - Toolchain moved from XC32 4.35 to XC32 6.00 (GCC 13 base) and
   PIC32MK-GP_DFP 1.8.253 to 1.10.264. The old CI image used an AUR package
   that patched out XC32's license check to get `-O3`. XC32 6.00 provides

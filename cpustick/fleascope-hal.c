@@ -17,12 +17,12 @@ volatile uint current;  // current location where dma isr is filling adcbuffer
 
 volatile int currento;  // current % LENGTHOF(adcbuffer) maintained for performance
 
-// while set, the isr keeps current from wrapping; only allowed while nobody holds sample positions
+// while set, the isr keeps current from wrapping; positions held meanwhile need scope_same_epoch()
 volatile bool current_rebasable;
 
-// a multiple of LENGTHOF(adcbuffer) (so currento and every ring index stay valid); rebasing from
-// 2*CURRENT_REBASE down to CURRENT_REBASE keeps current far above any pretrigger history we need
-#define CURRENT_REBASE  (LENGTHOF(adcbuffer)*65536)
+// rebasing by a multiple of LENGTHOF(adcbuffer) keeps currento and every ring index valid; going
+// from 2*CURRENT_REBASE down to CURRENT_REBASE keeps current far above any pretrigger history
+CASSERT(CURRENT_REBASE == LENGTHOF(adcbuffer)*65536);
 CASSERT(ADC_CHUNK_SAMPLES == INTERLEAVE*LENGTHOF(dmabuffer[0][0]));
 CASSERT(SCOPE_MAX_PRETRIGGER < LENGTHOF(adcbuffer));
 

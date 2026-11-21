@@ -1,6 +1,9 @@
 #define MSPS  18  // approximate target sample rate
 #define INTERLEAVE  5  // we interleave results from 5 adcs
 #define ADC_CHUNK_SAMPLES  (INTERLEAVE*128)  // samples scope_isr copies into adcbuffer at once
+// while rebasable, scope_isr steps current back by this (a multiple of the adcbuffer ring) to
+// keep it from wrapping; see scope_same_epoch()
+#define CURRENT_REBASE  (INTERLEAVE*2*128*10*65536)
 
 void wave(char *pattern, int hz);
 void scope_initialize();
