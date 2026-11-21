@@ -22,7 +22,7 @@ typedef uintptr_t uintptr;
 #define LENGTHOF(a)  (sizeof(a)/sizeof(a[0]))
 #define CASSERT(predicate)  _Static_assert(predicate, #predicate)
 
-#include "../../config.h"
+#include "../../src/config.h"
 
 // the test's simulated program flash, FLASH_BYTES long
 extern byte host_flash[];
@@ -30,6 +30,6 @@ extern byte host_flash[];
 #define FLASH_START  ((uintptr)host_flash)
 
 #include "params.h"
-#include "../../sources/flash.h"
+#include "../../src/platform/flash.h"
 
 #endif

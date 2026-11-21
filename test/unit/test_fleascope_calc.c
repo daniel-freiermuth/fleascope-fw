@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Parity-7.0.0
-// Host unit tests for cpustick/fleascope-calc.h (run: make unit-test).
+// Host unit tests for src/app/fleascope-calc.h (run: make unit-test).
 //
 // Covers the input-domain edges of the Flea-Scope command math that the
 // firmware build never exercises: Timer3 period limits for scope and
