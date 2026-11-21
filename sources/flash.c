@@ -137,7 +137,6 @@ flash_write_words(uint32 *addr_in, uint32 *data_in, uint32 nwords_in)
 #endif
 }
 
-#if UPGRADE
 // this function performs the final step of a firmware flash upgrade.
 void
 __longramfunc__
@@ -278,9 +277,7 @@ flash_upgrade_ram(void)
         // NULL
     }
 }
-#endif
 
-#if UPGRADE
 // this function downloads a new HEX firmware file to a staging
 // area, and then installs it by calling a RAM copy of flash_upgrade_ram().
 void
@@ -500,8 +497,10 @@ flash_upgrade(void)
         printf("upgrade failed\n");
         terminal_echo = true;
 
-        // erase the staging area
-        code_new();
+        // staging erased the parameter pages; as StickOS did here, start over
+        // with flash variables cleared to 0 and no declarations
+        params_initialize();
+        flashvars_reset();
         return;
     }
 
@@ -532,7 +531,6 @@ flash_upgrade(void)
     // we should not come back!
     ASSERT(0);  // stop!
 }
-#endif
 
 // this function initializes the flash module.
 void
