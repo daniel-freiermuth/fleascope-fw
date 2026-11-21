@@ -32,6 +32,8 @@ All notable changes to the firmware are documented here.
   `tools/check-upgrade-hex.py`), including the configuration words.
 
 ### Added
+- **Command reference** ([docs/commands.md](docs/commands.md)): every command, its arguments
+  and its replies byte for byte.
 - **`make test`** runs the host unit tests; GitLab (`test:host`) and GitHub
   (`.github/workflows/test.yml`) both run exactly this. It replaces `test/testcalc.sh` and the
   `calc-tests`/`host-tests` workflows.

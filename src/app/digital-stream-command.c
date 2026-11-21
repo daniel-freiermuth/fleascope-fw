@@ -14,7 +14,7 @@
 // No inline header — the host knows the size from the command parameters.
 //
 // The host chooses n_samples_per_packet to balance throughput vs latency:
-//   max rate  → floor(63 * 8 / N)  samples  (fills one USB FS bulk packet)
+//   max rate  → floor(63 * 8 / N)  samples  (the largest packet, 63 bytes)
 //   slow rate → ~50 ms worth of samples      (keeps the host read responsive)
 //
 // Physical-to-virtual bit mapping (same as scope-command):
@@ -122,8 +122,8 @@ digital_stream(int channel_mask, int us_per_sample, int n_samples_per_packet)
     nchans = ds_channel_positions(channel_mask, chan_pos);
 
     // A missing n_samples_per_packet (<= 0) defaults to the maximum that fits
-    // in one 63-byte USB FS bulk packet; larger values would overflow the
-    // packet buffer and are rejected.
+    // in the 63-byte packet buffer (DS_PACKET_BYTES_MAX); larger values are
+    // rejected.
     packet_bits = ds_packet_bits(nchans, n_samples_per_packet);
     if (packet_bits < 0) {
         printf("n_samples_per_packet too large (max %d)\n", ds_max_samples_per_packet(nchans));
