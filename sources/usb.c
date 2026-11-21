@@ -41,6 +41,7 @@ struct bdt {
 struct endpoint {
     byte toggle[2];  // rx [0] and tx [1] next packet data0 (0) or data1 (BD_FLAGS_DATA)
     byte bdtodd[2];  // rx [0] and tx [1] next bdt even (0) or odd (1)
+    byte armed;  // tx packets handed to the hardware and not yet completed (endpoints > 0)
     byte packetsize;
     bool inter;
 
@@ -172,6 +173,8 @@ usb_device_enqueue(int endpoint, int tx, byte *buffer, int length)
     int ep;
     bool odd;
     int flags;
+    int armed;
+    int toggle;
     volatile struct bdt *bdt;
 
     assert(endpoint < LENGTHOF(endpoints));
@@ -181,8 +184,16 @@ usb_device_enqueue(int endpoint, int tx, byte *buffer, int length)
         assert(endpoints[endpoint].packetsize);
         length = MIN(length, endpoints[endpoint].packetsize);
 
-        // find the next bdt entry to use
-        odd = endpoints[endpoint].bdtodd[tx];
+        // find the next bdt entry to use; a tx packet armed while another
+        // is pending (at most one, endpoints > 0) takes the other ping-pong
+        // entry and the following data toggle
+        armed = (endpoint && tx == 1) ? endpoints[endpoint].armed : 0;
+        assert(armed < 2);
+        odd = endpoints[endpoint].bdtodd[tx] ^ armed;
+        toggle = endpoints[endpoint].toggle[tx];
+        if (armed) {
+            toggle = toggle ? 0 : BD_FLAGS_DATA;
+        }
 
         // initialize the bdt entry
         bdt = MYBDT(endpoint, tx, odd);
@@ -190,7 +201,10 @@ usb_device_enqueue(int endpoint, int tx, byte *buffer, int length)
         flags = TF_LITTLE(bdt->flags);
         assert(! (flags & BD_FLAGS_OWN));
         assert(length <= endpoints[endpoint].packetsize);
-        bdt->flags = TF_LITTLE(BD_FLAGS_BC_ENC(length)|BD_FLAGS_OWN|endpoints[endpoint].toggle[tx]|BD_FLAGS_DTS);
+        if (endpoint && tx == 1) {
+            endpoints[endpoint].armed++;
+        }
+        bdt->flags = TF_LITTLE(BD_FLAGS_BC_ENC(length)|BD_FLAGS_OWN|toggle|BD_FLAGS_DTS);
     }
 
     ep = _U1EP0_EPHSHK_MASK|_U1EP0_EPTXEN_MASK|_U1EP0_EPRXEN_MASK;
@@ -268,6 +282,9 @@ usb_isr(void)
         // toggle the next bdt entry to use
         ASSERT(odd == endpoints[endpoint].bdtodd[tx]);
         endpoints[endpoint].bdtodd[tx] = ! endpoints[endpoint].bdtodd[tx];
+        if (endpoint && tx && endpoints[endpoint].armed) {
+            endpoints[endpoint].armed--;
+        }
 
         bdt = MYBDT(endpoint, tx, odd);
 
