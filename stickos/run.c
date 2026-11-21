@@ -1019,6 +1019,9 @@ run_bytecode_code(uint code, bool immediate, const byte *bytecode, int length)
 
                     watchpoints[i].length = watch_length;
                     watchpoints[i].bytecode = watch_bytecode;
+                } else if (i == num_watchpoints) {
+                    // no watch with this condition; nothing to off, mask or unmask
+                    break;
                 }
 
                 inter = WATCH_INT((i == -1) ? 0 : i);
@@ -1042,7 +1045,7 @@ run_bytecode_code(uint code, bool immediate, const byte *bytecode, int length)
 
                     if (device == code_watch) {
                         // schedule watchpoint for evaluation.
-                        possible_watchpoints_mask |= 1 << n;
+                        possible_watchpoints_mask |= 1 << i;
                     }
                 } else if (code == code_off) {
                     run_isr_enabled &= ~(1<<inter);

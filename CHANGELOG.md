@@ -55,6 +55,9 @@ All notable changes to the firmware are documented here.
 - Stream: with `bitwidth` below the sample's bit count, near-full-scale readings rounded up
   to `1 << bitwidth` and were sent as 0, with the carry bit leaking into the next sample.
   The rounded sample now saturates at `(1 << bitwidth) - 1`.
+- `off`/`mask`/`unmask <expression>` for an expression with no `on` watchpoint no longer writes past
+  the interrupt tables (which could unmask or disarm other watchpoints); it does nothing. `unmask` of a
+  watchpoint now schedules that watchpoint for re-evaluation instead of the first free slot's.
 
 ### Removed
 - Unreferenced legacy build files: `build/Makefile.sourcery`, `cpustick/Makefile.cpustick`,
