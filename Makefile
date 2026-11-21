@@ -2,16 +2,14 @@
 #
 #   make                  build out/pic32.X.production.{elf,hex,map}
 #   make fetch-dfp        download the pinned PIC32MK-GP device pack
-#   make test             host tests: unit-test, golden-test, help-check
-#   make guest            STICK_GUEST interpreter: out/guest/{debug,release}/stickos
-#   make help             regenerate cpustick/help.c from basic0.c
+#   make test             host unit tests (Unity, test/unit/test_*.c)
 #   make clean
 #
 # Override XC32_ROOT / DFP_DIR on the command line or in the environment if
 # the toolchain or pack live elsewhere.
 #
-# Sources are discovered by wildcard, so a new .c file under cpustick/,
-# sources/ or stickos/ is built without editing this file.
+# Sources are discovered by wildcard, so a new .c file under cpustick/ or
+# sources/ is built without editing this file.
 
 # Pinned toolchain. A different XC32 or DFP version produces a different hex.
 XC32_VERSION := v6.00
@@ -36,18 +34,15 @@ TARGET    := $(BUILD_DIR)/pic32.X.production
 
 PROCESSOR := 32MK0512GPK064
 
-# cpustick/help.c is generated and #included by cpustick/basic0.c.
-# stickos/guest-main.c is the STICK_GUEST host entry point (make guest).
-SRCS ?= $(filter-out cpustick/help.c,$(sort $(wildcard cpustick/*.c))) \
+SRCS ?= $(sort $(wildcard cpustick/*.c)) \
         $(sort $(wildcard sources/*.c)) \
-        $(filter-out stickos/guest-main.c,$(sort $(wildcard stickos/*.c))) \
         main.c myplib.c
 
 OBJS := $(SRCS:%.c=$(BUILD_DIR)/obj/%.o)
 
 CFLAGS := -g -mprocessor=$(PROCESSOR) -mmicromips -mno-float \
           -O3 -funroll-loops -fomit-frame-pointer -fno-common -fno-builtin \
-          -DSTICKOS -I. -Icpustick -Isources -Istickos \
+          -I. -Icpustick -Isources \
           -Wall -Waddress-attribute-use -mdfp="$(DFP_DIR)"
 
 LDFLAGS := -mprocessor=$(PROCESSOR) -mdfp="$(DFP_DIR)" \
@@ -55,7 +50,7 @@ LDFLAGS := -mprocessor=$(PROCESSOR) -mdfp="$(DFP_DIR)" \
            -Wl,--gc-sections,--no-code-in-dinit,--no-dinit-in-serial-mem \
            -Wl,-Map=$(TARGET).map,--memorysummary,$(BUILD_DIR)/memoryfile.xml
 
-.PHONY: all clean fetch-dfp check-dfp test unit-test guest golden-test help help-check FORCE
+.PHONY: all clean fetch-dfp check-dfp test unit-test FORCE
 # a .hex that failed normalization or the upgrade check must not look up to date
 .DELETE_ON_ERROR:
 all: $(TARGET).hex
@@ -128,73 +123,44 @@ fetch-dfp:
 HOST_CC     ?= cc
 HOST_DIR    := $(BUILD_DIR)/host
 UNITY_DIR   := test/unity
-HOST_CFLAGS := -std=gnu99 -Wall -Wextra -Werror -I$(UNITY_DIR) -Icpustick
+# test/host first: its main.h stands in for the firmware's when a module
+# under test includes "main.h"
+HOST_CFLAGS := -std=gnu11 -Wall -Wextra -Werror -Itest/host -I$(UNITY_DIR) -Icpustick -Isources
 
-# Unity tests: each test/unit/test_*.c is one executable, linked with Unity.
+# Firmware modules with no SFR access or I/O, compiled for the host. Tests link
+# them from an archive, so each test pulls in only what it calls and provides
+# fakes for what those modules call (e.g. params_get_user(), flash_write_words()).
+HOST_SRCS := cpustick/flash-vars.c sources/params.c
+HOST_OBJS := $(HOST_SRCS:%.c=$(HOST_DIR)/obj/%.o) $(HOST_DIR)/obj/unity.o
+HOST_LIB  := $(HOST_DIR)/libhost.a
+
+# Unity tests: each test/unit/test_*.c is one executable.
 # One .c per compiler invocation, so each -MMD .d file covers its own source.
 UNIT_TESTS := $(sort $(wildcard test/unit/test_*.c))
 UNIT_BINS  := $(UNIT_TESTS:test/unit/%.c=$(HOST_DIR)/%)
-UNITY_OBJ  := $(HOST_DIR)/unity.o
 
-$(UNITY_OBJ): $(UNITY_DIR)/unity.c
+$(HOST_DIR)/obj/unity.o: $(UNITY_DIR)/unity.c
 	@mkdir -p $(@D)
 	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -c -o $@ $<
 
-$(HOST_DIR)/%: test/unit/%.c $(UNITY_OBJ)
+$(HOST_DIR)/obj/%.o: %.c
 	@mkdir -p $(@D)
-	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -o $@ $< $(UNITY_OBJ)
+	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -c -o $@ $<
 
-test: unit-test golden-test help-check
+$(HOST_LIB): $(HOST_OBJS)
+	rm -f $@
+	$(AR) rcs $@ $^
+
+$(HOST_DIR)/%: test/unit/%.c $(HOST_LIB)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -o $@ $< $(HOST_LIB)
+
+test: unit-test
 
 unit-test: $(UNIT_BINS)
 	@set -e; for t in $^; do $$t; done
 
-# STICK_GUEST: the interpreter as a host program, for the golden tests and for
-# generating cpustick/help.c. DEBUG (SODEBUG, asserts on) and RELEASE (-O).
-GUEST_SRCS := stickos/guest-main.c \
-              cpustick/basic0.c cpustick/parse2.c cpustick/run2.c \
-              stickos/basic.c stickos/code.c stickos/parse.c stickos/run.c stickos/vars.c \
-              sources/adc.c sources/led.c sources/pin.c sources/printf.c \
-              sources/text.c sources/timer.c sources/util.c
-GUEST_CFLAGS := -g -std=gnu2x -Werror -fno-builtin -DSTICK_GUEST -DSTICKOS \
-                -I. -Icpustick -Isources -Istickos
-GUEST_DIR    := $(BUILD_DIR)/guest
-GUEST        := $(GUEST_DIR)/debug/stickos
-GUEST_REL    := $(GUEST_DIR)/release/stickos
-GUEST_DEBUG_OBJS   := $(GUEST_SRCS:%.c=$(GUEST_DIR)/debug/obj/%.o)
-GUEST_RELEASE_OBJS := $(GUEST_SRCS:%.c=$(GUEST_DIR)/release/obj/%.o)
-
-$(GUEST_DIR)/debug/obj/%.o: %.c
-	@mkdir -p $(@D)
-	$(HOST_CC) $(GUEST_CFLAGS) -DSODEBUG=1 -MMD -MP -c -o $@ $<
-
-$(GUEST_DIR)/release/obj/%.o: %.c
-	@mkdir -p $(@D)
-	$(HOST_CC) $(GUEST_CFLAGS) -O -MMD -MP -c -o $@ $<
-
-$(GUEST): $(GUEST_DEBUG_OBJS)
-	$(HOST_CC) -o $@ $^
-
-$(GUEST_REL): $(GUEST_RELEASE_OBJS)
-	$(HOST_CC) -o $@ $^
-
-guest: $(GUEST) $(GUEST_REL)
-
-# Golden-output regression suites; test.sh / test3.sh -u re-bless them.
-golden-test: guest
-	cd test && BASIC=$(abspath $(GUEST)) sh test.sh && BASIC=$(abspath $(GUEST)) sh test3.sh && \
-	  BASIC=$(abspath $(GUEST_REL)) sh test.sh && BASIC=$(abspath $(GUEST_REL)) sh test3.sh
-
-# cpustick/help.c is generated from basic0.c by the interpreter.
-help: $(GUEST)
-	cd cpustick && $(abspath $(GUEST)) help <basic0.c >help.c
-
-help-check: $(GUEST)
-	@cd cpustick && $(abspath $(GUEST)) help <basic0.c | cmp -s - help.c || \
-	  { echo "cpustick/help.c is stale; run 'make help' and commit it" >&2; exit 1; }
-
 clean:
 	rm -rf $(BUILD_DIR)
 
--include $(OBJS:.o=.d) $(UNIT_BINS:=.d) $(UNITY_OBJ:.o=.d) \
-         $(GUEST_DEBUG_OBJS:.o=.d) $(GUEST_RELEASE_OBJS:.o=.d)
+-include $(OBJS:.o=.d) $(UNIT_BINS:=.d) $(HOST_OBJS:.o=.d)

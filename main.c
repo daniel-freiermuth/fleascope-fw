@@ -5,7 +5,6 @@
 
 #include "main.h"
 
-#if ! STICK_GUEST
 
 // PIC32MK0512GPK064 Configuration Bit Settings
 
@@ -77,9 +76,7 @@
 // Use project enums instead of #define for ON and OFF.
 
 
-#endif
 
-#if ! STICK_GUEST
 EXCEPTION_HANDLER
 void _general_exception_context(void)
 {
@@ -91,9 +88,7 @@ void _bootstrap_exception_handler(void)
 {
     led_hex(_CP0_GET_CAUSE());
 }
-#endif
 
-bool disable_autorun;
 uint16 flash_checksum;
 
 byte *end_of_static;
@@ -198,7 +193,6 @@ main()  // we're called directly by startup code
 
     end_of_static = (byte *)_on_bootstrap;
 
-    // if pin_assignment_safemode is asserted on boot, skip autorun
     pin_initialize();
 
     // compute flash checksum
@@ -221,18 +215,14 @@ main()  // we're called directly by startup code
     // initialize adc
     adc_initialize();
 
-#if SCOPE
     // initialize scope
     scope_initialize();
-#endif
 
     // configure leds
     led_initialize();
 
     // initialize flash
     flash_initialize();
-
-    serial_initialize();
 
     // initialize usb
     usb_initialize();
@@ -242,12 +232,6 @@ main()  // we're called directly by startup code
 
     // enable interrupts
     splx(0);
-
-    // initialize zigflea
-    zb_initialize();
-
-    // initialize the terminal interface
-    terminal_initialize();
 
     // run the main application program loop
     main_run();

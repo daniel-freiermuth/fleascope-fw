@@ -13,10 +13,6 @@
 //#define SODEBUG  1
 #define DEBUGGING  1  // enable to use mplab x debugger
 
-#define ZIGFLEA  1
-
-#define UPGRADE  1
-
 // Enable in-memory trace buffer for debugging with the trace() macro.
 #define IN_MEMORY_TRACE 0
 
@@ -31,30 +27,9 @@ typedef uint32_t uint32;
 typedef intptr_t intptr;
 typedef uintptr_t uintptr;
 
-#if ! STICK_GUEST
-
 #include <myplib.h>
 
 #define asm_halt()  asm("SDBBP 0");
-
-#else  // STICK_GUEST
-
-// SODEBUG wins
-#if SODEBUG
-#define _DEBUG
-#undef NDEBUG
-#else
-#define NDEBUG
-#undef _DEBUG
-#endif  // SODEBUG
-
-#include <stdlib.h>  // exit()
-
-#include <assert.h>
-#define ASSERT(x)  assert(x)
-#define assert_ram(x)  assert(x)
-
-#endif  // ! STICK_GUEST
 
 typedef unsigned char byte;
 typedef unsigned int uint;
@@ -87,35 +62,20 @@ typedef unsigned int uint;
 #include "flash.h"
 #include "pin.h"
 #include "printf.h"
-#include "qspi.h"
-#include "i2c.h"
-#include "zigflea.h"
 #include "terminal.h"
-#include "text.h"
 #include "timer.h"
 #include "util.h"
 #include "adc.h"
 #include "led.h"
-#include "serial.h"
+#include "params.h"
 
 #include "config.h"
-
-#if ! STICK_GUEST
 
 #include "cdcacm.h"
 #include "usb.h"
 
-#endif  // ! STICK_GUEST
-
-#include "cpustick.h"
-#include "basic.h"
-#include "code.h"
-#include "parse.h"
-#include "run.h"
-#include "vars.h"
-#include "basic0.h"
-#include "parse2.h"
-#include "run2.h"
+#include "commands.h"
+#include "flash-vars.h"
 #include "fleascope-hal.h"
 #include "scope-command.h"
 #include "stream-command.h"
@@ -125,8 +85,6 @@ typedef unsigned int uint;
 
 int
 vprintf(const char *format, va_list ap);
-
-#if ! STICK_GUEST
 
 #define CASSERT(predicate) _impl_CASSERT_LINE(predicate,__LINE__)
 #define _impl_PASTE(a,b) a##b
@@ -145,13 +103,6 @@ vprintf(const char *format, va_list ap);
 #define ASSERT(x)  do { if (! (x)) { led_line(__LINE__); } } while (0)
 #define ASSERT_RAM(x)  do { if (! (x)) { asm_halt(); } } while (0)
 
-#else  // STICK_GUEST
-
-extern byte big_buffer[768];
-
-#endif  // ! STICK_GUEST
-
-extern bool disable_autorun;
 extern uint16 flash_checksum;
 
 extern byte *end_of_static;
@@ -166,10 +117,8 @@ extern byte big_buffer[768];
 typedef void (*flash_upgrade_ram_begin_f)(void);
 
 void
-#if ! STICK_GUEST
 __longramfunc__
 __attribute__((nomips16))
-#endif
 flash_upgrade_ram_begin(void);
 
 void

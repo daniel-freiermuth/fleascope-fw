@@ -6,6 +6,24 @@ All notable changes to the firmware are documented here.
 
 ## [Unreleased]
 
+### Breaking
+- **The StickOS BASIC interpreter is removed.** The firmware is a plain command line
+  (`cpustick/commands.c`) with `scope`, `stream`, `digital_stream`, `wave`, `ver`, `hostname`,
+  `reset`, `upgrade`, `help`, `echo` and `prompt`, replying exactly as before. The BASIC
+  statements hosts use for calibration — `dim <var>[[n]] as flash`, `print <var>, …`,
+  `[let] <var> = <n>` — are emulated (`cpustick/flash-vars.c`) with the same flash layout:
+  variables take the next parameter-page words in declaration order since reset, so stored
+  calibrations are found again. Hostname and other parameters keep their flash locations
+  (`sources/params.c`). Everything else BASIC (programs, `run`, `list`, pin variables,
+  `connect`/`nodeid`, `uptime`, `help <topic>`, autorun) is gone; the welcome banner changed.
+- **`scope -<n>` (magnification) is removed.** It repeated each sample n times on the device;
+  the original web GUI uses it for its 2×/5×/10× time bases.
+- Removed with BASIC: ZigFlea wireless support, the UART console, the I2C and QSPI drivers,
+  the help-text compressor, the STICK_GUEST host build with its golden-output tests and
+  `make guest`/`make help`, `code.txt`/`qa.txt` and the BASIC documents in `doc/`.
+  `make test` now runs the Unity unit tests only, including new ones for the flash-variable
+  emulation.
+
 ### Fixed
 - **The firmware `.hex` can be installed with `upgrade` again.** Since the switch to XC32 6.00
   and the root `Makefile`, xc32-bin2hex output had data records of 2, 9 and 11 bytes, which
