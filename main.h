@@ -75,7 +75,6 @@ typedef unsigned int uint;
 #include "usb.h"
 
 #include "commands.h"
-#include "flash-vars.h"
 #include "fleascope-hal.h"
 #include "scope-command.h"
 #include "stream-command.h"
