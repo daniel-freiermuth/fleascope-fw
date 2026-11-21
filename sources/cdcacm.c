@@ -410,6 +410,12 @@ cdcacm_command_ack(void)
 
 
 // this function implements the CDCACM usb bulk transfer.
+volatile uint32 usbstat_hist[USBSTAT_MAX];
+volatile uint32 usbstat_ready;
+volatile uint32 usbstat_empty;
+volatile int usbstat_frame = -1;
+volatile int usbstat_count;
+
 static int
 cdcacm_bulk_transfer(bool in, byte *buffer, int length)
 {
@@ -428,11 +434,24 @@ cdcacm_bulk_transfer(bool in, byte *buffer, int length)
             waiting = true;
         }
     } else {
+        // EXPERIMENT: packets per usb frame, and whether the next packet was ready
+        int frame = ((U1FRMH << 8) | U1FRML) & 0x7ff;
+        if (frame != usbstat_frame) {
+            if (usbstat_frame >= 0) {
+                usbstat_hist[MIN(usbstat_count, USBSTAT_MAX-1)]++;
+                usbstat_hist[0] += (frame-usbstat_frame-1) & 0x7ff;
+            }
+            usbstat_frame = frame;
+            usbstat_count = 0;
+        }
+        usbstat_count++;
+
         rx_length[rx_out] = 0;
         rx_out = (rx_out+1)%NRX;
 
         // if there is more data to transfer...
         if (rx_length[rx_out] > 0) {
+            usbstat_ready++;
             if (rx_in == rx_out) {
                 rx_in = (rx_in+1)%NRX;
                 assert(rx_in != rx_out);
@@ -443,6 +462,8 @@ cdcacm_bulk_transfer(bool in, byte *buffer, int length)
             assert(rx_out != rx_in);
             assert(rx_length[rx_out] > 0 && rx_length[rx_out] < PACKET_SIZE);
             usb_device_enqueue(bulk_in_ep, 1, rx[rx_out], rx_length[rx_out]);
+        } else {
+            usbstat_empty++;
         }
     }
 

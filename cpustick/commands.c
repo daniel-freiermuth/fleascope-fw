@@ -332,6 +332,18 @@ run(char *text_in)
         if (ok) {
             flash_upgrade();
         }
+    } else if (parse_command(&text, "usbstat")) {
+        // EXPERIMENT: frames by number of bulk IN packets; resets the counts
+        int i;
+        for (i = 0; i < USBSTAT_MAX; i++) {
+            if (usbstat_hist[i]) {
+                printf("%d: %u\n", i, usbstat_hist[i]);
+            }
+            usbstat_hist[i] = 0;
+        }
+        printf("ready %u empty %u\n", usbstat_ready, usbstat_empty);
+        usbstat_ready = usbstat_empty = 0;
+        usbstat_frame = -1;
     } else if (parse_command(&text, "help")) {
         if (parse_word(&text, "about")) {
             print_lines(help_about);
