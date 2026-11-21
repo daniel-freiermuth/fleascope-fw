@@ -238,6 +238,7 @@ cdcacm_print(const byte *buffer, int length)
     int a;
     int n;
     int m;
+    int32 start;
     int x;
     static uint32 attached_count;
 
@@ -260,8 +261,10 @@ cdcacm_print(const byte *buffer, int length)
 
     x = splx(5);
 
-    // forever...
-    m = 0;
+    // wait for free buffers; the usb isr frees them as packets complete, so
+    // poll with interrupts enabled instead of sleeping a whole millisecond
+    // (which left the bus idle). Give up after a second without a reader.
+    start = msecs;
     for (;;) {
         // compute the number of available buffers
         a = (rx_out+NRX-rx_in)%NRX;
@@ -275,8 +278,7 @@ cdcacm_print(const byte *buffer, int length)
             break;
         }
         splx(x);
-        delay(1);
-        if (m++ > 1000) {
+        if (msecs-start > 1000) {
             discard = true;
             return;
         }
