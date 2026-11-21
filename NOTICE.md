@@ -18,13 +18,16 @@ The firmware started as Rich Testardi's StickOS BASIC for the Flea-Scope™
 - The StickOS interpreter sources (`stickos/basic.c`, `code.c`, `parse.c`,
   `run.c`, `vars.c`), © CPUStick.com and covered by U.S. Patent 8,117,587, are
   no longer part of this firmware; they were removed in the commit
-  "remove the StickOS BASIC interpreter".
+  "feat!: remove the StickOS BASIC interpreter".
 - The other source files of that release are in the public domain. Their
   original versions remain public domain (see the upstream repository and this
   repository's history); the changes made here are covered by the license above.
-- The board design files in `board/` are in the public domain.
-- The prebuilt `board/*.hex` files contain StickOS and keep the license given
-  for them in `license.txt` (personal, educational, or non-commercial use).
+- The board design files in `hardware/` (`board/` in his release) are in the
+  public domain.
+- The prebuilt `hardware/*.hex` files contain StickOS and keep the license
+  given for them in `license.txt` (personal, educational, or non-commercial use).
+- The documents in `docs/*.docx` and the notes in `docs/history/` are his and
+  keep his terms; they are not covered by the license above.
 
 New files written for this firmware carry an `SPDX-License-Identifier:
 Parity-7.0.0` line.

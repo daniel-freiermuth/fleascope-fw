@@ -1,5 +1,5 @@
-# Host tests (no XC32): Unity unit tests, the golden-output interpreter suites
-# and the cpustick/help.c freshness check. Same command as GitLab's test:host.
+# Host tests (no XC32): the Unity unit tests. Same command as GitLab's
+# test:host.
 name: test
 
 on:

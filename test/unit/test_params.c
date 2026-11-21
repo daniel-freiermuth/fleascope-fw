@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Parity-7.0.0
-// Host unit tests for sources/params.c: the A/B parameter pages that hold
+// Host unit tests for src/platform/params.c: the A/B parameter pages that hold
 // hostname and calibration across reboots, upgrades and firmware versions.
 //
 // Flash is simulated like the PIC32's: erasing a page sets it to 0xFF, and

@@ -8,8 +8,8 @@
 # Override XC32_ROOT / DFP_DIR on the command line or in the environment if
 # the toolchain or pack live elsewhere.
 #
-# Sources are discovered by wildcard, so a new .c file under cpustick/ or
-# sources/ is built without editing this file.
+# Sources are discovered by wildcard, so a new .c file under src/app/ or
+# src/platform/ is built without editing this file.
 
 # Pinned toolchain. A different XC32 or DFP version produces a different hex.
 XC32_VERSION := v6.00
@@ -34,15 +34,15 @@ TARGET    := $(BUILD_DIR)/pic32.X.production
 
 PROCESSOR := 32MK0512GPK064
 
-SRCS ?= $(sort $(wildcard cpustick/*.c)) \
-        $(sort $(wildcard sources/*.c)) \
-        main.c myplib.c
+SRCS ?= $(sort $(wildcard src/app/*.c)) \
+        $(sort $(wildcard src/platform/*.c)) \
+        src/main.c src/myplib.c
 
 OBJS := $(SRCS:%.c=$(BUILD_DIR)/obj/%.o)
 
 CFLAGS := -g -mprocessor=$(PROCESSOR) -mmicromips -mno-float \
           -O3 -funroll-loops -fomit-frame-pointer -fno-common -fno-builtin \
-          -I. -Icpustick -Isources \
+          -Isrc -Isrc/app -Isrc/platform \
           -Wall -Waddress-attribute-use -mdfp="$(DFP_DIR)"
 
 LDFLAGS := -mprocessor=$(PROCESSOR) -mdfp="$(DFP_DIR)" \
@@ -125,12 +125,12 @@ HOST_DIR    := $(BUILD_DIR)/host
 UNITY_DIR   := test/unity
 # test/host first: its main.h stands in for the firmware's when a module
 # under test includes "main.h"
-HOST_CFLAGS := -std=gnu11 -Wall -Wextra -Werror -Itest/host -I$(UNITY_DIR) -Icpustick -Isources
+HOST_CFLAGS := -std=gnu11 -Wall -Wextra -Werror -Itest/host -I$(UNITY_DIR) -Isrc/app -Isrc/platform
 
 # Firmware modules with no SFR access or I/O, compiled for the host. Tests link
 # them from an archive, so each test pulls in only what it calls and provides
 # fakes for what those modules call (e.g. params_get_user(), flash_write_words()).
-HOST_SRCS := cpustick/flash-vars.c sources/params.c
+HOST_SRCS := src/app/flash-vars.c src/platform/params.c
 HOST_OBJS := $(HOST_SRCS:%.c=$(HOST_DIR)/obj/%.o) $(HOST_DIR)/obj/unity.o
 HOST_LIB  := $(HOST_DIR)/libhost.a
 

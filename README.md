@@ -6,11 +6,25 @@ BASIC interpreter: it is a plain command line over USB (CDC ACM) with the comman
 `digital_stream`, `wave`, `ver`, `hostname`, `reset`, `upgrade`, `echo`, `prompt` — plus the BASIC flash-variable
 statements (`dim … as flash`, `print`, assignment) that hosts use to keep probe calibration in flash. Replies are
 unchanged, so existing hosts such as [fleascope-rs](https://github.com/daniel-freiermuth/fleascope-rs) keep working.
+Every command and its replies are described in [docs/commands.md](docs/commands.md).
 
 See the Flea Scope™ User's Guide: [https://rtestardi.github.io/usbte/flea-scope.pdf](https://rtestardi.github.io/usbte/flea-scope.pdf)
 
 See the Web USB Flea Scope™ GUI repository: [https://github.com/rtestardi/usbte](https://github.com/rtestardi/usbte)
 (its 2×/5×/10× zoom time bases need the `scope -<n>` magnification this firmware no longer has).
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `src/` | `main.c` (startup, clocks, `#pragma config`), `config.h`, `main.h` |
+| `src/app/` | The commands: command line, `scope`, `stream`, `digital_stream`, `wave`, flash variables |
+| `src/platform/` | USB and CDC ACM, terminal, `printf`, flash and `upgrade`, parameter pages, ADC, timers, pins |
+| `test/` | Unity unit tests (`test/unit/`), the host stand-in for `main.h` (`test/host/`), Unity (`test/unity/`) |
+| `tools/` | HEX normalization and the `upgrade` compatibility check, run by the build |
+| `pic32.X/` | MPLAB X prebuilt project for flashing and debugging |
+| `docs/` | [Command reference](docs/commands.md); Rich Testardi's guides and articles (`.docx`) and release notes (`history/`) |
+| `hardware/` | Board design files, wiring diagram, prebuilt StickOS `.hex` files |
 
 ## Building the firmware
 
@@ -30,7 +44,7 @@ the pinned configuration words (a wrong oscillator or USB setting would leave th
 
 Override `XC32_ROOT=` / `DFP_DIR=` if they are installed elsewhere; an MPLAB X install under
 `/opt/microchip/mplabx/v*/packs` is found automatically. The root `Makefile` is the only build description and picks
-up every `.c` file under `cpustick/` and `sources/`, linked in sorted order per directory, so adding a source file needs
+up every `.c` file under `src/app/` and `src/platform/`, linked in sorted order per directory, so adding a source file needs
 no build edits.
 
 `pic32.X/` is an MPLAB X *prebuilt* project for flashing and debugging: it loads `out/pic32.X.production.elf`
@@ -44,7 +58,7 @@ make test        # Unity unit tests (test/unit/test_*.c); needs only a host C co
 
 Unit tests use [Unity](https://github.com/ThrowTheSwitch/Unity) (vendored in `test/unity/`, v2.7.0). Each
 `test/unit/test_*.c` is built into its own executable and picked up automatically. Firmware modules without SFR
-access or I/O (`cpustick/fleascope-calc.h`, `cpustick/flash-vars.c`, `sources/params.c`) are compiled for the host and
+access or I/O (`src/app/fleascope-calc.h`, `src/app/flash-vars.c`, `src/platform/params.c`) are compiled for the host and
 linked into the tests from an archive; a test provides fakes for what they call (e.g. a simulated flash), and
 `test/host/main.h` stands in for the firmware's `main.h`. Development is on Linux; on Windows, use WSL.
 

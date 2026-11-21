@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Parity-7.0.0
-// Host unit tests for cpustick/flash-vars.c, the StickOS-compatible flash
+// Host unit tests for src/app/flash-vars.c, the StickOS-compatible flash
 // variables that hosts use for probe calibration.
 //
 // What must not change: which parameter-page word a host's variable lands
@@ -83,7 +83,8 @@ test_redeclare_reports_each(void)
        "var 'cal_3v3_x1' already declared at this scope\n");
 }
 
-// python/scope.py and the original web client reserve unused[8] first
+// the original Python client (python/scope.py, since removed) and the
+// original web client reserve unused[8] first
 static void
 test_python_layout(void)
 {

@@ -8,13 +8,13 @@ All notable changes to the firmware are documented here.
 
 ### Breaking
 - **The StickOS BASIC interpreter is removed.** The firmware is a plain command line
-  (`cpustick/commands.c`) with `scope`, `stream`, `digital_stream`, `wave`, `ver`, `hostname`,
+  (`src/app/commands.c`) with `scope`, `stream`, `digital_stream`, `wave`, `ver`, `hostname`,
   `reset`, `upgrade`, `help`, `echo` and `prompt`, replying exactly as before. The BASIC
   statements hosts use for calibration — `dim <var>[[n]] as flash`, `print <var>, …`,
-  `[let] <var> = <n>` — are emulated (`cpustick/flash-vars.c`) with the same flash layout:
+  `[let] <var> = <n>` — are emulated (`src/app/flash-vars.c`) with the same flash layout:
   variables take the next parameter-page words in declaration order since reset, so stored
   calibrations are found again. Hostname and other parameters keep their flash locations
-  (`sources/params.c`). Everything else BASIC (programs, `run`, `list`, pin variables,
+  (`src/platform/params.c`). Everything else BASIC (programs, `run`, `list`, pin variables,
   `connect`/`nodeid`, `uptime`, `help <topic>`, autorun) is gone; the welcome banner changed.
 - **`scope -<n>` (magnification) is removed.** It repeated each sample n times on the device;
   the original web GUI uses it for its 2×/5×/10× time bases.
@@ -30,8 +30,17 @@ All notable changes to the firmware are documented here.
   `upgrade` rejects ("bad count"; it then aborts before writing anything). The build now
   normalizes the file to whole words and checks it (`tools/normalize-hex.py`,
   `tools/check-upgrade-hex.py`), including the configuration words.
+- **`scope` with an analog trigger no longer hangs.** Since 2025-09 it stopped the timer
+  interrupt before setting up the comparator, whose `delay()` waits on that interrupt, so the
+  device stopped responding, Ctrl-C included, until replugged.
+- **The device no longer comes up as WinUSB instead of a serial port after `scope` or
+  `stream`.** Both drive pin a0 low; at the next reset or `upgrade` the boot check read a0
+  before its pull-up had pulled it back up and chose the vendor-class (WinUSB) interface. The
+  check now waits 1 ms after enabling the pull-up.
 
 ### Added
+- **Command reference** ([docs/commands.md](docs/commands.md)): every command, its arguments
+  and its replies byte for byte.
 - **Host interpreter tests in CI**: the STICK_GUEST interpreter now builds with GCC on
   Linux (`make guest`), and CI runs the golden-output suites `test/test.sh`
   and `test/test3.sh` plus a `help.c` staleness check on every pull request.
@@ -42,6 +51,10 @@ All notable changes to the firmware are documented here.
   `fleascope-calc.h` test moved to `test/unit/test_fleascope_calc.c`.
 
 ### Changed
+- **Repository layout**: the firmware sources are in `src/` (`src/app/`, was `cpustick/`;
+  `src/platform/`, was `sources/`), the board files in `hardware/` (was `board/`), the
+  documents in `docs/` (was `doc/`). `python/scope.py`, `README.png` and `.nojekyll` are
+  removed.
 - Toolchain moved from XC32 4.35 to XC32 6.00 (GCC 13 base) and
   PIC32MK-GP_DFP 1.8.253 to 1.10.264. The old CI image used an AUR package
   that patched out XC32's license check to get `-O3`. XC32 6.00 provides
