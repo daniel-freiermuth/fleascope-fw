@@ -1,9 +1,7 @@
 // *** guestio.h ******************************************************
-// console I/O for STICK_GUEST builds, implemented in stickos/w32main.c.
-// N.B. only w32main.c includes the POSIX headers: <io.h> and <unistd.h> declare
-// names such as open() and umask() that other files use as identifiers, and on
-// Windows _CRT_NONSTDC_NO_WARNINGS must precede every CRT header to silence the
-// POSIX-name deprecation of isatty() and write().
+// console I/O for STICK_GUEST builds, implemented in stickos/guest-main.c, so
+// that files which use names such as open() as identifiers need not include
+// <unistd.h>.
 
 // this function returns true if stdin is a terminal rather than a file or pipe.
 bool

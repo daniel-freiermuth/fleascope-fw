@@ -1,14 +1,10 @@
-#if _WIN32
-// N.B. must precede every CRT header, since <corecrt.h> fixes the POSIX-name deprecation on first inclusion
-#define _CRT_NONSTDC_NO_WARNINGS  1
-#include <io.h>
-#else
+// *** guest-main.c ***************************************************
+// entry point and platform stubs for the STICK_GUEST build: the StickOS
+// interpreter as a POSIX program (Linux, WSL), used by test/ and help.sh.
+
 #include <unistd.h>
-#endif
-#if __unix__
 #include <signal.h>
 
-#endif
 #include <stdio.h>
 #include "main.h"
 #include "guestio.h"
@@ -114,23 +110,10 @@ terminal_command_error(int offset)
 }
 
 static
-#if __unix__
 void
-#else
-BOOL
-#endif
 ctrlc(int event)
 {
-#if __unix__
     stop();
-#else
-    if (event) {
-        return 0;
-    } else {
-        stop();
-        return 1;
-    }
-#endif
 }
 
 uint total_in;
@@ -209,12 +192,7 @@ main(int argc, char **argv)
         return generate_help();
     }
 
-#if __unix__
     signal(SIGINT, ctrlc);
-#else
-    SetErrorMode(0);
-    SetConsoleCtrlHandler((PHANDLER_ROUTINE)ctrlc, true);
-#endif
 
     flash_erase_pages((uint32 *)FLASH_CODE1_PAGE, BASIC_LARGE_PAGE_SIZE/FLASH_PAGE_SIZE);
     flash_erase_pages((uint32 *)FLASH_CODE2_PAGE, BASIC_LARGE_PAGE_SIZE/FLASH_PAGE_SIZE);

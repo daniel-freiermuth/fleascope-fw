@@ -36,10 +36,10 @@ TARGET    := $(BUILD_DIR)/pic32.X.production
 PROCESSOR := 32MK0512GPK064
 
 # cpustick/help.c is generated and #included by cpustick/basic0.c.
-# stickos/w32main.c is the STICK_GUEST host entry point (sh build.sh linux).
+# stickos/guest-main.c is the STICK_GUEST host entry point (sh build.sh linux).
 SRCS ?= $(filter-out cpustick/help.c,$(sort $(wildcard cpustick/*.c))) \
         $(sort $(wildcard sources/*.c)) \
-        $(filter-out stickos/w32main.c,$(sort $(wildcard stickos/*.c))) \
+        $(filter-out stickos/guest-main.c,$(sort $(wildcard stickos/*.c))) \
         main.c myplib.c
 
 OBJS := $(SRCS:%.c=$(BUILD_DIR)/obj/%.o)

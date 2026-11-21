@@ -4,9 +4,7 @@
 #include "main.h"
 #if STICK_GUEST
 #include "guestio.h"
-#if ! _WIN32
 #include <unistd.h>  // usleep()
-#endif
 #endif
 
 void
@@ -188,11 +186,7 @@ delay(int32 ms)
 #if STICK_GUEST
     // we sleep quicker for unit tests
     ms = stdin_is_tty()?(ms):(ms)/10;
-#if _WIN32
-    Sleep(ms);
-#else
     usleep(ms * 1000);
-#endif
 #else // ! STICK_GUEST
     int x;
     int32 m;

@@ -39,21 +39,6 @@ typedef uintptr_t uintptr;
 
 #else  // STICK_GUEST
 
-#if WIN32
-
-// _DEBUG/NDEBUG win
-#if _DEBUG
-#define SODEBUG  1
-#else
-#if NDEBUG
-#define SODEBUG  0
-#else
-#error _DEBUG/NDEBUG?
-#endif
-#endif  // _DEBUG
-
-#else  // WIN32
-
 // SODEBUG wins
 #if SODEBUG
 #define _DEBUG
@@ -63,18 +48,7 @@ typedef uintptr_t uintptr;
 #undef _DEBUG
 #endif  // SODEBUG
 
-#endif  // WIN32
-
-#if _WIN32
-#define _WIN32_WINNT 0x0601
-#include <windows.h>
-#undef MAX_PATH
-#if _MSC_VER && ! __STDC_VERSION__
-#define inline  __inline  // MSVC knows C's inline only under /std:c11 or later
-#endif
-#else
 #include <stdlib.h>  // exit()
-#endif
 
 #include <assert.h>
 #define ASSERT(x)  assert(x)

@@ -4,8 +4,6 @@
 #include "main.h"
 #if STICK_GUEST
 #include "guestio.h"
-#endif
-#if STICK_GUEST && __unix__
 #include <signal.h>
 #include <sys/time.h>
 #include <sys/times.h>
@@ -102,9 +100,6 @@ timer_ms(void)
 {
     int32 ms;
 
-#if _WIN32
-    ms = GetTickCount();
-#else
     static clock_t t0;
     clock_t t;
 
@@ -115,7 +110,6 @@ timer_ms(void)
         t0 = t;
     }
     ms = (int32)((unsigned long)t - (unsigned long)t0)*10;
-#endif
     ms *= stdin_is_tty()?1:10;
 
     return ms;
