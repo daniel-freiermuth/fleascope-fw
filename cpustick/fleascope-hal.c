@@ -1,4 +1,5 @@
 #include "main.h"
+#include "fleascope-calc.h"
 
 short dmabuffer[INTERLEAVE][2][128];  // filled by adc dma hardware
 
@@ -15,6 +16,15 @@ CASSERT(sizeof(bitsbuffer) == sizeof(adcbuffer));
 volatile uint current;  // current location where dma isr is filling adcbuffer
 
 volatile int currento;  // current % LENGTHOF(adcbuffer) maintained for performance
+
+// while set, the isr keeps current from wrapping; only allowed while nobody holds sample positions
+volatile bool current_rebasable;
+
+// a multiple of LENGTHOF(adcbuffer) (so currento and every ring index stay valid); rebasing from
+// 2*CURRENT_REBASE down to CURRENT_REBASE keeps current far above any pretrigger history we need
+#define CURRENT_REBASE  (LENGTHOF(adcbuffer)*65536)
+CASSERT(ADC_CHUNK_SAMPLES == INTERLEAVE*LENGTHOF(dmabuffer[0][0]));
+CASSERT(SCOPE_MAX_PRETRIGGER < LENGTHOF(adcbuffer));
 
 
 // accumulate dmabuffer into adcbuffer
@@ -71,6 +81,9 @@ scope_isr()
         if (currento == LENGTHOF(adcbuffer)) {
             currento = 0;
         }
+        if (current_rebasable && current >= 2*CURRENT_REBASE) {
+            current -= CURRENT_REBASE;
+        }
     }
 
     IFS3bits.AD1FCBTIF = 0; // Clear the ADC DMA Interrupt
@@ -85,6 +98,27 @@ void reset_buffers()
 uint get_current()
 {
     return current;
+}
+
+void set_current_rebasable(bool rebasable)
+{
+    current_rebasable = rebasable;
+}
+
+// number of samples taken so far (at Timer3 period granularity), including those not yet copied
+// to adcbuffer; valid while current_rebasable keeps current below INT_MAX
+int get_sample_position()
+{
+    uint c;
+    int periods;
+
+    // read a consistent pair; scope_isr may advance current in between
+    do {
+        c = current;
+        periods = (int)(DCH4DPTR/sizeof(bitsbuffer[4][0]));
+    } while (c != current);
+
+    return scope_samples_taken((int)c, periods, LENGTHOF(adcbuffer));
 }
 
 short(* get_bits_buffer())[2*128*10]

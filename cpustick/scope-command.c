@@ -2,7 +2,8 @@
 #include "fleascope-calc.h"
 
 
-// XXX -- is there any way to use dma counts to get accurate trigger position mid-capture???
+// we sample continuously while waiting for the trigger, so the reported window can start before
+// the trigger (negative delay); edge triggers are located in the recorded data, see locate_trigger()
 
 // hardware configuration: ra0, ra1, rb0, rb1, ra11 interleaved analog input
 
@@ -11,8 +12,12 @@
 #define SAMPLES  (2000*MSPS/20)  // approximate width of display canvas
 #define EXTRA  200  // extra samples in case web page wants to fine-scale
 
+// how far back from its detection we look for a trigger edge; scope_isr preempts the trigger poll
+// loop for less than one adc chunk (it must copy a chunk faster than the next one arrives)
+#define TRIGGER_SEARCH  (2*ADC_CHUNK_SAMPLES)
+
 // command line:
-// <sampleinterval> [+-=](<voltage>|0x<bits>) [<slew>|0x<mask>] [<delaysamples>]
+// <sampleinterval> [+-=](<voltage>|0x<bits>) [<slew>|0x<mask>] [[-]<delaysamples>]
 //          -10    -> 18  Msps -> 3.6  MHz timer with 5x interleave and 10x magnification
 //          -5     -> 18  Msps -> 3.6  MHz timer with 5x interleave and 5x magnification
 //          -2     -> 18  Msps -> 3.6  MHz timer with 5x interleave and 2x magnification
@@ -282,35 +287,77 @@ wait_for_digital_trigger(TriggerEdge edge, int number2, int number3)
     }
 }
 
-void
-wait_for_end(uint wait_samples)
+// wait until scope_isr has copied all samples before end into adcbuffer
+static void
+wait_for_samples(int end)
 {
-    int i;
-    int once;
-
-    once = 0;
-
-    if (pin_get(PIN_S1, pin_type_digital_input, 0) == 1) {
-        once = 1;
-    }
-
-    // wait for trigger and post samples; kill time and go easy on the bus
-    while (run_stop && get_current() < wait_samples+SAMPLES+EXTRA) {
+    // N.B. current stays below INT_MAX: it is rebased while waiting for the trigger
+    while (run_stop && (int)get_current() < end) {
         // XXX -- this causes possible power supply noise on 2.6 hacked to use unregulated +/-5V for op amp
         //__asm__("wait");
-        if (! once) {
-            // generate test pattern for loopback testing from a* to b*
-            for (i = 0; i < 9; i++) {
-                pin_set(PIN_A0+i, pin_type_digital_output, 0, 1);
-                pin_set(PIN_A0+i, pin_type_digital_output, 0, 0);
-            }
-            once = 1;
-
-            // resume timer interrupts
-            // XXX -- should this be after sample complete???
-            IEC0bits.T1IE = 1;
-        }
     }
+}
+
+// generate test pattern for loopback testing from a* to b* right after the trigger
+static void
+loopback_test_pattern()
+{
+    int i;
+
+    if (pin_get(PIN_S1, pin_type_digital_input, 0) == 1) {
+        return;
+    }
+
+    for (i = 0; i < 9; i++) {
+        pin_set(PIN_A0+i, pin_type_digital_output, 0, 1);
+        pin_set(PIN_A0+i, pin_type_digital_output, 0, 0);
+    }
+
+    // resume timer interrupts
+    // XXX -- should this be after sample complete???
+    IEC0bits.T1IE = 1;
+}
+
+// Return the first sample at which the trigger condition became true.  detected is the sample
+// position when the poll loop noticed the trigger; scope_isr can preempt the poll loop, so edges
+// are searched for in the recorded data with the trigger's own condition.  Level and auto
+// triggers have no edge and trigger at detected.
+// N.B. samples up to detected+INTERLEAVE-1 must be in adcbuffer; no sample before lowest is used.
+static int
+locate_trigger(int detected, int lowest, TriggerEdge edge, TriggerChannel channel, int trigger_value, int bits_of_interest)
+{
+    int hi;
+    int lo;
+    int s;
+
+    if (edge != RISE_AKA_START && edge != FALL_AKA_STOP) {
+        return detected;
+    }
+
+    // the newest sample that may have been taken before the poll loop noticed the trigger
+    hi = detected+INTERLEAVE-1;
+    lo = detected-TRIGGER_SEARCH;
+    if (lo < lowest) {
+        lo = lowest;
+    }
+
+    switch (channel) {
+    case ANALOG:
+        // CM1 compares rb1 (also sampled by adc3) against dac3, which gets the 10 bit level << 2
+        s = scope_find_analog_edge(get_adc_buffer(), get_adcbuffer_length(), hi, lo,
+                                   trigger_value << 2, edge == RISE_AKA_START);
+        break;
+    case DIGITAL:
+        s = scope_find_digital_edge(get_bits_buffer()[0], get_bitbuffer_length(), hi, lo,
+                                    vtopbits(trigger_value), vtopbits(bits_of_interest), edge == RISE_AKA_START);
+        break;
+    default:
+        assert(0);
+        s = -1;
+    }
+
+    // no edge in the data (e.g. dac3/adc mismatch): fall back to the poll loop's position
+    return s < 0 ? detected : s;
 }
 
 void stop_capture_scope() {
@@ -339,14 +386,14 @@ void stop_capture_scope() {
 }
 
 void
-send_result(uint wait_samples)
+send_result(int start)
 {
     int i;
     int bits;
     short(* bitsbuffer)[2*128*10] = get_bits_buffer();
     short* adcbuffer = get_adc_buffer();
 
-    for (i = wait_samples; i < wait_samples+SAMPLES+EXTRA; i++) {
+    for (i = start; i < start+SAMPLES+EXTRA; i++) {
         bits = bitsbuffer[i%INTERLEAVE][(i/INTERLEAVE)%get_bitbuffer_length()];
         printf("%d,%x\n", adcbuffer[i%get_adcbuffer_length()], ptovbits(bits));
     }
@@ -372,8 +419,15 @@ undo_board_config()
 }
 
 // Entrypoint
+// delay_samples < 0 starts the reported window before the trigger (down to -SCOPE_MAX_PRETRIGGER)
 void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trigger_value, int bits_of_interest, int delay_samples)
 {
+    int detected;
+    int lowest;
+    int start;
+
+    assert(delay_samples >= -SCOPE_MAX_PRETRIGGER);
+
     setup_board_scope();
     if (setup_capture_timer_scope(sample_length) < 0) {
         undo_board_config();
@@ -396,6 +450,16 @@ void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trig
     // temporarily turn off the timer interrupt
     IEC0bits.T1IE = 0;
 
+    // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
+    // we sample while waiting for the trigger, so the ring always holds the history before it;
+    // current may be rebased while we hold no sample positions, as the wait is unbounded
+    set_current_rebasable(true);
+    T3CONSET = _T3CON_ON_MASK;
+
+    // record the history a negative delay reports before arming the trigger
+    lowest = delay_samples < 0 ? -delay_samples : 0;
+    wait_for_samples(lowest);
+
     switch (channel) {
     case ANALOG:
         wait_for_analog_trigger(edge);
@@ -407,22 +471,30 @@ void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trig
         assert(0);
     }
 
+    set_current_rebasable(false);
+
+    start = 0;
     if (run_stop) {
-        // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
-        T3CONSET = _T3CON_ON_MASK;
+        detected = get_sample_position();
 
         pin_set(PIN_E2, pin_type_digital_output, 0, 1);  // we have triggered
+        loopback_test_pattern();
+
+        // locate the trigger in the recorded data once it is all in adcbuffer; lowest keeps the
+        // window from starting before the history we recorded
+        wait_for_samples(detected+INTERLEAVE);
+        start = locate_trigger(detected, lowest, edge, channel, trigger_value, bits_of_interest) + delay_samples;
     }
     pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger
 
-    wait_for_end(delay_samples);
+    wait_for_samples(start+SAMPLES+EXTRA);
     // resume timer interrupts
     IEC0bits.T1IE = 1;
 
     stop_capture_scope();
 
     if (run_stop) {
-        send_result(delay_samples);
+        send_result(start);
     }
 
     run_stop = false;

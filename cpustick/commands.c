@@ -23,7 +23,7 @@ const char * const help_about =
 ;
 
 static const char * const help_commands =
-"scope <qus> [+-~](<level>|0x<bits>) [<slew>|0x<mask>] [<delay>]\n"
+"scope <qus> [+-~](<level>|0x<bits>) [<slew>|0x<mask>] [[-]<delay>]\n"
 "stream [<timer ticks> [<averaging> [<bitwidth>]]]\n"
 "digital_stream 0x<mask> [<us_per_sample> [<n_samples_per_packet>]]\n"
 "wave (square|ekg|sine|triangle) <hz>\n"
@@ -137,6 +137,7 @@ command_scope(char **text)
     int number4;
     TriggerEdge edge;
     TriggerChannel channel;
+    bool pretrigger;
 
     number1 = 10;
     number2 = -1;
@@ -164,8 +165,19 @@ command_scope(char **text)
     if (**text && (! parse_const(text, &number3) || number3 &~ 1023)) {
         return false;
     }
-    if (**text && (! parse_const(text, &number4) || number4 < 0 || number4 > 1000000)) {
-        return false;
+    if (**text) {
+        // a negative delay reports samples from before the trigger
+        pretrigger = **text == '-';
+        if (pretrigger) {
+            (*text)++;
+        }
+        if (! parse_const(text, &number4) || number4 < 0 ||
+            number4 > (pretrigger ? SCOPE_MAX_PRETRIGGER : 1000000)) {
+            return false;
+        }
+        if (pretrigger) {
+            number4 = -number4;
+        }
     }
     if (**text) {
         return false;

@@ -38,6 +38,75 @@ scope_timer_count(int number1, int bus_mhz, int *ps)
     return ((unsigned int)bus_mhz*number1*INTERLEAVE / *ps + MSPS/2)/MSPS;  // 1:ps prescale
 }
 
+// Samples taken since the capture started.  `copied` is scope_isr's counter
+// (whole adc chunks); `periods` is the lane 4 DMA pointer in samples, i.e. the
+// Timer3 periods taken modulo the lane length (ring/INTERLEAVE).  Fewer than
+// `ring` samples are ever taken but not yet copied.
+static inline int
+scope_samples_taken(int copied, int periods, int ring)
+{
+    return copied + (INTERLEAVE*periods - copied%ring + ring) % ring;
+}
+
+// Edge triggers are located in the recorded data, as the poll loop notices
+// them late.  Both searches return the newest sample s in (lo, hi] whose
+// condition is true when rise (false when ! rise) while sample s-1's is not,
+// or -1 if there is none.  Absolute sample s is at s % ring in the adc ring
+// and at bits[(s % INTERLEAVE)*lane + (s / INTERLEAVE) % lane] in the
+// INTERLEAVE digital lanes of length lane.  Ring indices are stepped rather
+// than divided per sample: the search runs while sampling overwrites the ring.
+
+// condition: adc[s] >= threshold
+static inline int
+scope_find_analog_edge(const short *adc, int ring, int hi, int lo, int threshold, bool rise)
+{
+    int s;
+    int o;
+    bool now;
+    bool before;
+
+    o = hi % ring;
+    now = adc[o] >= threshold;
+    for (s = hi; s > lo; s--) {
+        o = o ? o-1 : ring-1;
+        before = adc[o] >= threshold;
+        if (now == rise && before != rise) {
+            return s;
+        }
+        now = before;
+    }
+    return -1;
+}
+
+// condition: (bits[s] & mask) == value
+static inline int
+scope_find_digital_edge(const short *bits, int lane, int hi, int lo, int value, int mask, bool rise)
+{
+    int s;
+    int l;
+    int k;
+    bool now;
+    bool before;
+
+    l = hi % INTERLEAVE;
+    k = (hi / INTERLEAVE) % lane;
+    now = (bits[l*lane + k] & mask) == value;
+    for (s = hi; s > lo; s--) {
+        if (l) {
+            l--;
+        } else {
+            l = INTERLEAVE-1;
+            k = k ? k-1 : lane-1;
+        }
+        before = (bits[l*lane + k] & mask) == value;
+        if (now == rise && before != rise) {
+            return s;
+        }
+        now = before;
+    }
+    return -1;
+}
+
 // --------------------------------------------------------------- stream
 
 // True when the DMA sample counter `current` is ahead of `sent`.  Both are

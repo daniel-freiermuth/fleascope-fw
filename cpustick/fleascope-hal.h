@@ -1,11 +1,14 @@
 #define MSPS  18  // approximate target sample rate
 #define INTERLEAVE  5  // we interleave results from 5 adcs
+#define ADC_CHUNK_SAMPLES  (INTERLEAVE*128)  // samples scope_isr copies into adcbuffer at once
 
 void wave(char *pattern, int hz);
 void scope_initialize();
 void configure_pmd_once();
 void reset_buffers();
 uint get_current();
+void set_current_rebasable(bool rebasable);
+int get_sample_position();
 short(* get_bits_buffer())[2*128*10];
 short* get_adc_buffer();
 void start_T3();
