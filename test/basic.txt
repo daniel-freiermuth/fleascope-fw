@@ -6697,3 +6697,7 @@ test input lines
 4
 7
 5
+test private keyword
+5
+error -     ^
+end
