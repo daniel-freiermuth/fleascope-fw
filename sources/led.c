@@ -28,9 +28,7 @@ led_set(enum led n, int on)
 {
     assert (n >= 0 && n < led_max);
 
-#if ! STICK_GUEST
     pin_set(pin_assignments[pin_assignment_heartbeat], pin_type_digital_output, 0, on);
-#endif // ! STICK_GUEST
 }
 
 void
@@ -49,7 +47,6 @@ led_timer_poll()
     }
 }
 
-#if ! STICK_GUEST
 
 // this function displays a diagnostic code on a LED.
 void
@@ -139,15 +136,12 @@ led_hex(int hex)
     }
 }
 
-#endif // ! STICK_GUEST
 
 // this function initializes the led module.
 void
 led_initialize(void)
 {
-#if ! STICK_GUEST
     pin_assign(pin_assignment_heartbeat, pin_assignments[pin_assignment_heartbeat]);
     pin_set(pin_assignments[pin_assignment_heartbeat], pin_type_digital_output, 0, true);
-#endif // ! STICK_GUEST
 }
 

@@ -2,10 +2,6 @@
 // this file implements generic utility functions.
 
 #include "main.h"
-#if STICK_GUEST
-#include "guestio.h"
-#include <unistd.h>  // usleep()
-#endif
 
 void
 write32(byte *addr, uint32 data)
@@ -96,19 +92,9 @@ byteswap(uint32 x, uint32 size)
 int
 gpl(void)
 {
-#if ! STICK_GUEST
     int oldlevel;
 
     oldlevel = (_CP0_GET_STATUS() >> 10) & 7;
-#else
-    short csr;
-    int oldlevel;
-
-    // get the sr
-    csr = get_sr();
-
-    oldlevel = (csr >> 8) & 7;
-#endif
     return oldlevel;
 }
 
@@ -116,7 +102,6 @@ gpl(void)
 int
 splx(int level)
 {
-#if ! STICK_GUEST
     int csr;
     int oldlevel;
 
@@ -140,30 +125,6 @@ splx(int level)
 
     assert(oldlevel >= 0 && oldlevel <= 7);
     return -oldlevel;
-#else
-    short csr;
-    int oldlevel;
-
-    // get the sr
-    csr = get_sr();
-
-    oldlevel = (csr >> 8) & 7;
-    if (level <= 0) {
-        // we're going down
-        level = -level;
-    } else {
-        // we're going up
-        level = MAX(level, oldlevel);
-    }
-    assert(level >= 0 && level <= 7);
-    csr = (csr & 0xf8ff) | (level << 8);
-
-    // update the sr
-    set_sr(csr);
-
-    assert(oldlevel >= 0 && oldlevel <= 7);
-    return -oldlevel;
-#endif
 }
 
 static volatile int g;
@@ -183,11 +144,6 @@ blip(void)
 void
 delay(int32 ms)
 {
-#if STICK_GUEST
-    // we sleep quicker for unit tests
-    ms = stdin_is_tty()?(ms):(ms)/10;
-    usleep(ms * 1000);
-#else // ! STICK_GUEST
     int x;
     int32 m;
     int blips;
@@ -213,7 +169,6 @@ delay(int32 ms)
             }
         }
     }
-#endif // ! STICK_GUEST
 }
 
 int
@@ -266,7 +221,6 @@ tailtrim(char *text)
 void *
 memcpy(void *d,  const void *s, size_t n)
 {
-#if ! STICK_GUEST
     if (((uintptr)d&3)+((uintptr)s&3)+(n&3) == 0) {
         uint32 *dtemp = d;
         const uint32 *stemp = s;
@@ -276,16 +230,13 @@ memcpy(void *d,  const void *s, size_t n)
             *(dtemp++) = *(stemp++);
         }
     } else {
-#endif
         uint8 *dtemp = d;
         const uint8 *stemp = s;
 
         while (n--) {
             *(dtemp++) = *(stemp++);
         }
-#if ! STICK_GUEST
     }
-#endif
     return d;
 }
 
@@ -308,7 +259,6 @@ memmove(void *d,  const void *s, size_t n)
 void *
 memset(void *p,  int d, size_t n)
 {
-#if ! STICK_GUEST
     int dd;
 
     if (((uintptr)p&3)+(n&3) == 0) {
@@ -321,15 +271,12 @@ memset(void *p,  int d, size_t n)
             *(ptemp++) = dd;
         }
     } else {
-#endif
         uint8 *ptemp = p;
 
         while (n--) {
             *(ptemp++) = d;
         }
-#if ! STICK_GUEST
     }
-#endif
     return p;
 }
 
@@ -525,31 +472,7 @@ isprint(int c)
     return (c >= ' ') && (c <= '~');
 }
 
-#if STICK_GUEST
-static uint16 sr = 0x2000;
-#endif
 
-#if STICK_GUEST
-uint16
-get_sr(void)
-{
-    uint16 csr;
-#if STICK_GUEST
-    csr = sr;
-#endif
-    assert(csr & 0x2000);
-    return csr;
-}
-
-void
-set_sr(uint16 csr)
-{
-    assert(csr & 0x2000);
-#if STICK_GUEST
-    sr = csr;
-#endif
-}
-#endif
 
 static uint32 m_w = 1;    /* must not be zero */
 static uint32 m_z = 2;    /* must not be zero */

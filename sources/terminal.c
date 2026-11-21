@@ -1,9 +1,6 @@
 #include "main.h"
 
 bool terminal_echo = true;
-int terminal_rxid = -1;  // node we forward our receives to
-int terminal_txid = -1;  // node we forward our prints to
-volatile int32 terminal_getchar;
 
 static terminal_command_cbfn command_cbfn;
 static terminal_ctrlc_cbfn ctrlc_cbfn;
@@ -13,7 +10,7 @@ static char command[BASIC_INPUT_LINE_SIZE];
 
 // this buffer holds the extra command characters provided by the inbound
 // transport beyond the end of the current comamnd.
-static char extra[MAX((ZB_PAYLOAD_SIZE), 64)];
+static char extra[64];
 
 static byte hist_in;
 static byte hist_out;
@@ -35,39 +32,17 @@ static char tail[BASIC_INPUT_LINE_SIZE];
 // terminal_poll().
 static char echo[BASIC_INPUT_LINE_SIZE*2];
 
-// this buffer holds characters queued by an isr to be forwarded later
-// by terminal_poll().
-static char forward[BASIC_INPUT_LINE_SIZE*2];
-
 static bool ack = true;
 
 void
 terminal_print(const byte *buffer, int length)
 {
-    int id;
-    bool printed;
-
     assert(gpl() == 0);
 
     led_unknown_progress();
 
-    printed = false;
-
-    // if we're connected to another node...
-    id = terminal_txid;
-    if (id != -1) {
-        // forward packets
-        zb_send(id, zb_class_print, length, buffer);
-    }
-
-    if (serial_active) {
-        serial_send(buffer, length);
-        printed = true;
-    }
-
     if (cdcacm_attached && cdcacm_active) {
         cdcacm_print(buffer, length);
-        printed = true;
     }
 }
 
@@ -301,10 +276,7 @@ terminal_receive_internal(byte *buffer, int length)
 {
     int i;
     int j;
-    int x;
-    int id;
     char c;
-    bool boo;
     static byte term;
 
     led_unknown_progress();
@@ -332,35 +304,12 @@ terminal_receive_internal(byte *buffer, int length)
     // N.B. we just rewrote buffer and may have shortened length!
     length = j;
 
-    // if we're connected to another node...
-    id = terminal_rxid;
-    if (id != -1) {
-        // forward packets
-        x = splx(5);
-        strncat(forward, (char *)buffer, length);
-        assert(strlen(forward) < sizeof(forward));
-        boo = !!strchr((char *)forward, '\r');
-        splx(x);
-
-        // if we're forwarding a return...
-        if (boo) {
-            // slow us down
-            ack = false;
-            return false;
-        }
-        return true;
-    }
 
     // accumulate commands
     for (j = 0; j < length; j++) {
         if (buffer[j] == '\003') {
             assert(ctrlc_cbfn);
             ctrlc_cbfn();
-        }
-
-        // if the other node just disconnected from us...
-        if (buffer[j] == '\004') {
-            terminal_txid = -1;
         }
 
         // discard here
@@ -382,7 +331,6 @@ terminal_receive_internal(byte *buffer, int length)
                 extra[length-(j+1)] = '\0';
 
                 ack = false;
-                zb_drop(true);
 
                 assert(command_cbfn);
                 command_cbfn(command);
@@ -392,8 +340,6 @@ terminal_receive_internal(byte *buffer, int length)
             } else {
                 accumulate(buffer[j]);
             }
-        } else {
-            terminal_getchar = buffer[j];
         }
     }
 
@@ -415,48 +361,15 @@ terminal_receive_internal(byte *buffer, int length)
 bool
 terminal_receive(byte *buffer, int length)
 {
-    if (length) {
-        // reply to local node
-        terminal_txid = -1;
-    }
-
     return terminal_receive_internal(buffer, length);
 }
 
-void
-terminal_wait(void)
-{
-    while (! ack) {
-        os_yield();
-    }
-}
-
-// this function allows the user to edit a recalled history line.
-void
-terminal_edit(char *line)
-{
-    // put an unmodified copy of the line in history
-    strncpy(history[hist_in], line, sizeof(history[hist_in])-1);
-    hist_in = HISTWRAP(hist_in+1);
-
-    // and then allow the user to edit it
-    strncpy(command, line, sizeof(command)-1);
-}
-
-// this function causes us to discard typed characters while the
-// BASIC program is running, except Ctrl-C.
-// discarding here
+// this function causes us to discard typed characters while a capture
+// is running, except Ctrl-C.
 void
 terminal_command_discard(bool discard_in)
 {
     discard = discard_in;
-    terminal_getchar = 0;
-}
-
-bool
-terminal_command_discarding(void)
-{
-    return discard;
 }
 
 // this function acknowledges receipt of an FTDI command from upper
@@ -490,13 +403,9 @@ terminal_command_ack(bool edit)
         }
     }
 
-    if (terminal_txid == -1) {
-        cdcacm_command_ack();
-        serial_command_ack();
-    }
+    cdcacm_command_ack();
 
     ack = true;
-    zb_drop(false);
 }
 
 // this function is called by upper level code in response to an
@@ -557,30 +466,6 @@ terminal_poll(void)
         last = msecs;
     }
 
-    x = splx(5);
-    strcpy(copy, forward);
-    assert(strlen(copy) < sizeof(copy));
-    forward[0] = '\0';
-    splx(x);
-
-    if (copy[0]) {
-        zb_send(terminal_rxid, zb_class_receive, strlen(copy), (byte *)copy);
-        if (copy[0] == '\004') {
-            // stop forwarding packets on Ctrl-D
-            terminal_rxid = -1;
-        }
-
-        if (strchr((char *)copy, '\r')) {
-            if (terminal_txid == -1) {
-                cdcacm_command_ack();
-                serial_command_ack();
-            }
-
-            ack = true;
-        }
-    }
-
-    zb_poll();
 
     os_yield();
 }
@@ -591,33 +476,3 @@ terminal_register(terminal_command_cbfn command, terminal_ctrlc_cbfn ctrlc)
     command_cbfn = command;
     ctrlc_cbfn = ctrlc;
 }
-
-static void
-class_receive(int nodeid, int length, byte *buffer)
-{
-    if (length) {
-        // reply to remote node
-        terminal_txid = nodeid;
-    }
-
-    (void)terminal_receive_internal(buffer, length);
-}
-
-static void
-class_print(int nodeid, int length, byte *buffer)
-{
-    int x;
-
-    x = splx(5);
-    strncat(echo, (char *)buffer, length);
-    assert(strlen(echo) < sizeof(echo));
-    splx(x);
-}
-
-void
-terminal_initialize(void)
-{
-    zb_register(zb_class_receive, class_receive);
-    zb_register(zb_class_print, class_print);
-}
-

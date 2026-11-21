@@ -163,8 +163,6 @@ usb_device_default()
     // enable (also) usb sleep and token done interrupts
     U1IR = 0xff;
     U1IE |= _U1IE_IDLEIE_MASK|_U1IE_TRNIE_MASK;
-
-    serial_uninitialize();
 }
 
 // enqueue a packet to the usb engine for transfer to/from the host
@@ -227,9 +225,7 @@ static byte configuration[CONFIGURATION_DESCRIPTOR_SIZE];
 
 // called by usb on device attach
 void
-#if ! STICK_GUEST
 __ISR(_USB_1_VECTOR, PIC32IPL4)
-#endif
 usb_isr(void)
 {
     int rv;
@@ -321,7 +317,7 @@ usb_isr(void)
                         // #4
                         int i;
                         int j;
-                        char *p;
+                        const char *p;
 
                         // find the string descriptor
                         i = value & 0xff;
@@ -339,7 +335,7 @@ usb_isr(void)
                             if (endpoints[endpoint].data_buffer[2] == '@' || endpoints[endpoint].data_buffer[2] == '#') {
                                 if (endpoints[endpoint].data_buffer[2] == '@') {
                                     // patch in the hostname
-                                    p = var_get_flash_name();
+                                    p = params_get_name();
                                 } else {
                                     // patch in the serial number
                                     p = usb_serial;
