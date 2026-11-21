@@ -16,6 +16,8 @@ All notable changes to the firmware are documented here.
   calibrations are found again. Hostname and other parameters keep their flash locations
   (`sources/params.c`). Everything else BASIC (programs, `run`, `list`, pin variables,
   `connect`/`nodeid`, `uptime`, `help <topic>`, autorun) is gone; the welcome banner changed.
+- **`scope -<n>` (magnification) is removed.** It repeated each sample n times on the device;
+  the original web GUI uses it for its 2×/5×/10× time bases.
 - Removed with BASIC: ZigFlea wireless support, the UART console, the I2C and QSPI drivers,
   the help-text compressor, the STICK_GUEST host build with its golden-output tests and
   `make guest`/`make help`, `code.txt`/`qa.txt` and the BASIC documents in `doc/`.
