@@ -208,7 +208,14 @@ scope_initialize()
     //CNPUB = ~ANSELB;          // do not enable pullups for logic analyzer inputs!
 
     CNPUB = 0x0080;             // enable pullup only for a0(not AN0)/RB7
-    Nop(); Nop();               // we seem to need a delay here to get the next line reliable!
+
+    // Let the pull-up charge the pin before reading it. Two Nop()s (17 ns)
+    // were not enough when a0 starts at 0 V: scope and stream drive it low as
+    // an output, so a reset or upgrade right after a capture read it as
+    // grounded and came up in WinUSB mode, without a serial port. 1 ms is far
+    // longer than the pull-up needs. Interrupts are still off here, so delay()
+    // busy-waits with the loop count main() just calibrated.
+    delay(1);
 
     force_winusb = ! (PORTB & 0x0080);  // if pin a0(not AN0)/RB7 is grounded, force winusb instead of CDC/ACM for samsung phones
 
