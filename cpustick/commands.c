@@ -1,4 +1,5 @@
 // *** commands.c *****************************************************
+// SPDX-License-Identifier: Parity-7.0.0
 // the Flea-Scope command line: the main loop that waits for command lines
 // from the terminal and runs them. It answers in the format the StickOS
 // interpreter used, so existing hosts keep working:

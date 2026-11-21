@@ -1,4 +1,5 @@
 // *** params.h *******************************************************
+// SPDX-License-Identifier: Parity-7.0.0
 // persistent parameters: two A/B flash pages at the top of program flash,
 // in the layout StickOS used, so devices keep their hostname and
 // calibration across firmware versions.

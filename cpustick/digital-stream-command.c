@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Parity-7.0.0
 #include "main.h"
 #include "fleascope-calc.h"
 
