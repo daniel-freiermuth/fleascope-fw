@@ -8,10 +8,6 @@ extern volatile int32 seconds;  // incremented by pit0 isr every second
 
 extern bool volatile timer_in_isr;
 
-#if STICK_GUEST
-void
-timer_ticks(bool align);
-#endif
 
 void
 timer_initialize(void);

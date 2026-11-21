@@ -2,12 +2,6 @@
 // this file implements the core interval timer used internally.
 
 #include "main.h"
-#if STICK_GUEST
-#include "guestio.h"
-#include <signal.h>
-#include <sys/time.h>
-#include <sys/times.h>
-#endif
 
 #if SODEBUG
 volatile bool timer_in_isr;
@@ -27,9 +21,7 @@ enum { msecs_per_debounce = 4 }; // tunable
 
 // called by pit0 every tick
 void
-#if ! STICK_GUEST
 __ISR(_TIMER_1_VECTOR, PIC32IPL4)
-#endif
 timer_isr(void)
 {
     bool debouncing;
@@ -39,9 +31,7 @@ timer_isr(void)
     assert((timer_in_ticks = ticks) ? true : true);
 
     // clear the interrupt flag
-#if ! STICK_GUEST
     IFS0CLR = _IFS0_T1IF_MASK;
-#endif // ! STICK_GUEST
 
     ticks++;
 
@@ -72,11 +62,6 @@ timer_isr(void)
             led_timer_poll();
         }
 
-        // profile every msec while running
-        if (running) {
-            code_timer_poll();
-        }
-
     } else {
         debouncing = false;
     }
@@ -90,70 +75,6 @@ timer_isr(void)
     assert((timer_max_ticks = MAX(timer_max_ticks, timer_out_ticks-timer_in_ticks)) ? true : true);
 }
 
-#if STICK_GUEST
-static int32 oms;  // msecs already accounted for
-static int32 tbd;  // ticks to be delivered
-
-static
-int32
-timer_ms(void)
-{
-    int32 ms;
-
-    static clock_t t0;
-    clock_t t;
-
-    // N.B. times() starts near 2^32 jiffies on Linux; count from our first call
-    // so the int32 math below cannot overflow (for ~2.5 days of runtime)
-    t = times(NULL);
-    if (! t0) {
-        t0 = t;
-    }
-    ms = (int32)((unsigned long)t - (unsigned long)t0)*10;
-    ms *= stdin_is_tty()?1:10;
-
-    return ms;
-}
-
-// deliver timer ticks for STICK_GUEST builds
-void
-timer_ticks(bool align)
-{
-    int x;
-    int32 ms;
-
-    ms = timer_ms();
-
-    // if we are starting a run...
-    if (align) {
-        // wait for a time change
-        while (timer_ms() == ms) {
-            // NULL
-        }
-        ms = timer_ms();
-    }
-
-    // if the time has changed...
-    if (ms != oms) {
-        // schedule the ticks for delivery
-        tbd += (ms-oms)*ticks_per_msec;
-        oms = ms;
-    }
-
-    // deliver the ticks
-    while (tbd) {
-        x = splx(5);
-        timer_isr();
-        splx(x);
-        tbd--;
-
-        // N.B. if we're runnning (vs. starting a run) we only deliver one tick per call
-        if (! align) {
-            break;
-        }
-    }
-}
-#endif
 
 // this function initializes the timer module.
 void
@@ -162,7 +83,6 @@ timer_initialize(void)
     assert(IS_POWER_OF_2(ticks_per_msec));
     assert(IS_POWER_OF_2(msecs_per_debounce));
 
-#if ! STICK_GUEST
     // configure t1 to interrupt every ticks times per msec.
     T1CONCLR = _T1CON_ON_MASK;
     T1CON = (1 << _T1CON_TCKPS_POSITION);  // 1:8 prescale
@@ -174,8 +94,5 @@ timer_initialize(void)
     IEC0bits.T1IE = 1;
     IPC1bits.T1IP = 4;
     IPC1bits.T1IS = 0;
-#else  // ! STICK_GUEST
-    oms = timer_ms();
-#endif // ! STICK_GUEST
 }
 

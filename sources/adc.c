@@ -27,9 +27,7 @@ int adc_debounce_set;
 void
 adc_timer_poll(bool debouncing)
 {
-#if ! STICK_GUEST
     int i;
-#endif
 
     if (! adc_initialized) {
         return;
@@ -37,7 +35,6 @@ adc_timer_poll(bool debouncing)
 
     assert(adc_debounce_set < adc_num_debounce_history);
 
-#if ! STICK_GUEST
     for (i = 0; i < adc_num_channel; i++) {
         adc_result[i] = ReadADC10(i);  // 0..4095
         if (debouncing) {
@@ -48,7 +45,6 @@ adc_timer_poll(bool debouncing)
     // trigger adc scan now
     ADCCON3bits.GSWTRG = 1;
 
-#endif // ! STICK_GUEST
 
     // if a debounced set if full, then advance the debouncing index to the next set.
     if (debouncing) {
@@ -61,8 +57,6 @@ adc_timer_poll(bool debouncing)
 void
 adc_sleep()
 {
-#if ! STICK_GUEST
-#endif // ! STICK_GUEST
 }
 
 int
@@ -100,7 +94,6 @@ adc_get_value(int offset, int pin_qual)
 void
 adc_initialize(void)
 {
-#if ! STICK_GUEST
     // calibrate shared adc 7
     ADC7CFG = DEVADC7;
 
@@ -148,7 +141,6 @@ adc_initialize(void)
 
     ADCCON3bits.DIGEN7 = 1;      // Enable ADC
 
-#endif // ! STICK_GUEST
 
     adc_initialized = true;
 }

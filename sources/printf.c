@@ -3,9 +3,6 @@
 // console transport.
 
 #include "main.h"
-#if STICK_GUEST
-#include "guestio.h"
-#endif
 #include <stdarg.h>
 extern bool debugger_attached;
 
@@ -195,14 +192,12 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
             }
             i += j;
         } else {
-#if ! STICK_GUEST
             if (c == '\n') {
                 if (i < length) {
                     buffer[i] = '\r';
                 }
                 i++;
             }
-#endif
             if (i < length) {
                 buffer[i] = c;
             }
@@ -214,18 +209,12 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
         buffer[i] = '\0';
     } else {
         if (nl) {
-#if ! STICK_GUEST
             if (length > 2) {
                 buffer[length-3] = '\r';
             }
             if (length > 1) {
                 buffer[length-2] = '\n';
             }
-#else
-            if (length > 1) {
-                buffer[length-2] = '\n';
-            }
-#endif
         }
         if (length > 0) {
             buffer[length-1] = '\0';
@@ -269,24 +258,15 @@ vsprintf(char *buffer, const char *format, va_list ap)
 }
 
 
-#if ! STICK_GUEST
 static char printf_buffer[BASIC_OUTPUT_LINE_SIZE+2];  // 2 for \r\n
-#else
-static char printf_buffer[BASIC_OUTPUT_LINE_SIZE+1];  // 1 for \n
-#endif
 
 int
 printf_write(char *buffer, int n)
 {
     static uint32 last_scsi_attached_count;
 
-#if STICK_GUEST
-    console_write(buffer, n);
-    return n;
-#else
     terminal_print((byte *)buffer, n);
     return n;
-#endif
 }
 
 int
