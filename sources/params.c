@@ -1,4 +1,5 @@
 // *** params.c *******************************************************
+// SPDX-License-Identifier: Parity-7.0.0
 // persistent parameters stored in two A/B flash pages; see params.h.
 
 #include "main.h"

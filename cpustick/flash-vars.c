@@ -1,4 +1,5 @@
 // *** flash-vars.c ***************************************************
+// SPDX-License-Identifier: Parity-7.0.0
 // BASIC-compatible flash variables; see flash-vars.h. Messages match the
 // StickOS interpreter's.
 
