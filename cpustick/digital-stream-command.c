@@ -1,9 +1,6 @@
 #include "main.h"
 #include "fleascope-calc.h"
 
-#if ! defined(__32MK0512GPK064__) && ! defined(__32MK0512MCM064__)
-#error  only __32MK__ is supported for digital stream
-#endif
 
 // Command: digital_stream 0x<mask> <us_per_sample> <n_samples_per_packet>
 //

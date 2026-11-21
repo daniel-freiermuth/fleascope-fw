@@ -20,10 +20,6 @@
 // Enable in-memory trace buffer for debugging with the trace() macro.
 #define IN_MEMORY_TRACE 0
 
-#if STICK_GUEST
-#define __32MK0512GPK064__  1
-#endif
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -38,8 +34,6 @@ typedef uintptr_t uintptr;
 #if ! STICK_GUEST
 
 #include <myplib.h>
-
-#define MCU_CORE_BITS 32
 
 #define asm_halt()  asm("SDBBP 0");
 

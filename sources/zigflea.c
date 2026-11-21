@@ -749,13 +749,9 @@ zb_initialize(void)
 
     zb_nodeid = main_nodeid();
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
     // enable int1*
     IEC0bits.INT1IE = 1;
     IPC2bits.INT1IP = 4;
     IPC2bits.INT1IS = 0;
-#else
-#error
-#endif
 }
 

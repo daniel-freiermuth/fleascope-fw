@@ -22,11 +22,7 @@ const char * const pin_assignment_names[] = {
 
 byte pin_assignments[pin_assignment_max] = {
     // set our default pin assignments
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
     PIN_E1, PIN_S1, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED,
-#else
-#error
-#endif
 };
 
 const char * const pin_type_names[] = {
@@ -67,7 +63,6 @@ static byte declared[(PIN_UNASSIGNED+7)/8];
 #define DIO  (1<<pin_type_digital_output|1<<pin_type_digital_input)
 
 const struct pin pins[] = {
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
     "a0", DIO,
     "a1", DIO|1<<pin_type_analog_input,
     "a2", DIO|1<<pin_type_analog_input,
@@ -90,9 +85,6 @@ const struct pin pins[] = {
     "e2", DIO,
     "e3", DIO,
     "s1", DIO,
-#else
-#error
-#endif
     "none", 0,
 };
 
@@ -105,11 +97,7 @@ const char * const uart_names[MAX_UARTS] = {
 
 static byte freq[2];  // 0, pin_type_analog_output, pin_type_servo_output, pin_type_frequency_output
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
 #define FREQ_PRESCALE  256
-#else
-#error
-#endif
 
 #if ! STICK_GUEST
 
@@ -161,7 +149,6 @@ pin_get_digital_debounced(int port_offset, int pin_offset)
 
 #endif // ! STICK_GUEST
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
 unsigned char pin_to_an(int pin)
 {
     if (pin == PIN_A1) {
@@ -185,7 +172,6 @@ unsigned char pin_to_an(int pin)
         return -1;
     }
 }
-#endif
 
 
 static
@@ -211,7 +197,6 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
 
     // configure the PIC32 pin for the requested function
     switch (pin_number) {
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
         // configure MK
         case PIN_A0:
             // RB
@@ -441,9 +426,6 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
                 TRISCCLR = 1 << offset;
             }
             break;
-#else
-#error
-#endif
             break;
         default:
             assert(0);
@@ -529,7 +511,6 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
 
     // set the PIC32 pin to value
     switch (pin_number) {
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
         // set MK
         case PIN_A0:
             // RB
@@ -746,9 +727,6 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
                 LATCCLR = 1 << offset;
             }
             break;
-#else
-#error
-#endif
         default:
             assert(0);
             break;
@@ -779,7 +757,6 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
 
     // get the value of the PIC32 pin
     switch (pin_number) {
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
         // get MK
         case PIN_A0:
             // RB
@@ -931,9 +908,6 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
                 value = !! (PORTC & 1 << offset);
             }
             break;
-#else
-#error
-#endif
         default:
             assert(0);
             break;
@@ -1180,7 +1154,7 @@ pin_assign(int assign, int pin)
     }
 }
 
-#if ! STICK_GUEST && (defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__))
+#if ! STICK_GUEST
 // route OC1-OC6 to their output pins
 void
 pin_oc_route(void)
@@ -1233,7 +1207,6 @@ pin_initialize(void)
     // we have to manage shared timer resources across pins
     pin_clear();
     
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
     // N.B. we do not enable pullups on any pins scanned by ADC because doing so causes other scanned ADCs
     //      to get the wrong values (if the pullup pins are floating) -- I don't understand why!
 
@@ -1247,9 +1220,6 @@ pin_initialize(void)
     //CNPUG = ~ANSELG;  // keep inputs at low power  // XXX -- WHY DOES THIS BREAK TOASTER ANALOG INPUT???
 
     pin_oc_route();
-#else
-#error
-#endif
 
     // load up our pin assignments
     for (i = 0; i < pin_assignment_max; i++) {
