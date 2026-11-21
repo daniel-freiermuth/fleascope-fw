@@ -12,6 +12,19 @@ See the Flea Scope™ User's Guide: [https://rtestardi.github.io/usbte/flea-scop
 See the Web USB Flea Scope™ GUI repository: [https://github.com/rtestardi/usbte](https://github.com/rtestardi/usbte)
 (its 2×/5×/10× zoom time bases need the `scope -<n>` magnification this firmware no longer has).
 
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `src/` | `main.c` (startup, clocks, `#pragma config`), `config.h`, `main.h` |
+| `src/app/` | The commands: command line, `scope`, `stream`, `digital_stream`, `wave`, flash variables |
+| `src/platform/` | USB and CDC ACM, terminal, `printf`, flash and `upgrade`, parameter pages, ADC, timers, pins |
+| `test/` | Unity unit tests (`test/unit/`), the host stand-in for `main.h` (`test/host/`), Unity (`test/unity/`) |
+| `tools/` | HEX normalization and the `upgrade` compatibility check, run by the build |
+| `pic32.X/` | MPLAB X prebuilt project for flashing and debugging |
+| `docs/` | Rich Testardi's guides and articles (`.docx`) and release notes (`history/`) |
+| `hardware/` | Board design files, wiring diagram, prebuilt StickOS `.hex` files |
+
 ## Building the firmware
 
 Requires MPLAB XC32 v6.00 (default location `/opt/microchip/xc32/v6.00`), the PIC32MK-GP device pack 1.10.264, and
