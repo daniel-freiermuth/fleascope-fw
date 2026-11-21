@@ -153,9 +153,8 @@ stream_data(uint averaging, uint bitwidth)
 
     uint bits_per_sample = stream_bits_per_sample(averaging);
     byte out[3];
-    // one USB packet; cdcacm sends at most 63 bytes per packet (short packets
-    // end each transfer), so 63-byte writes map to packets one to one
-    byte chunk[63];
+    // EXPERIMENT: one full 64-byte USB packet
+    byte chunk[64];
     int used = 0;
 
     // each output sample uses one group of INTERLEAVE interleaved adc samples;
