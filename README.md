@@ -10,6 +10,7 @@ unchanged, so existing hosts such as [fleascope-rs](https://github.com/daniel-fr
 See the Flea Scope™ User's Guide: [https://rtestardi.github.io/usbte/flea-scope.pdf](https://rtestardi.github.io/usbte/flea-scope.pdf)
 
 See the Web USB Flea Scope™ GUI repository: [https://github.com/rtestardi/usbte](https://github.com/rtestardi/usbte)
+(its 2×/5×/10× zoom time bases need the `scope -<n>` magnification this firmware no longer has).
 
 ## Building the firmware
 
