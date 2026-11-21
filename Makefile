@@ -123,12 +123,14 @@ fetch-dfp:
 HOST_CC     ?= cc
 HOST_DIR    := $(BUILD_DIR)/host
 UNITY_DIR   := test/unity
-HOST_CFLAGS := -std=gnu99 -Wall -Wextra -Werror -I$(UNITY_DIR) -Icpustick -Isources
+# test/host first: its main.h stands in for the firmware's when a module
+# under test includes "main.h"
+HOST_CFLAGS := -std=gnu11 -Wall -Wextra -Werror -Itest/host -I$(UNITY_DIR) -Icpustick -Isources
 
 # Firmware modules with no SFR access or I/O, compiled for the host. Tests link
 # them from an archive, so each test pulls in only what it calls and provides
-# fakes for what those modules call (e.g. params_get_user()).
-HOST_SRCS := cpustick/flash-vars.c
+# fakes for what those modules call (e.g. params_get_user(), flash_write_words()).
+HOST_SRCS := cpustick/flash-vars.c sources/params.c
 HOST_OBJS := $(HOST_SRCS:%.c=$(HOST_DIR)/obj/%.o) $(HOST_DIR)/obj/unity.o
 HOST_LIB  := $(HOST_DIR)/libhost.a
 
