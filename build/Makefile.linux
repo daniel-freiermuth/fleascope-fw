@@ -6,8 +6,8 @@
 # build/Makefile.linux
 
 # compiler flags
-# N.B. gnu11, because C23 (the GCC 15+ default) makes bool/true/false keywords
-CFLAGS = -g -std=gnu11 \
+# N.B. C23; gnu2x is the spelling GCC 13 (ubuntu-24.04's gcc) also accepts
+CFLAGS = -g -std=gnu2x \
           -Werror \
           -fno-builtin \
           $(foreach a,$(subst ., ,$(TARGET)),-D$(a)) \
