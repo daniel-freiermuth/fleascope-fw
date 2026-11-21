@@ -52,9 +52,9 @@ static volatile int usb_isrs;
 
 #if SODEBUG
 volatile bool usb_in_isr;
-volatile int32 usb_in_ticks;
-volatile int32 usb_out_ticks;
-volatile int32 usb_max_ticks;
+static volatile int32 usb_in_ticks;
+static volatile int32 usb_out_ticks;
+static volatile int32 usb_max_ticks;
 #endif
 
 bool cdcacm_attached;  // set when cdcacm host is attached
@@ -167,13 +167,13 @@ usb_device_enqueue(int endpoint, int tx, byte *buffer, int length)  // NOLINT(re
     int toggle;
     volatile struct bdt *bdt;
 
-    assert(endpoint < LENGTHOF(endpoints));
+    assert((unsigned)endpoint < LENGTHOF(endpoints));
 
     if (tx != -1) {
-        // transfer up to one packet at a time
+        _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Warray-bounds\"")  // transfer up to one packet at a time; with SODEBUG, GCC also follows a failed endpoint assert() into endpoints[]
         assert(endpoints[endpoint].packetsize);
         length = MIN(length, endpoints[endpoint].packetsize);
-
+        _Pragma("GCC diagnostic pop")
         // find the next bdt entry to use; a tx packet armed while another
         // is pending (at most one, endpoints > 0) takes the other ping-pong
         // entry and the following data toggle
@@ -236,8 +236,8 @@ usb_isr(void)
     usb_isrs++;
     assert(bdts);
     assert(! usb_in_isr);
-    assert((usb_in_isr = true) ? true : true);
-    assert((usb_in_ticks = ticks) ? true : true);
+    debug_only(usb_in_isr = true);
+    debug_only(usb_in_ticks = ticks);
 
     IFS1CLR = _IFS1_USB1IF_MASK;
 
@@ -311,12 +311,12 @@ usb_isr(void)
 
                     if ((value >> 8) == DEVICE_DESCRIPTOR) {
                         // #1
-                        assert(device_descriptor_length && device_descriptor_length <= sizeof(endpoints[endpoint].data_buffer));
+                        assert(device_descriptor_length && (size_t)device_descriptor_length <= sizeof(endpoints[endpoint].data_buffer));
                         endpoints[endpoint].data_length = MIN(device_descriptor_length, length);
                         memcpy(endpoints[endpoint].data_buffer, device_descriptor, (size_t)endpoints[endpoint].data_length);
                     } else if ((value >> 8) == CONFIGURATION_DESCRIPTOR) {
                         // #2
-                        assert(configuration_descriptor_length && configuration_descriptor_length <= sizeof(endpoints[endpoint].data_buffer));
+                        assert(configuration_descriptor_length && (size_t)configuration_descriptor_length <= sizeof(endpoints[endpoint].data_buffer));
                         endpoints[endpoint].data_length = MIN(configuration_descriptor_length, length);
                         memcpy(endpoints[endpoint].data_buffer, configuration_descriptor, (size_t)endpoints[endpoint].data_length);
                     } else if ((value >> 8) == STRING_DESCRIPTOR) {
@@ -445,7 +445,7 @@ XXX_SKIP2_XXX:;
                 }
             }
             assert((unsigned)endpoint < LENGTHOF(endpoints));
-            assert(endpoints[endpoint].data_length <= sizeof(endpoints[endpoint].data_buffer));
+            assert((size_t)endpoints[endpoint].data_length <= sizeof(endpoints[endpoint].data_buffer));
         } else if (! endpoint) {
             assert(pid == TOKEN_IN || pid == TOKEN_OUT);
             data = (byte *)TF_LITTLE((int)PA_TO_KVA((uintptr)bdt->buffer));
@@ -557,9 +557,9 @@ XXX_SKIP2_XXX:;
     }
 
     assert(usb_in_isr);
-    assert((usb_in_isr = false) ? true : true);
-    assert((usb_out_ticks = ticks) ? true : true);
-    assert((usb_max_ticks = MAX(usb_max_ticks, usb_out_ticks-usb_in_ticks)) ? true : true);
+    debug_only(usb_in_isr = false);
+    debug_only(usb_out_ticks = ticks);
+    debug_only(usb_max_ticks = MAX(usb_max_ticks, usb_out_ticks-usb_in_ticks));
 }
 
 // this function is called by upper level code to register callback
@@ -608,7 +608,7 @@ usb_initialize(void)
 
     bdts = bdt_ram;
 
-    assert(BDT_RAM_SIZE >= LENGTHOF(endpoints)*4*sizeof(struct bdt));
+    cassert(BDT_RAM_SIZE >= LENGTHOF(endpoints)*4*sizeof(struct bdt));
 
     // power on
     U1PWRCbits.USBPWR = 1;

@@ -123,6 +123,7 @@ params_set_name(const char *name)
 
     assert(name);
     memset(words, 0, sizeof(words));
+    // cppcheck-suppress nullPointerRedundantCheck ; assert() states the contract, the only caller passes a command line argument
     n = strlen(name);
     if (n > sizeof(words)-1) {
         n = sizeof(words)-1;

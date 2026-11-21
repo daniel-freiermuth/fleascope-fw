@@ -105,7 +105,7 @@ accumulate(char c)
     int orig;
     int again;
 
-    assert(gpl() >= MIN(SPL_USB, SPL_IRQ4));
+    assert(gpl() >= SPL_USB || gpl() >= SPL_IRQ4);
 
     if (c == '\003' || c == '\025') { // Clear line on ctrl-c or ctrl-u.
         if (cursor) {
@@ -125,7 +125,7 @@ accumulate(char c)
 
         keys[ki++] = c;
         keys[ki] = '\0';
-        assert(ki < sizeof(keys));
+        assert((size_t)ki < sizeof(keys));
 
         for (i = 0; i < (int)LENGTHOF(keycodes); i++) {
             if (! strncmp(keycodes[i].keys, keys, (size_t)ki)) {
@@ -250,7 +250,7 @@ accumulate(char c)
                     memmove(command+cursor+1, command+cursor, (size_t)(n+1-cursor));
                     command[cursor] = keys[i];
                     cursor++;
-                    assert(cursor <= sizeof(command)-1);
+                    assert((size_t)cursor <= sizeof(command)-1);
                 }
             }
         }
@@ -426,14 +426,16 @@ terminal_command_error(int offset)
             buffer[i] = ' ';
         }
         buffer[i++] = '^';
-        assert(i < sizeof(buffer));
+        assert((size_t)i < sizeof(buffer));
+        // cppcheck-suppress arrayIndexOutOfBoundsCond ; offset <= BASIC_INPUT_LINE_SIZE-1+2 above, so i <= sizeof(buffer)-1
         buffer[i] = '\0';
     } else {
         for (i = 0; i < offset; i++) {
             buffer[i] = ' ';
         }
         buffer[i++] = '^';
-        assert(i < sizeof(buffer));
+        assert((size_t)i < sizeof(buffer));
+        // cppcheck-suppress arrayIndexOutOfBoundsCond ; offset <= BASIC_INPUT_LINE_SIZE-1+2 above, so i <= sizeof(buffer)-1
         buffer[i] = '\0';
         strcat(buffer, " - error");
     }

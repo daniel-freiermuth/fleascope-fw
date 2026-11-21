@@ -48,6 +48,7 @@ convert(uintptr value, unsigned radix, char *buffer)
     // then work our digits
     do {
         assert(scale);
+        // cppcheck-suppress zerodivcond ; scale is radix^n before the n+1 iterations, so it is >= 1 here
         digit = value/scale;
         buffer[i++] = digits[digit];
         value -= digit*scale;

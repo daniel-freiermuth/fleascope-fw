@@ -135,7 +135,7 @@ pin_get_digital_debounced(int port_offset, int pin_offset)
     int i;
     int value;
 
-    assert(pin_offset < sizeof(pin_digital_debounce[0][0]) * 8);
+    assert((size_t)pin_offset < sizeof(pin_digital_debounce[0][0]) * 8);
 
     value = 0;
     for (i = 0; i < pin_digital_debounce_history_depth; i++) {
@@ -246,7 +246,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
                             T2CON = 0;
                             TMR2 = 0;
                             PR2 = SERVO_MOD-1;
-                            assert(SERVO_PRESCALE == 64);
+                            cassert(SERVO_PRESCALE == 64);
                             T2CON = _T2CON_ON_MASK|(6 << _T2CON_TCKPS_POSITION);
                         }
                         freq[0] = (byte)pin_type;
@@ -308,7 +308,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
                             T2CON = 0;
                             TMR2 = 0;
                             PR2 = SERVO_MOD-1;
-                            assert(SERVO_PRESCALE == 64);
+                            cassert(SERVO_PRESCALE == 64);
                             T2CON = _T2CON_ON_MASK|(6 << _T2CON_TCKPS_POSITION);
                         }
                         freq[0] = (byte)pin_type;
@@ -563,7 +563,7 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
                 }
                 // set timer prescale to 256
                 T3CON = _T3CON_ON_MASK|(7<<_T3CON_TCKPS_POSITION);
-                assert(FREQ_PRESCALE == 256);
+                cassert(FREQ_PRESCALE == 256);
             } else {
                 assert(pin_type == pin_type_digital_output);
                 if (value) {
@@ -648,7 +648,7 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
                 }
                 // set timer prescale to 256
                 T3CON = _T3CON_ON_MASK|(7<<_T3CON_TCKPS_POSITION);
-                assert(FREQ_PRESCALE == 256);
+                cassert(FREQ_PRESCALE == 256);
             } else {
                 assert(pin_type == pin_type_digital_output);
                 if (value) {
@@ -1056,7 +1056,7 @@ pin_clear(void)
     int i;
 
     // N.B. we use 0 to mean no frequency type
-    assert(! pin_type_digital_input);
+    cassert(! pin_type_digital_input);
 
     // the pin mapping the removed I2C and QSPI drivers restored here; kept so
     // boot leaves the pins as before (revisit on hardware)
@@ -1113,7 +1113,14 @@ pin_assign(int assign, int pin)
     assert(assign < pin_assignment_max);
     assert(pin < PIN_LAST);
 
+// SODEBUG: GCC warns about the assert-failed path, where led_line() returns to a debugger
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#ifndef __clang__
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
     pin_assignments[assign] = (byte)pin;
+#pragma GCC diagnostic pop
 
     if (pin < PIN_UNASSIGNED) {
         if (assign == pin_assignment_safemode) {
@@ -1156,10 +1163,10 @@ pin_initialize(void)
     int32 pin;
     int32 analog;
 
-    assert(PIN_LAST <= PIN_MAX);
-    assert(pin_type_last < (sizeof(uint16)*8));
-    assert(pin_qual_last < (sizeof(byte)*8));
-    assert(LENGTHOF(pins) == PIN_LAST);
+    cassert(PIN_LAST <= PIN_MAX);
+    cassert(pin_type_last < (sizeof(uint16)*8));
+    cassert(pin_qual_last < (sizeof(byte)*8));
+    cassert(LENGTHOF(pins) == PIN_LAST);
 
     memset(umask, -1, sizeof(umask));
 

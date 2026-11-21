@@ -5,9 +5,9 @@
 
 #if SODEBUG
 volatile bool timer_in_isr;
-volatile int32 timer_in_ticks;
-volatile int32 timer_out_ticks;
-volatile int32 timer_max_ticks;
+static volatile int32 timer_in_ticks;
+static volatile int32 timer_out_ticks;
+static volatile int32 timer_max_ticks;
 #endif
 
 volatile int32 ticks;  // incremented by pit0 isr every tick
@@ -27,8 +27,8 @@ timer_isr(void)
     bool debouncing;
 
     assert(! timer_in_isr);
-    assert((timer_in_isr = true) ? true : true);
-    assert((timer_in_ticks = ticks) ? true : true);
+    debug_only(timer_in_isr = true);
+    debug_only(timer_in_ticks = ticks);
 
     // clear the interrupt flag
     IFS0CLR = _IFS0_T1IF_MASK;
@@ -70,9 +70,9 @@ timer_isr(void)
     adc_timer_poll(debouncing);
 
     assert(timer_in_isr);
-    assert((timer_in_isr = false) ? true : true);
-    assert((timer_out_ticks = ticks) ? true : true);
-    assert((timer_max_ticks = MAX(timer_max_ticks, timer_out_ticks-timer_in_ticks)) ? true : true);
+    debug_only(timer_in_isr = false);
+    debug_only(timer_out_ticks = ticks);
+    debug_only(timer_max_ticks = MAX(timer_max_ticks, timer_out_ticks-timer_in_ticks));
 }
 
 
@@ -80,8 +80,8 @@ timer_isr(void)
 void
 timer_initialize(void)
 {
-    assert(IS_POWER_OF_2(ticks_per_msec));
-    assert(IS_POWER_OF_2(msecs_per_debounce));
+    cassert(IS_POWER_OF_2(ticks_per_msec));
+    cassert(IS_POWER_OF_2(msecs_per_debounce));
 
     // configure t1 to interrupt every ticks times per msec.
     T1CONCLR = _T1CON_ON_MASK;

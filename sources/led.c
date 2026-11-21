@@ -24,7 +24,7 @@ led_unknown_progress(void)
 // this function turns an LED on or off.
 static
 void
-led_set(enum led n, int on)
+led_set(enum led n, int on)  // NOLINT(misc-no-recursion): only via a failed assert() -> led_line(), which passes the valid led_red
 {
     (void)n;  // only checked by assert()
     assert (n >= 0 && n < led_max);
@@ -51,7 +51,7 @@ led_timer_poll(void)
 
 // this function displays a diagnostic code on a LED.
 void
-led_line(int line)
+led_line(int line)  // NOLINT(misc-no-recursion): led_set(led_red, ...) passes its assert(), so it does not recurse back
 {
     int i;
     int j;

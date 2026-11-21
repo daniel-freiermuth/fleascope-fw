@@ -10,7 +10,10 @@
 //   PATCH — bug fix, no protocol change
 #define VERSION  "3.1.0"
 
-#define SODEBUG  0  // set to 1 to enable debug assert()s and checks
+// debug assert()s and checks: `make SODEBUG=1`
+#ifndef SODEBUG
+#define SODEBUG  0
+#endif
 #define DEBUGGING  1  // enable to use mplab x debugger
 
 // Enable in-memory trace buffer for debugging with the trace() macro.
@@ -88,13 +91,16 @@ typedef unsigned int uint;
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(cassert_failed_line##_,line)[2*!!(predicate)-1]
 
-// usable in function body
-#define cassert(predicate)  do { CASSERT(predicate); } while (0)
+// usable in function body (a local typedef would be an unused-local-typedef)
+#define cassert(predicate)  do { _Static_assert(predicate, #predicate); } while (0)
 
+// debug_only(statement) runs statement only in SODEBUG builds, e.g. assert() bookkeeping
 #if SODEBUG
 #define assert(x)  do { if (! (x)) { led_line(__LINE__); } } while (0)
+#define debug_only(x)  do { (x); } while (0)
 #else
 #define assert(x)
+#define debug_only(x)
 #endif
 #define assert_ram(x)  do { if (! (x)) { asm_halt(); } } while (0)
 #define ASSERT(x)  do { if (! (x)) { led_line(__LINE__); } } while (0)
