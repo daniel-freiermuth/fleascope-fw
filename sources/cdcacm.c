@@ -219,12 +219,15 @@ static byte tx[PACKET_SIZE];  // packet from host
 
 #define NRX  4
 
-// N.B. -1 forces short packets
-static byte rx[NRX][PACKET_SIZE-1]; // packets to host
+// full 64-byte packets: the host's read completes when its buffer is full,
+// not after every packet. A transfer that ends on a full packet is terminated
+// with a zero-length packet (zlp_pending while it is armed).
+static byte rx[NRX][PACKET_SIZE]; // packets to host
 static int rx_length[NRX];
 
 static byte rx_in;
 static byte rx_out;
+static bool zlp_pending;
 
 static bool discard;  // true when we don't think anyone is listening
 
@@ -307,10 +310,10 @@ cdcacm_print(const byte *buffer, int length)
     } while (length);
 
     // if this is the first buffer of the transfer...
-    if (a == NRX) {
+    if (a == NRX && ! zlp_pending) {
         // start the rx ball rolling
         assert(rx_out != rx_in);
-        assert(rx_length[rx_out] > 0 && rx_length[rx_out] < PACKET_SIZE);
+        assert(rx_length[rx_out] > 0 && rx_length[rx_out] <= PACKET_SIZE);
         usb_device_enqueue(bulk_in_ep, 1, rx[rx_out], rx_length[rx_out]);
     }
 
@@ -428,8 +431,17 @@ cdcacm_bulk_transfer(bool in, byte *buffer, int length)
             waiting = true;
         }
     } else {
-        rx_length[rx_out] = 0;
-        rx_out = (rx_out+1)%NRX;
+        int last = 0;
+
+        if (zlp_pending) {
+            // the zero-length packet went out; the ring did not move
+            zlp_pending = false;
+            last = -1;
+        } else {
+            last = rx_length[rx_out];
+            rx_length[rx_out] = 0;
+            rx_out = (rx_out+1)%NRX;
+        }
 
         // if there is more data to transfer...
         if (rx_length[rx_out] > 0) {
@@ -441,8 +453,12 @@ cdcacm_bulk_transfer(bool in, byte *buffer, int length)
 
             // keep the rx ball rolling
             assert(rx_out != rx_in);
-            assert(rx_length[rx_out] > 0 && rx_length[rx_out] < PACKET_SIZE);
+            assert(rx_length[rx_out] > 0 && rx_length[rx_out] <= PACKET_SIZE);
             usb_device_enqueue(bulk_in_ep, 1, rx[rx_out], rx_length[rx_out]);
+        } else if (last == PACKET_SIZE) {
+            // the transfer ended on a full packet: end it explicitly
+            zlp_pending = true;
+            usb_device_enqueue(bulk_in_ep, 1, rx[rx_out], 0);
         }
     }
 
@@ -460,6 +476,7 @@ cdcacm_reset(void)
     for (i = 0; i < NRX; i++) {
         rx_length[i] = 0;
     }
+    zlp_pending = false;
 
     // prepare for rx
     usb_device_enqueue(bulk_in_ep, -1, NULL, 0);
