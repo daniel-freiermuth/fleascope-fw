@@ -1,11 +1,13 @@
 // *** params.h *******************************************************
 // SPDX-License-Identifier: Parity-7.0.0
 // persistent parameters: two A/B flash pages at the top of program flash,
-// in the layout StickOS used, so devices keep their hostname and
-// calibration across firmware versions.
+// in the layout StickOS used, so devices keep their hostname across
+// firmware versions.
 //
 // page layout (PARAMS_PAGE_SIZE bytes):
-//   [0, PARAMS_USER_BYTES)          user words: BASIC-style flash variables
+//   [0, PARAMS_OFFSET(0))           unused; StickOS kept BASIC flash variables
+//                                    here (e.g. probe calibration). Updates
+//                                    copy these words along unchanged.
 //   [PARAMS_OFFSET(0), ...)          system words, enum param
 //   last word                        generation; the higher one is current
 
@@ -32,14 +34,6 @@ enum param {
 
 #define PARAMS_OFFSET(param)  ((uint32_t)(PARAMS_PAGE_SIZE-sizeof(uint32_t)-(uint32_t)(PARAM_LAST-(param))*sizeof(uint32_t)))
 
-// bytes available for user words (flash variables)
-#define PARAMS_USER_BYTES  (PARAMS_PAGE_SIZE-(PARAM_LAST+1)*sizeof(uint32_t))
-
-// called once at boot: clears the user words to 0 if no page was ever
-// written (first boot after a reflash or upgrade)
-void
-params_initialize(void);
-
 int32_t
 params_get(int param);
 
@@ -52,12 +46,5 @@ params_get_name(void);
 
 void
 params_set_name(const char *name);
-
-// user words, offset in bytes (a multiple of 4, below PARAMS_USER_BYTES)
-int32_t
-params_get_user(uint32_t offset);
-
-void
-params_set_user(uint32_t offset, int32_t value);
 
 #endif

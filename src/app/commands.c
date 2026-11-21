@@ -7,7 +7,6 @@
 //   scope, stream, digital_stream, wave    capture and signal generation
 //   ver, hostname, reset, upgrade, help
 //   echo [on|off], prompt [on|off]
-//   dim/print/let of flash variables      calibration, see flash-vars.h
 //
 // after each command line comes "> " (prompt on) or "done\n" (prompt off).
 
@@ -29,7 +28,6 @@ static const char * const help_commands =
 "wave (square|ekg|sine|triangle) <hz>\n"
 "ver, hostname [<name>], reset, upgrade\n"
 "echo [on|off], prompt [on|off]\n"
-"dim <var>[[<n>]] as flash, print <var>, <var> = <n>\n"
 ;
 
 void
@@ -300,8 +298,6 @@ static void
 run(const char *text_in)
 {
     const char *text;
-    char reply[BASIC_OUTPUT_LINE_SIZE*4];
-    int rv;
     bool ok;
 
     text = text_in;
@@ -352,17 +348,7 @@ run(const char *text_in)
             ok = false;
         }
     } else {
-        rv = flashvars_run(text, reply, sizeof(reply));
-        if (rv == FLASHVARS_OK) {
-            if (reply[0]) {
-                print_lines(reply);
-            }
-        } else {
-            if (rv >= 0) {
-                text += rv;
-            }
-            ok = false;
-        }
+        ok = false;
     }
 
     if (! ok) {
@@ -434,6 +420,4 @@ main_initialize(void)
 {
     terminal_register(main_command_cbfn, main_ctrlc_cbfn);
     cdcacm_register(main_reset_cbfn, terminal_receive);
-    params_initialize();
-    flashvars_reset();
 }

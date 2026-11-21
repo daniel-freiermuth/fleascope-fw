@@ -3,22 +3,24 @@ mixed-signal logic analyzer with a built-in waveform generator. This is its firm
 
 The firmware started as Rich Testardi's StickOS BASIC port to the Flea-Scope. It no longer contains the
 BASIC interpreter: it is a plain command line over USB (CDC ACM) with the commands hosts use — `scope`, `stream`,
-`digital_stream`, `wave`, `ver`, `hostname`, `reset`, `upgrade`, `echo`, `prompt` — plus the BASIC flash-variable
-statements (`dim … as flash`, `print`, assignment) that hosts use to keep probe calibration in flash. Replies are
-unchanged, so existing hosts such as [fleascope-rs](https://github.com/daniel-freiermuth/fleascope-rs) keep working.
+`digital_stream`, `wave`, `ver`, `hostname`, `reset`, `upgrade`, `echo`, `prompt`. Their replies are unchanged. Probe
+calibration is no longer stored on the device: the BASIC flash-variable statements (`dim … as flash`, `print`,
+assignment) that hosts such as [fleascope-rs](https://github.com/daniel-freiermuth/fleascope-rs) used for that are
+gone, so hosts keep calibration themselves.
 Every command and its replies are described in [docs/commands.md](docs/commands.md).
 
 See the Flea Scope™ User's Guide: [https://rtestardi.github.io/usbte/flea-scope.pdf](https://rtestardi.github.io/usbte/flea-scope.pdf)
 
 See the Web USB Flea Scope™ GUI repository: [https://github.com/rtestardi/usbte](https://github.com/rtestardi/usbte)
-(its 2×/5×/10× zoom time bases need the `scope -<n>` magnification this firmware no longer has).
+(its 2×/5×/10× zoom time bases need the `scope -<n>` magnification this firmware no longer has, and with the x10
+probe setting its analog captures fail, since it reads calibration from the device on connect).
 
 ## Repository layout
 
 | Path | Contents |
 |---|---|
 | `src/` | `main.c` (startup, clocks, `#pragma config`), `config.h`, `main.h` |
-| `src/app/` | The commands: command line, `scope`, `stream`, `digital_stream`, `wave`, flash variables |
+| `src/app/` | The commands: command line, `scope`, `stream`, `digital_stream`, `wave` |
 | `src/platform/` | USB and CDC ACM, terminal, `printf`, flash and `upgrade`, parameter pages, ADC, timers, pins |
 | `test/` | Unity unit tests (`test/unit/`), the host stand-in for `main.h` (`test/host/`), Unity (`test/unity/`) |
 | `tools/` | HEX normalization and the `upgrade` compatibility check, run by the build |
@@ -58,7 +60,7 @@ make test        # Unity unit tests (test/unit/test_*.c); needs only host GCC (H
 
 Unit tests use [Unity](https://github.com/ThrowTheSwitch/Unity) (vendored in `test/unity/`, v2.7.0). Each
 `test/unit/test_*.c` is built into its own executable and picked up automatically. Firmware modules without SFR
-access or I/O (`src/app/fleascope-calc.h`, `src/app/flash-vars.c`, `src/platform/params.c`) are compiled for the host and
+access or I/O (`src/app/fleascope-calc.h`, `src/platform/params.c`) are compiled for the host and
 linked into the tests from an archive; a test provides fakes for what they call (e.g. a simulated flash), and
 `test/host/main.h` stands in for the firmware's `main.h`. Development is on Linux; on Windows, use WSL.
 

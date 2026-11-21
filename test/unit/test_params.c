@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Parity-7.0.0
 // Host unit tests for src/platform/params.c: the A/B parameter pages that hold
-// hostname and calibration across reboots, upgrades and firmware versions.
+// the hostname across reboots, upgrades and firmware versions.
 //
 // Flash is simulated like the PIC32's: erasing a page sets it to 0xFF, and
 // programming can only clear bits, so programming a word twice is a bug.
@@ -74,66 +74,33 @@ tearDown(void)
 {
 }
 
-// first boot after a reflash: StickOS cleared flash variables to 0, and the
-// original web GUI treats only 0 as "not calibrated"
-static void
-test_first_boot_clears_user_words_to_zero(void)
-{
-    TEST_ASSERT_EQUAL_INT32(-1, params_get_user(0));
-
-    params_initialize();
-
-    TEST_ASSERT_EQUAL_INT32(0, params_get_user(0));
-    TEST_ASSERT_EQUAL_INT32(0, params_get_user(PARAMS_USER_BYTES-4));
-    TEST_ASSERT_EQUAL_INT32(-1, params_get(PARAM_ANALOG));  // system words untouched
-    TEST_ASSERT_EQUAL_STRING("Flea-Scope", params_get_name());
-}
-
-// later boots must not clear calibration again
-static void
-test_later_boots_keep_values(void)
-{
-    params_initialize();
-    params_set_user(4, 2000);
-    erases = writes = 0;
-
-    params_initialize();
-
-    TEST_ASSERT_EQUAL_INT(0, erases + writes);
-    TEST_ASSERT_EQUAL_INT32(2000, params_get_user(4));
-}
-
 // each update goes to the other page with a higher generation and keeps
 // every other word, so a power loss mid-update leaves the old page current
 static void
 test_updates_alternate_pages_and_keep_other_words(void)
 {
-    params_initialize();
     params_set_name("scope-1");
-    params_set_user(0, 1050);
     params_set(PARAM_ANALOG, 3300);
-    params_set_user(12, 2100);
+    params_set(PARAM_SERVO, 50);
 
-    TEST_ASSERT_EQUAL_INT32(1050, params_get_user(0));
-    TEST_ASSERT_EQUAL_INT32(2100, params_get_user(12));
-    TEST_ASSERT_EQUAL_INT32(0, params_get_user(8));
     TEST_ASSERT_EQUAL_INT32(3300, params_get(PARAM_ANALOG));
+    TEST_ASSERT_EQUAL_INT32(50, params_get(PARAM_SERVO));
+    TEST_ASSERT_EQUAL_INT32(-1, params_get(PARAM_BAUD));
     TEST_ASSERT_EQUAL_STRING("scope-1", params_get_name());
 
-    // five writes: generations 0..4, the last one in page A
-    TEST_ASSERT_EQUAL_HEX32(4, generation(page_a));
-    TEST_ASSERT_EQUAL_HEX32(3, generation(page_b));
+    // three writes: generations 0..2, the last one in page A
+    TEST_ASSERT_EQUAL_HEX32(2, generation(page_a));
+    TEST_ASSERT_EQUAL_HEX32(1, generation(page_b));
 }
 
 static void
 test_unchanged_value_is_not_rewritten(void)
 {
-    params_initialize();
-    params_set_user(0, 1050);
+    params_set(PARAM_ANALOG, 3300);
     erases = writes = 0;
 
-    params_set_user(0, 1050);
-    params_set(PARAM_ANALOG, -1);
+    params_set(PARAM_ANALOG, 3300);
+    params_set(PARAM_SERVO, -1);
 
     TEST_ASSERT_EQUAL_INT(0, erases + writes);
 }
@@ -141,8 +108,6 @@ test_unchanged_value_is_not_rewritten(void)
 // StickOS's on-flash layout as byte offsets in a page (stickos/vars.h:
 // FLASH_OFFSET(var) = 4096-4-(512-var)*4), written out literally so that a
 // change to params.h cannot move the expected location along with it
-#define STICKOS_USER_0     0x000  // first flash variable word
-#define STICKOS_USER_LAST  0x7f8  // last of 511 flash variable words
 #define STICKOS_ANALOG     0x804  // FLASH_ANALOG
 #define STICKOS_NAME       0x82c  // FLASH_NAME_0..7, NUL-terminated
 #define STICKOS_GENERATION 0xffc
@@ -168,18 +133,11 @@ static void
 test_reads_stickos_pages(void)
 {
     put_word(page_a, STICKOS_GENERATION, 6);
-    put_word(page_a, STICKOS_USER_0, 111);
+    put_word(page_a, STICKOS_ANALOG, 1111);
     put_word(page_b, STICKOS_GENERATION, 7);
-    put_word(page_b, STICKOS_USER_0, 1050);
-    put_word(page_b, STICKOS_USER_LAST, 2100);
     put_word(page_b, STICKOS_ANALOG, 3300);
     memcpy((byte *)page_b+STICKOS_NAME, "unit-2", 7);
 
-    params_initialize();  // a written page exists: nothing to do
-
-    TEST_ASSERT_EQUAL_INT(0, erases + writes);
-    TEST_ASSERT_EQUAL_INT32(1050, params_get_user(STICKOS_USER_0));
-    TEST_ASSERT_EQUAL_INT32(2100, params_get_user(STICKOS_USER_LAST));
     TEST_ASSERT_EQUAL_INT32(3300, params_get(PARAM_ANALOG));
     TEST_ASSERT_EQUAL_STRING("unit-2", params_get_name());
 }
@@ -189,40 +147,34 @@ test_reads_stickos_pages(void)
 static void
 test_writes_stickos_layout(void)
 {
-    params_initialize();
-    params_set_user(STICKOS_USER_LAST, 2100);
     params_set(PARAM_ANALOG, 3300);
     params_set_name("unit-2");
 
-    // three updates after the first-boot write: generation 3, in page B
-    TEST_ASSERT_EQUAL_HEX32(3, word_at(page_b, STICKOS_GENERATION));
-    TEST_ASSERT_EQUAL_HEX32(2100, word_at(page_b, STICKOS_USER_LAST));
+    // two updates: generation 1, in page B
+    TEST_ASSERT_EQUAL_HEX32(1, word_at(page_b, STICKOS_GENERATION));
     TEST_ASSERT_EQUAL_HEX32(3300, word_at(page_b, STICKOS_ANALOG));
     TEST_ASSERT_EQUAL_STRING("unit-2", (const char *)page_b+STICKOS_NAME);
-    TEST_ASSERT_EQUAL_INT(STICKOS_USER_LAST+4, PARAMS_USER_BYTES);
 }
 
-// after upgrade (successful, or failed and handled in flash_upgrade()):
-// variables are 0 again, the staged boot flash data is gone, and a partial
-// recalibration does not leave -1 in the other words (review of round 209)
+// after upgrade (successful or failed): the boot flash data staged into
+// page A is never read as parameters, and the first update drops it
 static void
-test_after_upgrade_variables_restart_at_zero(void)
+test_after_upgrade_staged_data_is_ignored(void)
 {
-    params_initialize();
-    params_set_user(0, 1050);
-    params_set_user(4, 2000);
+    params_set(PARAM_ANALOG, 3300);
+    params_set_name("unit-2");
 
     simulate_upgrade();
-    TEST_ASSERT_EQUAL_INT32(-1, params_get_user(0));
 
-    params_initialize();
-    params_set_user(0, 1000);
-
-    TEST_ASSERT_EQUAL_INT32(1000, params_get_user(0));
-    TEST_ASSERT_EQUAL_INT32(0, params_get_user(4));
-    TEST_ASSERT_EQUAL_INT32(0, params_get_user(8));
-    TEST_ASSERT_EQUAL_INT32(-1, params_get(PARAM_LAST-15));  // staged config word dropped
+    TEST_ASSERT_EQUAL_INT32(-1, params_get(PARAM_LAST-15));  // staged config word
+    TEST_ASSERT_EQUAL_INT32(-1, params_get(PARAM_ANALOG));
     TEST_ASSERT_EQUAL_STRING("Flea-Scope", params_get_name());
+
+    params_set(PARAM_ANALOG, 3000);
+
+    TEST_ASSERT_EQUAL_INT32(3000, params_get(PARAM_ANALOG));
+    TEST_ASSERT_EQUAL_INT32(-1, params_get(PARAM_LAST-15));
+    TEST_ASSERT_EQUAL_HEX32(0xffffffff, page_a[0xfc0/4]);
 }
 
 static void
@@ -232,7 +184,6 @@ test_name_is_truncated_and_terminated(void)
 
     memset(name, 'x', sizeof(name)-1);
     name[sizeof(name)-1] = '\0';
-    params_initialize();
 
     params_set_name(name);
 
@@ -245,13 +196,11 @@ int
 main(void)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_first_boot_clears_user_words_to_zero);
-    RUN_TEST(test_later_boots_keep_values);
     RUN_TEST(test_updates_alternate_pages_and_keep_other_words);
     RUN_TEST(test_unchanged_value_is_not_rewritten);
     RUN_TEST(test_reads_stickos_pages);
     RUN_TEST(test_writes_stickos_layout);
-    RUN_TEST(test_after_upgrade_variables_restart_at_zero);
+    RUN_TEST(test_after_upgrade_staged_data_is_ignored);
     RUN_TEST(test_name_is_truncated_and_terminated);
     return UNITY_END();
 }

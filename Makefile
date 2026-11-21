@@ -219,8 +219,8 @@ UNITY_CFLAGS := -std=gnu11 -Wall -Wextra -Werror -I$(UNITY_DIR)
 
 # Firmware modules with no SFR access or I/O, compiled for the host. Tests link
 # them from an archive, so each test pulls in only what it calls and provides
-# fakes for what those modules call (e.g. params_get_user(), flash_write_words()).
-HOST_SRCS := src/app/flash-vars.c src/platform/params.c
+# fakes for what those modules call (e.g. flash_write_words()).
+HOST_SRCS := src/platform/params.c
 HOST_OBJS := $(HOST_SRCS:%.c=$(HOST_DIR)/obj/%.o) $(HOST_DIR)/obj/unity.o
 HOST_LIB  := $(HOST_DIR)/libhost.a
 
