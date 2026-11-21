@@ -5,9 +5,7 @@
 
 #include "main.h"
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
 #define NVMDATA  NVMDATA0
-#endif
 
 #define NVMOP_PAGE_ERASE        0x4      // Page erase operation
 #define NVMOP_WORD_PGM          0x1      // Word program operation
@@ -18,7 +16,6 @@
 #define NVMCON_WREN _NVMCON_WREN_MASK
 #define NVMCON_WR  _NVMCON_WR_MASK
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
     // NVMOP can be written only when WREN is zero. So, clear WREN.
     /* Clear and Set, as NVMCON contains status bits and hence need to be accessed atomically.
      * Using bit field access may erroneously cause status bits to get cleared */
@@ -41,9 +38,6 @@
     } \
     assert_ram(! (NVMCON & NVMCON_WR)); \
     assert_ram(! (NVMCON & (_NVMCON_WRERR_MASK | _NVMCON_LVDERR_MASK)));
-#else
-#error
-#endif
 
 static
 void
@@ -161,13 +155,11 @@ flash_upgrade_ram(void)
     static uint32 npages;
 
     // N.B. this code generates no relocations so we can run it from RAM!!!
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
     // un write protect boot memory
     NVMKEY = 0x0;
     NVMKEY = 0xAA996655;
     NVMKEY = 0x556699AA;
     NVMBWPCLR = 0x1f1f;
-#endif
 
     // erase the program flash
     // flash_erase_pages()
@@ -233,7 +225,6 @@ flash_upgrade_ram(void)
     data = (uint32 *)(FLASH_START+FLASH_BYTES-FLASH2_BYTES);
     nwords = FLASH2_BYTES/sizeof(uint32);
     while (nwords) {
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
         assert_ram((nwords & 3) == 0);
         // Note: Use only Quad Word program operation (NVMOP<3:0> = 0010) when programming data into the sequence and configuration spaces.
         NVMADDR = KVA_TO_PA((unsigned int)addr);
@@ -250,9 +241,6 @@ flash_upgrade_ram(void)
         addr++;
         nwords--;
         FLASH_OPERATION(NVMOP_QWORD_PGM);
-#else
-#error
-#endif
     }
 #if SODEBUG
     addr = (uint32 *)FLASH2_START;

@@ -66,11 +66,9 @@ qspi_uninitialize(void)
     initialized = false;
 
     SPI2CON = 0;
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
     RPB4R = 4;  // SDO2 -> RB4
     SDI2R = 1;  // RB5 -> SDI2
     SS2R = 3;  // RB10 -> SS2
-#endif
 }
 
 extern void

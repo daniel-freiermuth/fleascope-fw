@@ -6,7 +6,6 @@
 #include "main.h"
 
 #if ! STICK_GUEST
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
 
 // PIC32MK0512GPK064 Configuration Bit Settings
 
@@ -77,9 +76,6 @@
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
 
-#else
-#error
-#endif
 
 #endif
 
@@ -122,7 +118,6 @@ main()  // we're called directly by startup code
     TRISACLR = 0x410;
     LATASET = 0x410;
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
     /* unlock system for clock configuration */
     SYSKEY = 0x00000000;
     SYSKEY = 0xAA996655;
@@ -173,9 +168,6 @@ main()  // we're called directly by startup code
 	tmp |= 1<<16;
 	asm("mtc0 %0,$16,3" :: "r" (tmp));
     }
-#else
-#error
-#endif
     INTEnableSystemMultiVectoredInt();
     (void)splx(7);
 #if ! DEBUGGING
@@ -188,7 +180,6 @@ main()  // we're called directly by startup code
     // N.B. we can't rely on config bits since the bootloader sets them differently
     SYSKEY = 0xAA996655; // Write Key1 to SYSKEY
     SYSKEY = 0x556699AA; // Write Key2 to SYSKEY
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
     /* Peripheral Bus 1 is by default enabled, set its divisor */
     PB1DIVbits.PBDIV = 0;
     /* Peripheral Bus 2 is by default enabled, set its divisor */
@@ -199,18 +190,11 @@ main()  // we're called directly by startup code
     PB4DIVbits.PBDIV = 0;
     //PB5DIV = 1;
     //PB6DIV = 3;
-#else
-#error
-#endif
     SYSKEY = 0;
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
     cpu_frequency = 120000000;
     oscillator_frequency = 12000000;
     bus_frequency = 120000000;
-#else
-#error
-#endif
 
     end_of_static = (byte *)_on_bootstrap;
 

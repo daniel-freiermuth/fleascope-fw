@@ -1,9 +1,6 @@
 #include "main.h"
 #include "fleascope-calc.h"
 
-#if ! defined(__32MK0512GPK064__) && ! defined(__32MK0512MCM064__)
-#error  only __32MK__ interleaved adc dma is supported for now
-#endif
 
 // Command: stream [<timer_period_ticks> [<averaging> [<bitwidth>]]]
 //
