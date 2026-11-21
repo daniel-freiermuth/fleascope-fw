@@ -39,7 +39,7 @@ no build edits.
 ## Testing
 
 ```sh
-make test        # Unity unit tests (test/unit/test_*.c); needs only a host C compiler, not XC32
+make test        # Unity unit tests (test/unit/test_*.c); needs only host GCC (HOST_CC=), not XC32
 ```
 
 Unit tests use [Unity](https://github.com/ThrowTheSwitch/Unity) (vendored in `test/unity/`, v2.7.0). Each

@@ -39,3 +39,7 @@ jobs:
 
       - name: Static analysis
         run: make -j"$(nproc)" lint
+
+      # the debug configuration (assert()s, `#if SODEBUG`) must stay warning-free too
+      - name: Debug build and static analysis (SODEBUG=1)
+        run: make -j"$(nproc)" SODEBUG=1 BUILD_DIR=out/sodebug all lint

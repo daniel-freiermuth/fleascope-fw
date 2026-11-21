@@ -12,6 +12,8 @@ build:pic32:
     # clang-tidy and cppcheck (pinned in the Makefile) run through uvx
     - curl -LsSf https://astral.sh/uv/0.13.9/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
     - make -j"$(nproc)" lint
+    # the debug configuration (assert()s, `#if SODEBUG`) must stay warning-free too
+    - make -j"$(nproc)" SODEBUG=1 BUILD_DIR=out/sodebug all lint
   artifacts:
     name: "stickos2-firmware-$CI_COMMIT_SHA"
     paths:
