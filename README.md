@@ -44,8 +44,9 @@ make test        # Unity unit tests (test/unit/test_*.c); needs only a host C co
 
 Unit tests use [Unity](https://github.com/ThrowTheSwitch/Unity) (vendored in `test/unity/`, v2.7.0). Each
 `test/unit/test_*.c` is built into its own executable and picked up automatically. Firmware modules without SFR
-access or I/O (`cpustick/fleascope-calc.h`, `cpustick/flash-vars.c`) are compiled for the host and linked into the
-tests from an archive; a test provides fakes for what they call. Development is on Linux; on Windows, use WSL.
+access or I/O (`cpustick/fleascope-calc.h`, `cpustick/flash-vars.c`, `sources/params.c`) are compiled for the host and
+linked into the tests from an archive; a test provides fakes for what they call (e.g. a simulated flash), and
+`test/host/main.h` stands in for the firmware's `main.h`. Development is on Linux; on Windows, use WSL.
 
 ## License
 
