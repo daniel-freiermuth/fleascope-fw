@@ -1,28 +1,11 @@
 #! /bin/sh
 # this test exercises new v1.80 features
 
-case `uname 2>/dev/null` in
-  CYGWIN*)
-    build="windows"
-    ;;
-  Windows*)
-    build="windows"
-    ;;
-  Linux)
-    build="linux"
-    ;;
-esac
-
-if [ "$build" = linux ]; then
-  if [ X${1:-} = X-r ]; then
-    BASIC="../stickos/obj.linux.MK0512GPK.RELEASE/stickos"
-  else
-    BASIC="../stickos/obj.linux.MK0512GPK.DEBUG/stickos"
-  fi
-elif [ X${1:-} = X-r ]; then
-  BASIC="../stickos/PIC32/basic.exe"
+# BASIC is the STICK_GUEST interpreter (make guest); make golden-test sets it
+if [ X${1:-} = X-r ]; then
+  BASIC=${BASIC:-../out/guest/release/stickos}
 else
-  BASIC="../stickos/PIC32/basic.exe"
+  BASIC=${BASIC:-../out/guest/debug/stickos}
 fi
 
 echo input parse

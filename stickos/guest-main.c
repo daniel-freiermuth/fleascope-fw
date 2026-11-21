@@ -1,6 +1,6 @@
 // *** guest-main.c ***************************************************
 // entry point and platform stubs for the STICK_GUEST build: the StickOS
-// interpreter as a POSIX program (Linux, WSL), used by test/ and help.sh.
+// interpreter as a POSIX program (Linux, WSL), used by test/ and make help.
 
 #include <unistd.h>
 #include <signal.h>

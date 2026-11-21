@@ -8,7 +8,7 @@ All notable changes to the firmware are documented here.
 
 ### Added
 - **Host interpreter tests in CI**: the STICK_GUEST interpreter now builds with GCC on
-  Linux (`sh build.sh linux debug`), and CI runs the golden-output suites `test/test.sh`
+  Linux (`make guest`), and CI runs the golden-output suites `test/test.sh`
   and `test/test3.sh` plus a `help.c` staleness check on every pull request.
 - **`make test`** runs all host tests (`unit-test`, `golden-test`, `help-check`); GitLab
   (`test:host`) and GitHub (`.github/workflows/test.yml`) both run exactly this. It replaces
@@ -30,10 +30,17 @@ All notable changes to the firmware are documented here.
 - MPLAB X generated files (`pic32.X/nbproject/Makefile-*.mk`, `pic32.X/.generated_files/`) are no longer committed.
 - `main.h` takes `bool` and the fixed-width types from `<stdbool.h>`/`<stdint.h>`/`<stddef.h>`
   instead of hand-written typedefs, so the sources compile as C17 and C23. The host
-  interpreter (`build/Makefile.linux`) is now built as C23 (`-std=gnu2x`) instead of
+  interpreter is now built as C23 (`-std=gnu2x`) instead of
   `-std=gnu11`; the firmware keeps XC32's default (`gnu17`).
 - **MPLAB X:** `pic32.X` is now a prebuilt project that loads `out/pic32.X.production.elf` for
   flashing and debugging. It has no source list to keep in sync, so `make check-mplabx` is removed.
+- **STICK_GUEST build:** `make guest` builds the host interpreter into `out/guest/{debug,release}/`
+  from the root `Makefile`, and `make help` regenerates `cpustick/help.c`. They replace `build.sh`,
+  `build/` and `help.sh`, the multi-target build of the original StickOS; the golden tests take
+  the interpreter from `$BASIC`. `stickos/w32main.c` is renamed `stickos/guest-main.c`.
+- Only the PIC32MK0512GPK064 is supported: conditionals for the PIC32MK0512MCM064 and
+  other parts are removed. Behavior is unchanged; the `.hex` differs only in the source
+  line numbers that `ASSERT` embeds.
 
 ### Fixed
 - Host interpreter: console input no longer uses `gets()` (removed from C11 and from the
@@ -42,6 +49,9 @@ All notable changes to the firmware are documented here.
 ### Removed
 - Unreferenced legacy build files: `build/Makefile.sourcery`, `cpustick/Makefile.cpustick`,
   `stickos/basic.vcproj`.
+- Windows host support: the MSVC/Win32 code paths of the STICK_GUEST build,
+  `build/Makefile.windows` and the Visual Studio solution. Windows users build in WSL.
+- `readme.txt` (CodeWarrior/MPLAB 8 project list) and `review.sh` (Cygwin patch review).
 
 ---
 

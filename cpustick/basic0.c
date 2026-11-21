@@ -76,12 +76,7 @@ const char * const help_about =
 to change help:
 
 1. change the help inside the "dead" part of the #if (between GENERATE-HELP-BEGIN and GENERATE-HELP-END)
-2. download the Win32 version of StickOS from https://rtestardi.github.io/StickOS/downloads.htm
-3. in a shell window, cd to the cpustick directory
-4. run: "StickOS.exe help <basic0.c >help.c"
-4a. or in powershell run: gc basic0.c | c:\temp\StickOS.v1.82.exe help | out-file -encoding ascii help.c
-4b. or on Linux, from the repository root: "sh build.sh linux debug && sh help.sh" (CI fails if help.c is stale)
-5. rebuild
+2. from the repository root, run: "make help" (CI fails if help.c is stale)
 */
 #if 1
 #include "help.c"

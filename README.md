@@ -43,9 +43,12 @@ source file needs no build edits.
 ```sh
 make test        # all host tests; needs only a host C compiler, not XC32
 make unit-test   # Unity unit tests: test/unit/test_*.c
-make golden-test # STICK_GUEST interpreter (sh build.sh linux) against test/basic.txt, test/basic3.txt
-make help-check  # cpustick/help.c matches basic0.c (regenerate with sh help.sh)
+make golden-test # STICK_GUEST interpreter against test/basic.txt, test/basic3.txt
+make help-check  # cpustick/help.c matches basic0.c (regenerate with make help)
 ```
+
+The STICK_GUEST build (`make guest`, output in `out/guest/{debug,release}/stickos`) is the StickOS interpreter as a
+Linux program, so the BASIC side can be tested without hardware. Development is on Linux; on Windows, use WSL.
 
 Unit tests use [Unity](https://github.com/ThrowTheSwitch/Unity) (vendored in `test/unity/`, v2.7.0). Each
 `test/unit/test_*.c` is built into its own executable and picked up automatically. Unit-testable code has no SFR

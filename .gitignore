@@ -4,8 +4,7 @@ pic32.X/nbproject/private/
 pic32.X/.generated_files/
 pic32.X/build/
 pic32.X/dist/
-# root Makefile output
+# root Makefile output (firmware, host tests, STICK_GUEST interpreter)
 /out/
-# sh build.sh linux / test/
-stickos/obj.*/
+# test/
 test/*.log
