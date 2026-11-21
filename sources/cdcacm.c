@@ -223,10 +223,44 @@ static byte tx[PACKET_SIZE];  // packet from host
 static byte rx[NRX][PACKET_SIZE-1]; // packets to host
 static int rx_length[NRX];
 
+// rx[] is a ring: rx_out is the oldest packet handed to the usb hardware,
+// rx_in the open buffer prints append to. The buffers from rx_out up to (not
+// including) rx_in are closed: armed (rx_armed of them, at most 2, one per
+// ping-pong buffer descriptor) or waiting to be armed. rx_in is never armed.
 static byte rx_in;
 static byte rx_out;
+static byte rx_armed;
 
 static bool discard;  // true when we don't think anyone is listening
+
+// hands closed (or the open, non-empty) buffers to the usb hardware until
+// both ping-pong descriptors are busy, so the next packet is ready while the
+// current one is on the bus. Called at splx(5) or from the usb isr.
+static void
+rx_arm(void)
+{
+    byte b;
+    byte next;
+
+    while (rx_armed < 2) {
+        b = (rx_out+rx_armed)%NRX;
+        if (! rx_length[b]) {
+            break;
+        }
+        if (b == rx_in) {
+            // close the open buffer; it needs a successor to open
+            next = (rx_in+1)%NRX;
+            if (next == rx_out) {
+                break;
+            }
+            assert(! rx_length[next]);
+            rx_in = next;
+        }
+        assert(rx_length[b] > 0 && rx_length[b] < PACKET_SIZE);
+        usb_device_enqueue(bulk_in_ep, 1, rx[b], rx_length[b]);
+        rx_armed++;
+    }
+}
 
 
 // this function waits for space to be available in the transport
@@ -235,8 +269,8 @@ static bool discard;  // true when we don't think anyone is listening
 void
 cdcacm_print(const byte *buffer, int length)
 {
-    int a;
-    int n;
+    int closed;
+    int need;
     int m;
     int x;
     static uint32 attached_count;
@@ -255,23 +289,15 @@ cdcacm_print(const byte *buffer, int length)
         attached_count = cdcacm_attached_count;
     }
 
-    // figure out how many buffers we need
-    n = (length+sizeof(rx[0])-1)/sizeof(rx[0])+1;
-
     x = splx(5);
 
-    // forever...
+    // wait until the empty buffers after rx_in can take what does not fit
+    // into rx_in
     m = 0;
     for (;;) {
-        // compute the number of available buffers
-        a = (rx_out+NRX-rx_in)%NRX;
-        if (! a) {
-            a = NRX;
-        }
-
-        // if we have as many as we need...
-        if (a >= n) {
-            // we're ready to go
+        closed = (rx_in+NRX-rx_out)%NRX;
+        need = (rx_length[rx_in]+length-1)/(int)sizeof(rx[0]);
+        if (NRX-1-closed >= need) {
             break;
         }
         splx(x);
@@ -285,32 +311,23 @@ cdcacm_print(const byte *buffer, int length)
 
     // while there is more data to send...
     do {
-        // append to next rx_in(s)
+        // append to rx_in, opening the next buffer when it is full
         m = MIN(length, sizeof(rx[rx_in])-rx_length[rx_in]);
-        assert(rx_length[rx_in]+m <= sizeof(rx[rx_in]));
         memcpy(rx[rx_in]+rx_length[rx_in], buffer, m);
         rx_length[rx_in] += m;
 
         buffer += m;
         length -= m;
 
-        // if this is the first buffer of the transfer or if the transfer will need more buffers...
-        if (a == NRX || length) {
-            // advance to the next buffer
-            assert(length ? rx_length[rx_in] == sizeof(rx[rx_in]) : true);
+        if (length) {
+            assert(rx_length[rx_in] == sizeof(rx[rx_in]));
             rx_in = (rx_in+1)%NRX;
             assert(rx_in != rx_out);
             assert(! rx_length[rx_in]);
         }
     } while (length);
 
-    // if this is the first buffer of the transfer...
-    if (a == NRX) {
-        // start the rx ball rolling
-        assert(rx_out != rx_in);
-        assert(rx_length[rx_out] > 0 && rx_length[rx_out] < PACKET_SIZE);
-        usb_device_enqueue(bulk_in_ep, 1, rx[rx_out], rx_length[rx_out]);
-    }
+    rx_arm();
 
     splx(x);
 }
@@ -426,22 +443,14 @@ cdcacm_bulk_transfer(bool in, byte *buffer, int length)
             waiting = true;
         }
     } else {
+        // the oldest armed packet went out
+        assert(rx_armed > 0);
         rx_length[rx_out] = 0;
         rx_out = (rx_out+1)%NRX;
+        rx_armed--;
 
-        // if there is more data to transfer...
-        if (rx_length[rx_out] > 0) {
-            if (rx_in == rx_out) {
-                rx_in = (rx_in+1)%NRX;
-                assert(rx_in != rx_out);
-                assert(rx_length[rx_in] == 0);
-            }
-
-            // keep the rx ball rolling
-            assert(rx_out != rx_in);
-            assert(rx_length[rx_out] > 0 && rx_length[rx_out] < PACKET_SIZE);
-            usb_device_enqueue(bulk_in_ep, 1, rx[rx_out], rx_length[rx_out]);
-        }
+        // keep the rx ball rolling
+        rx_arm();
     }
 
     return 0;
@@ -458,6 +467,9 @@ cdcacm_reset(void)
     for (i = 0; i < NRX; i++) {
         rx_length[i] = 0;
     }
+    rx_in = 0;
+    rx_out = 0;
+    rx_armed = 0;
 
     // prepare for rx
     usb_device_enqueue(bulk_in_ep, -1, NULL, 0);
