@@ -144,7 +144,10 @@ stream_data(uint averaging, uint bitwidth)
 {
     uint sent = 0;
     // post samples; kill time and go easy on the bus
-    short* adcbuffer = get_adc_buffer();
+    const short *adcbuffer = get_adc_buffer();
+    const int length = get_adcbuffer_length();
+    int index = 0;  // sent % length, kept without dividing
+    uint current;
     uint leftover = 0; // |•••••••••••••|new_value|older_value|partially_send_even_older_value|
     uint leftover_bits = 0;
 
@@ -155,13 +158,24 @@ stream_data(uint averaging, uint bitwidth)
     byte chunk[63];
     int used = 0;
 
+    // each output sample uses one group of INTERLEAVE interleaved adc samples;
+    // the dma isr adds whole groups and the buffer holds whole groups, so a
+    // group never wraps and index lands exactly on length
+    assert(length%INTERLEAVE == 0);
+
     while (run_stop) {
-        while (run_stop && stream_samples_pending(get_current(), sent)) {
-            int v=0;
-            for (int i = 0; i < averaging; i++) {
-                v += adcbuffer[sent++%get_adcbuffer_length()];
+        current = get_current();
+        while (run_stop && stream_samples_pending(current, sent)) {
+            const short *group = adcbuffer + index;
+            int v = group[0];
+            for (int i = 1; i < averaging; i++) {
+                v += group[i];
             }
-            sent += 5 - averaging;
+            sent += INTERLEAVE;
+            index += INTERLEAVE;
+            if (index == length) {
+                index = 0;
+            }
 
             v = stream_scale_sample(v, bits_per_sample, bitwidth);
 
