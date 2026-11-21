@@ -118,6 +118,7 @@ splx(int level)
         level = MAX(level, oldlevel);
     }
     assert(level >= 0 && level <= 7);
+    // cppcheck-suppress shiftNegativeLHS ; level is 0..7 (asserted above): -level of a level <= 0, or MAX() of a level > 0
     csr = (int)(((uint32)csr & 0xffffe3ff) | (uint32)(level << 10));
 
     // update the sr

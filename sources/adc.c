@@ -72,15 +72,17 @@ adc_get_value(int offset, int pin_qual)
         sum = 0;
 
         // Need at least 3 samples to exclude min and max.
-        assert(adc_num_debounce_history > 2);
+        cassert(adc_num_debounce_history > 2);
 
         for (i = 0; i < adc_num_debounce_history; i++) {
+            // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound): offset < adc_num_channel (asserted above; callers pass pin_to_an()), only the assert-failed path is out of bounds
             min = MIN(min, adc_debounce[offset][i]);
             max = MAX(max, adc_debounce[offset][i]);
             sum += adc_debounce[offset][i];
         }
         value = (sum-min-max)/(adc_num_debounce_history-2);
     } else {
+        // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound): offset < adc_num_channel (asserted above; callers pass pin_to_an()), only the assert-failed path is out of bounds
         value = adc_result[offset];
     }
 

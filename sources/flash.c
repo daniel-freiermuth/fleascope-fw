@@ -49,7 +49,7 @@ void
 flash_erase_pages(uint32 *addr_in, uint32 npages_in)
 {
 #if SODEBUG
-    int i;
+    uint32 i;
 #endif
     int x;
     uint32 *addr;
@@ -83,7 +83,7 @@ flash_erase_pages(uint32 *addr_in, uint32 npages_in)
 
 #if SODEBUG
     for (i = 0; i < npages_in*FLASH_PAGE_SIZE/sizeof(uint32); i++) {
-        assert(addr_in[i] == -1);
+        assert(addr_in[i] == 0xFFFFFFFF);
     }
 #endif
 }
@@ -92,7 +92,7 @@ void
 flash_write_words(uint32 *addr_in, const uint32 *data_in, uint32 nwords_in)
 {
 #if SODEBUG
-    int i;
+    uint32 i;
 #endif
     int x;
     uint32 *addr;
@@ -142,9 +142,9 @@ __attribute__((nomips16, noreturn))
 flash_upgrade_ram(void)
 {
 #if SODEBUG
-    static int i;
-    static int rd;
-    static int wd;
+    // a failed assert_ram() halts for the debugger: addr[i] is the word that
+    // did not erase or verify, data[i] the staged word it was written from
+    static uint32 i;
 #endif
     static uint32 *addr;
     static const uint32 *data;
@@ -172,7 +172,7 @@ flash_upgrade_ram(void)
     addr = (uint32 *)FLASH_START;
     npages = FLASH_BYTES/2/FLASH_PAGE_SIZE;
     for (i = 0; i < npages*FLASH_PAGE_SIZE/sizeof(uint32); i++) {
-        assert_ram((rd = addr[i]) == -1);
+        assert_ram(addr[i] == 0xFFFFFFFF);
     }
 #endif
 
@@ -194,7 +194,7 @@ flash_upgrade_ram(void)
     data = (uint32 *)(FLASH_START+FLASH_BYTES/2);
     nwords = (FLASH_BYTES/2 - FLASH2_BYTES)/sizeof(uint32);
     for (i = 0; i < nwords; i++) {
-        assert_ram((wd = addr[i]) == (rd = data[i]));
+        assert_ram(addr[i] == data[i]);
     }
 #endif
 
@@ -212,7 +212,7 @@ flash_upgrade_ram(void)
     addr = (uint32 *)FLASH2_START;
     npages = FLASH2_BYTES/FLASH_PAGE_SIZE;
     for (i = 0; i < npages*FLASH_PAGE_SIZE/sizeof(uint32); i++) {
-        //assert_ram((rd = addr[i]) == -1);
+        //assert_ram(addr[i] == 0xFFFFFFFF);
     }
 #endif
 
@@ -244,7 +244,7 @@ flash_upgrade_ram(void)
     data = (uint32 *)(FLASH_START+FLASH_BYTES-FLASH2_BYTES);
     nwords = FLASH2_BYTES/sizeof(uint32);
     for (i = 0; i < nwords; i++) {
-        assert_ram((wd = addr[i]) == (rd = data[i]));
+        assert_ram(addr[i] == data[i]);
     }
 #endif
 
@@ -262,7 +262,7 @@ flash_upgrade_ram(void)
     addr = (uint32 *)(FLASH_START+FLASH_BYTES/2);
     npages = FLASH_BYTES/2/FLASH_PAGE_SIZE;
     for (i = 0; i < npages*FLASH_PAGE_SIZE/sizeof(uint32); i++) {
-        assert_ram((rd = addr[i]) == -1);
+        assert_ram(addr[i] == 0xFFFFFFFF);
     }
 #endif
 

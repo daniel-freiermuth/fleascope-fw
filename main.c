@@ -201,9 +201,9 @@ main(void)  // NOLINT(misc-use-internal-linkage): we're called directly by start
         flash_checksum += *p;
     }
 
-    assert(sizeof(byte) == 1);
-    assert(sizeof(uint16) == 2);
-    assert(sizeof(uint32) == 4);
+    cassert(sizeof(byte) == 1);
+    cassert(sizeof(uint16) == 2);
+    cassert(sizeof(uint32) == 4);
 
     // initialize timer
     timer_initialize();
