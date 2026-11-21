@@ -296,7 +296,7 @@ flash_upgrade_ram(void)
 // this function downloads a new HEX firmware file to a staging
 // area, and then installs it by calling a RAM copy of flash_upgrade_ram().
 void
-flash_upgrade()
+flash_upgrade(void)
 {
     int i;
     int n;

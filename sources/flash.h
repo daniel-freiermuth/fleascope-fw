@@ -7,7 +7,7 @@ void
 flash_write_words(uint32 *addr, uint32 *data, uint32 nwords);
 
 void
-flash_upgrade();
+flash_upgrade(void);
 
 void
 flash_initialize(void);
