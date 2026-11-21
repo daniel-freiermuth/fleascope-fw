@@ -24,6 +24,14 @@ All notable changes to the firmware are documented here.
   `out/`) instead of the committed MPLAB X generated makefiles. Sources are picked up by wildcard. CI artifacts
   moved from `pic32.X/dist/MK_GPK/production/` to `out/`.
 - MPLAB X generated files (`pic32.X/nbproject/Makefile-*.mk`, `pic32.X/.generated_files/`) are no longer committed.
+- `main.h` takes `bool` and the fixed-width types from `<stdbool.h>`/`<stdint.h>`/`<stddef.h>`
+  instead of hand-written typedefs, so the sources compile as C17 and C23. The host
+  interpreter (`build/Makefile.linux`) is now built as C23 (`-std=gnu2x`) instead of
+  `-std=gnu11`; the firmware keeps XC32's default (`gnu17`).
+
+### Fixed
+- Host interpreter: console input no longer uses `gets()` (removed from C11 and from the
+  VS2015+ CRT); an overlong line is truncated instead of overflowing the buffer.
 
 ### Removed
 - Unreferenced legacy build files: `build/Makefile.sourcery`, `cpustick/Makefile.cpustick`,
