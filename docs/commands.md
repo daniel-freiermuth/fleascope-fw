@@ -87,8 +87,8 @@ Level and edge triggers wait until they fire or Ctrl-C. Hosts always pass a
 trigger; without one, the analog threshold is set to the top of its range.
 
 **Reply:** 2000 lines `<analog>,<digital>`. `analog` is the raw 12-bit ADC
-value in decimal (0–4095; the host converts it to volts with its
-calibration, see below), `digital` the inputs b8…b0 as lower-case hex
+value in decimal (0–4095; the host converts it to volts with its own
+calibration, which the device does not store), `digital` the inputs b8…b0 as lower-case hex
 without `0x` (`0`–`1ff`):
 
 ```
@@ -236,64 +236,16 @@ leave room for the staging area, `upgrade` only prints
 `code exceeds half of flash`.
 
 `upgrade` erases the parameter pages before it reads the file, so the
-flash variables (calibration) are reset to 0 and the hostname to `Flea-Scope`,
-whether it succeeds or fails. After a failed `upgrade` the device keeps running but has
-forgotten every `dim`: `print` and assignments report `var '…' undefined`
-(see below for what follows the message) until the host declares its
-variables again.
+hostname returns to `Flea-Scope`, whether it succeeds or fails.
 
-## Flash variables (calibration)
+## Calibration
 
-Hosts store calibration in flash with three statements from StickOS BASIC,
-which the firmware keeps for compatibility.
+The device does not store probe calibration. The StickOS BASIC statements
+older firmware accepted for it (`dim <name> as flash`, `print <name>`,
+`<name> = <value>`) get the syntax-error reply like any unknown command;
+hosts keep calibration themselves.
 
-| Statement | Effect |
-|---|---|
-| `dim <name> as flash[, …]` | Declares a variable. |
-| `dim <name>[<n>] as flash[, …]` | Declares an array of `n` elements. |
-| `print <name>[[<i>]][, …]` | Prints the values separated by spaces, e.g. `1050 2000`. As in StickOS, the line is cut after 78 characters without a marker. |
-| `[let] <name>[[<i>]] = <value>[, …]` | Stores 32-bit signed values (decimal, `-`, or `0x` hex) in flash. |
-
-Declarations are held in RAM until reset or a failed `upgrade`, which also
-drops them: each takes the next free words of
-the parameter page in the order declared, and the names are not stored. A
-host that declares the same variables in the same order after each reset
-finds its values again. On the first start after a firmware update, and
-after `upgrade`, all variables read 0.
-
-Names are case-sensitive identifiers of up to 31 characters; there are up to
-32 declarations and 511 words. A line is checked completely before any part
-of it runs. A failing item reports a message and the statement goes on, as in
-StickOS: `print` sends each message on its own line first, then its value line,
-in which a failed item without an index shows nothing and a failed indexed
-item shows `0`; an assignment skips the failing item. For example, after
-`dim a as flash, b as flash`:
-
-```
-> print nope
-var 'nope' undefined
-
-> print a, nope, b
-var 'nope' undefined
-0  0
-> print nope[2]
-var 'nope' undefined
-0
-```
-
-Messages: `var '<name>' undefined`,
-`var '<name>' index <i> out of range`,
-`var '<name>' already declared at this scope`, `declared 0 length array`,
-`out of variables`, `out of parameter flash`.
-
-The original web GUI and Python client use this layout, which other hosts
-follow to share calibration:
-
-```
-dim unused[8] as flash
-dim cal_zero_x1 as flash, cal_3v3_x1 as flash
-dim cal_zero_x10 as flash, cal_3v3_x10 as flash
-```
-
-`cal_zero_*` and `cal_3v3_*` hold the ADC readings for 0 V and 3.3 V in the
-x1 and x10 probe settings; 0 means not calibrated.
+The original web GUI is affected: it reads
+calibration with `print` on connect and takes the error reply `  ^ - error` for values,
+which leaves its x10 calibration at NaN, so with the x10 probe setting all its analog
+captures are rejected; x1 keeps working with its default calibration.
