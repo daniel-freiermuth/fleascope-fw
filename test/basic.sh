@@ -1210,6 +1210,18 @@ new
 list
 run
 run
+new
+10 dim x
+20 on x==1 do print "one",x
+30 mask x==1
+40 off x==2
+41 mask x==2
+42 unmask x==2
+50 let x=1
+60 print "masked"
+70 unmask x==1
+80 print "unmasked"
+run
 EOF
 
 ### long prints ###
