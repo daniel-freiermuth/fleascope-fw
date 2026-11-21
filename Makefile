@@ -3,6 +3,8 @@
 #   make                  build out/pic32.X.production.{elf,hex,map}
 #   make fetch-dfp        download the pinned PIC32MK-GP device pack
 #   make test             host tests: unit-test, golden-test, help-check
+#   make guest            STICK_GUEST interpreter: out/guest/{debug,release}/stickos
+#   make help             regenerate cpustick/help.c from basic0.c
 #   make clean
 #
 # Override XC32_ROOT / DFP_DIR on the command line or in the environment if
@@ -29,14 +31,13 @@ DFP_DIR ?= $(firstword $(wildcard $(DFP_FETCH_DIR) \
                                   /opt/microchip/mplabx/v*/packs/Microchip/PIC32MK-GP_DFP/$(DFP_VERSION)) \
                        $(DFP_FETCH_DIR))
 
-# Not build/: that holds the build.sh makefiles for the STICK_GUEST host build.
 BUILD_DIR ?= out
 TARGET    := $(BUILD_DIR)/pic32.X.production
 
 PROCESSOR := 32MK0512GPK064
 
 # cpustick/help.c is generated and #included by cpustick/basic0.c.
-# stickos/guest-main.c is the STICK_GUEST host entry point (sh build.sh linux).
+# stickos/guest-main.c is the STICK_GUEST host entry point (make guest).
 SRCS ?= $(filter-out cpustick/help.c,$(sort $(wildcard cpustick/*.c))) \
         $(sort $(wildcard sources/*.c)) \
         $(filter-out stickos/guest-main.c,$(sort $(wildcard stickos/*.c))) \
@@ -54,7 +55,7 @@ LDFLAGS := -mprocessor=$(PROCESSOR) -mdfp="$(DFP_DIR)" \
            -Wl,--gc-sections,--no-code-in-dinit,--no-dinit-in-serial-mem \
            -Wl,-Map=$(TARGET).map,--memorysummary,$(BUILD_DIR)/memoryfile.xml
 
-.PHONY: all clean fetch-dfp check-dfp test unit-test guest golden-test help-check FORCE
+.PHONY: all clean fetch-dfp check-dfp test unit-test guest golden-test help help-check FORCE
 all: $(TARGET).hex
 
 $(TARGET).hex: $(TARGET).elf
@@ -138,22 +139,52 @@ test: unit-test golden-test help-check
 unit-test: $(UNIT_BINS)
 	@set -e; for t in $^; do $$t; done
 
-# STICK_GUEST interpreter on the host, DEBUG and RELEASE; build.sh tracks its
-# own dependencies, so this is cheap when nothing changed.
-GUEST := stickos/obj.linux.MK0512GPK.DEBUG/stickos
-guest:
-	sh build.sh linux
+# STICK_GUEST: the interpreter as a host program, for the golden tests and for
+# generating cpustick/help.c. DEBUG (SODEBUG, asserts on) and RELEASE (-O).
+GUEST_SRCS := stickos/guest-main.c \
+              cpustick/basic0.c cpustick/parse2.c cpustick/run2.c \
+              stickos/basic.c stickos/code.c stickos/parse.c stickos/run.c stickos/vars.c \
+              sources/adc.c sources/led.c sources/pin.c sources/printf.c \
+              sources/text.c sources/timer.c sources/util.c
+GUEST_CFLAGS := -g -std=gnu2x -Werror -fno-builtin -DSTICK_GUEST -DSTICKOS \
+                -I. -Icpustick -Isources -Istickos
+GUEST_DIR    := $(BUILD_DIR)/guest
+GUEST        := $(GUEST_DIR)/debug/stickos
+GUEST_REL    := $(GUEST_DIR)/release/stickos
+GUEST_DEBUG_OBJS   := $(GUEST_SRCS:%.c=$(GUEST_DIR)/debug/obj/%.o)
+GUEST_RELEASE_OBJS := $(GUEST_SRCS:%.c=$(GUEST_DIR)/release/obj/%.o)
+
+$(GUEST_DIR)/debug/obj/%.o: %.c
+	@mkdir -p $(@D)
+	$(HOST_CC) $(GUEST_CFLAGS) -DSODEBUG=1 -MMD -MP -c -o $@ $<
+
+$(GUEST_DIR)/release/obj/%.o: %.c
+	@mkdir -p $(@D)
+	$(HOST_CC) $(GUEST_CFLAGS) -O -MMD -MP -c -o $@ $<
+
+$(GUEST): $(GUEST_DEBUG_OBJS)
+	$(HOST_CC) -o $@ $^
+
+$(GUEST_REL): $(GUEST_RELEASE_OBJS)
+	$(HOST_CC) -o $@ $^
+
+guest: $(GUEST) $(GUEST_REL)
 
 # Golden-output regression suites; test.sh / test3.sh -u re-bless them.
 golden-test: guest
-	cd test && sh test.sh && sh test3.sh && sh test.sh -r && sh test3.sh -r
+	cd test && BASIC=$(abspath $(GUEST)) sh test.sh && BASIC=$(abspath $(GUEST)) sh test3.sh && \
+	  BASIC=$(abspath $(GUEST_REL)) sh test.sh && BASIC=$(abspath $(GUEST_REL)) sh test3.sh
 
-# cpustick/help.c is generated from basic0.c by the interpreter (help.sh).
-help-check: guest
-	@cd cpustick && ../$(GUEST) help <basic0.c | cmp -s - help.c || \
-	  { echo "cpustick/help.c is stale; run 'sh help.sh' and commit it" >&2; exit 1; }
+# cpustick/help.c is generated from basic0.c by the interpreter.
+help: $(GUEST)
+	cd cpustick && $(abspath $(GUEST)) help <basic0.c >help.c
+
+help-check: $(GUEST)
+	@cd cpustick && $(abspath $(GUEST)) help <basic0.c | cmp -s - help.c || \
+	  { echo "cpustick/help.c is stale; run 'make help' and commit it" >&2; exit 1; }
 
 clean:
 	rm -rf $(BUILD_DIR)
 
--include $(OBJS:.o=.d) $(UNIT_BINS:=.d) $(UNITY_OBJ:.o=.d)
+-include $(OBJS:.o=.d) $(UNIT_BINS:=.d) $(UNITY_OBJ:.o=.d) \
+         $(GUEST_DEBUG_OBJS:.o=.d) $(GUEST_RELEASE_OBJS:.o=.d)
