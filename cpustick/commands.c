@@ -134,7 +134,6 @@ command_scope(char **text)
     int number2;
     int number3;
     int number4;
-    bool magnify;
     TriggerEdge edge;
     TriggerChannel channel;
 
@@ -142,11 +141,6 @@ command_scope(char **text)
     number2 = -1;
     number3 = -1;
     number4 = 0;
-    magnify = false;
-    if (**text == '-') {
-        magnify = true;
-        (*text)++;
-    }
     if (**text && (! parse_const(text, &number1) || number1 <= 0)) {
         return false;
     }
@@ -175,7 +169,7 @@ command_scope(char **text)
     if (**text) {
         return false;
     }
-    scope(magnify ? 1 : number1, magnify ? number1 : 1, edge, channel, number2, number3, number4);
+    scope(number1, edge, channel, number2, number3, number4);
     return true;
 }
 
