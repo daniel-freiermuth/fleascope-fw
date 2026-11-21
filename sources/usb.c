@@ -4,11 +4,11 @@
 
 #include "main.h"
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
 #define PA_TO_KVA  PA_TO_KVA0
-#else
-#error
-#endif
+
+
+
 
 #define DEVICE_DESCRIPTOR_SIZE  18
 #define CONFIGURATION_DESCRIPTOR_SIZE  128
@@ -244,11 +244,11 @@ usb_isr(void)
     assert((usb_in_isr = true) ? true : true);
     assert((usb_in_ticks = ticks) ? true : true);
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
     IFS1CLR = _IFS1_USB1IF_MASK;
-#else
-#error
-#endif
+
+
+
 
     // *** device ***
 
@@ -618,13 +618,13 @@ usb_initialize(void)
     U1PWRCbits.USBPWR = 1;
 
     // enable int
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
     IEC1bits.USB1IE = 1;
     IPC8bits.USB1IP = 4;
     IPC8bits.USB1IS = 0;
-#else
-#error
-#endif
+
+
+
 
     // initialize usb bdt
     assert(! ((unsigned int)bdts & 0x1ff));

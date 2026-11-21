@@ -65,13 +65,13 @@ const char * const commands[] = {
 // *** help ***********************************************************
 
 const char * const help_about =
-#if defined(__32MK0512GPK064__)
+
 "Welcome to StickOS BASIC for Microchip PIC32MK0512GPK v" VERSION "!\n"
-#elif defined(__32MK0512MCM064__)
-"Welcome to StickOS BASIC for Microchip PIC32MK0512MCM v" VERSION "!\n"
-#else
-#error
-#endif
+
+
+
+
+
 "Copyright (c) 2008-2024; all rights reserved.  Patent U.S. 8,117,587.\n"
 "https://github.com/rtestardi/StickOS2\n"
 "rtestardi@live.com\n"
@@ -329,7 +329,7 @@ static const char * const help_variables =
 
 static const char * const help_pins =
 "pin names:\n"
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
 "     ICSP        GND 3V3 5V  a0  a1  a2  a3  a4  a5  a6  a7  a8\n"
 "  U                                                          e2\n"
 "  S                                                   GND SCOPE\n"
@@ -350,9 +350,9 @@ static const char * const help_pins =
 "b8 (u1), b7 (u2) = potential uart output pins (transmit byte)\n"
 "i2c: a6=SDA, a7=SCL\n"  // XXX -- why don't other MCUs show these?
 "qspi: b0=SDO, b1=SDI, b2=SCK, b3=SS\n"  // XXX -- why don't other MCUs show these?
-#else
-#error
-#endif
+
+
+
 ;
 
 static const char * const help_zigflea =

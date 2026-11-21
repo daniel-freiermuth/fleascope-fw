@@ -1,9 +1,9 @@
 #include "main.h"
 #include "fleascope-calc.h"
 
-#if ! defined(__32MK0512GPK064__) && ! defined(__32MK0512MCM064__)
-#error  only __32MK__ interleaved adc dma is supported for now
-#endif
+
+
+
 
 // XXX -- is there any way to use dma counts to get accurate trigger position mid-capture???
 

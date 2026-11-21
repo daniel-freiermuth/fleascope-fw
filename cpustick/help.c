@@ -235,7 +235,7 @@ static const char * const help_variables =
 
 static const char * const help_pins =
 "pi\256names:\n"
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
 "\303ICSP\306GN\2043V\0235V\300a0\300a1\300a2\300a3\300a4\300a5\300a6\300a7\300a8\n"
 "\300U\370e2\n"
 "\300S\361GN\204SCOPE\n"
@@ -256,9 +256,9 @@ static const char * const help_pins =
 "b\030(u1)\014b\027(u2\011\035potentia\254uar\264outpu\264pin\263(transmi\264byte)\n"
 "i2c: a6=SDA, a7=SCL\n"  // XXX -- why don't other MCUs show these?
 "qspi: b0=SDO, b1=SDI, b2=SCK, b3=SS\n"  // XXX -- why don't other MCUs show these?
-#else
-#error
-#endif
+
+
+
 ;
 
 static const char * const help_zigflea =

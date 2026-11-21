@@ -245,23 +245,23 @@ i2c_uninitialize(void)
 
     I2C1CONbits.ON = false;
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
     // restore default pin usage
     RPG8R = 5;  // OC4 -> RG8
     RPG7R = 5;  // OC2 -> RG7
-#endif
+
 }
 
 // claim pins for i2c use; enable i2c module
 void
 i2c_initialize(void)
 {
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
     // hijack these pins while i2c is in use
     // XXX -- we should prevent someone else from using these pins!
     RPG8R = 0;  // undo OC4 -> RG8
     RPG7R = 0;  // undo OC2 -> RG7
-#endif
+
 
     I2C1CONbits.ON = false;
     I2C1BRG = ((bus_frequency/I2C_BAUD)/2) - 2;

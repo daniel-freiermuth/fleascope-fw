@@ -54,7 +54,7 @@ extern const char * const pin_qual_names[];
 
 // N.B. pins marked with *** may affect zigflea or other system operation
 enum pin_number {  // skeleton may extend this
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
     PIN_A0,
     PIN_A1,
     PIN_A2,
@@ -77,9 +77,9 @@ enum pin_number {  // skeleton may extend this
     PIN_E2,
     PIN_E3,
     PIN_S1,
-#else
-#error
-#endif
+
+
+
     PIN_UNASSIGNED,
     PIN_LAST
 };
@@ -144,7 +144,7 @@ pin_assign(int assign, int pin);
 extern void
 pin_initialize(void);
 
-#if ! STICK_GUEST && (defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__))
+#if ! STICK_GUEST
 void
 pin_oc_route(void);
 

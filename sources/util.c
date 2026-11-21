@@ -272,7 +272,7 @@ tailtrim(char *text)
 void *
 memcpy(void *d,  const void *s, size_t n)
 {
-#if MCU_CORE_BITS >= 32
+#if ! STICK_GUEST
     if (((uintptr)d&3)+((uintptr)s&3)+(n&3) == 0) {
         uint32 *dtemp = d;
         const uint32 *stemp = s;
@@ -289,7 +289,7 @@ memcpy(void *d,  const void *s, size_t n)
         while (n--) {
             *(dtemp++) = *(stemp++);
         }
-#if MCU_CORE_BITS >= 32
+#if ! STICK_GUEST
     }
 #endif
     return d;
@@ -314,7 +314,7 @@ memmove(void *d,  const void *s, size_t n)
 void *
 memset(void *p,  int d, size_t n)
 {
-#if MCU_CORE_BITS >= 32
+#if ! STICK_GUEST
     int dd;
 
     if (((uintptr)p&3)+(n&3) == 0) {
@@ -333,7 +333,7 @@ memset(void *p,  int d, size_t n)
         while (n--) {
             *(ptemp++) = d;
         }
-#if MCU_CORE_BITS >= 32
+#if ! STICK_GUEST
     }
 #endif
     return p;

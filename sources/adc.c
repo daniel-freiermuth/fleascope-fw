@@ -38,7 +38,7 @@ adc_timer_poll(bool debouncing)
     assert(adc_debounce_set < adc_num_debounce_history);
 
 #if ! STICK_GUEST
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
     for (i = 0; i < adc_num_channel; i++) {
         adc_result[i] = ReadADC10(i);  // 0..4095
         if (debouncing) {
@@ -49,9 +49,9 @@ adc_timer_poll(bool debouncing)
     // trigger adc scan now
     ADCCON3bits.GSWTRG = 1;
 
-#else
-#error
-#endif
+
+
+
 #endif // ! STICK_GUEST
 
     // if a debounced set if full, then advance the debouncing index to the next set.
@@ -105,7 +105,7 @@ void
 adc_initialize(void)
 {
 #if ! STICK_GUEST
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
     // calibrate shared adc 7
     ADC7CFG = DEVADC7;
 
@@ -153,9 +153,9 @@ adc_initialize(void)
 
     ADCCON3bits.DIGEN7 = 1;      // Enable ADC
 
-#else
-#error
-#endif
+
+
+
 #endif // ! STICK_GUEST
 
     adc_initialized = true;

@@ -94,10 +94,10 @@ XXX_SKIP_XXX:
     splx(x);
 }
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
 #define _UART_2_VECTOR  _UART2_RX_VECTOR
 #define _UART_1_VECTOR  _UART1_RX_VECTOR
-#endif
+
 
 void
 #if SERIAL_UART
@@ -242,7 +242,7 @@ serial_initialize(void)
     // configure the first uart for serial terminal by default
     pin_uart_configure(SERIAL_UART, serial_baudrate, 8, 2, false);
 
-#if defined(__32MK0512GPK064__) || defined(__32MK0512MCM064__)
+
 #if ! SERIAL_UART
 #error
 #endif
@@ -254,7 +254,7 @@ serial_initialize(void)
     IEC1bits.U2RXIE = 1;
     IPC14bits.U2RXIP = 4;
     IPC14bits.U2RXIS = 0;
-#endif
+
 
     // start us out with a CTRLQ
     pin_uart_tx(SERIAL_UART, CTRLQ);
