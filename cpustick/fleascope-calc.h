@@ -65,14 +65,18 @@ stream_bits_per_sample(unsigned int averaging)
 }
 
 // Rescales the averaged sum v from bits_per_sample to bitwidth bits,
-// rounding to nearest when dropping bits.
+// rounding to nearest when dropping bits.  Rounding saturates at
+// (1 << bitwidth) - 1: the top readings would otherwise round up to
+// 1 << bitwidth, which does not fit in bitwidth bits.
 static inline int
 stream_scale_sample(int v, unsigned int bits_per_sample, unsigned int bitwidth)
 {
     int bits_to_shift = bits_per_sample - bitwidth;
+    int max = (1 << bitwidth) - 1;
 
     if (bits_to_shift > 0) {
-        return (v + (1 << (bits_to_shift -1))) >> bits_to_shift;
+        v = (v + (1 << (bits_to_shift -1))) >> bits_to_shift;
+        return v > max ? max : v;
     } else {
         return v << (-bits_to_shift);
     }
