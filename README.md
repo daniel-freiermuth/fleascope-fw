@@ -6,6 +6,7 @@ BASIC interpreter: it is a plain command line over USB (CDC ACM) with the comman
 `digital_stream`, `wave`, `ver`, `hostname`, `reset`, `upgrade`, `echo`, `prompt` — plus the BASIC flash-variable
 statements (`dim … as flash`, `print`, assignment) that hosts use to keep probe calibration in flash. Replies are
 unchanged, so existing hosts such as [fleascope-rs](https://github.com/daniel-freiermuth/fleascope-rs) keep working.
+Every command and its replies are described in [docs/commands.md](docs/commands.md).
 
 See the Flea Scope™ User's Guide: [https://rtestardi.github.io/usbte/flea-scope.pdf](https://rtestardi.github.io/usbte/flea-scope.pdf)
 
@@ -22,7 +23,7 @@ See the Web USB Flea Scope™ GUI repository: [https://github.com/rtestardi/usbt
 | `test/` | Unity unit tests (`test/unit/`), the host stand-in for `main.h` (`test/host/`), Unity (`test/unity/`) |
 | `tools/` | HEX normalization and the `upgrade` compatibility check, run by the build |
 | `pic32.X/` | MPLAB X prebuilt project for flashing and debugging |
-| `docs/` | Rich Testardi's guides and articles (`.docx`) and release notes (`history/`) |
+| `docs/` | [Command reference](docs/commands.md); Rich Testardi's guides and articles (`.docx`) and release notes (`history/`) |
 | `hardware/` | Board design files, wiring diagram, prebuilt StickOS `.hex` files |
 
 ## Building the firmware

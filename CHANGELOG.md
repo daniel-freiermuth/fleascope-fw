@@ -32,6 +32,8 @@ All notable changes to the firmware are documented here.
   `tools/check-upgrade-hex.py`), including the configuration words.
 
 ### Added
+- **Command reference** ([docs/commands.md](docs/commands.md)): every command, its arguments
+  and its replies byte for byte.
 - **Host interpreter tests in CI**: the STICK_GUEST interpreter now builds with GCC on
   Linux (`make guest`), and CI runs the golden-output suites `test/test.sh`
   and `test/test3.sh` plus a `help.c` staleness check on every pull request.
