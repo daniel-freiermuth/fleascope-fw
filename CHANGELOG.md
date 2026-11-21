@@ -52,6 +52,9 @@ All notable changes to the firmware are documented here.
 ### Fixed
 - Host interpreter: console input no longer uses `gets()` (removed from C11 and from the
   VS2015+ CRT); an overlong line is truncated instead of overflowing the buffer.
+- Stream: with `bitwidth` below the sample's bit count, near-full-scale readings rounded up
+  to `1 << bitwidth` and were sent as 0, with the carry bit leaking into the next sample.
+  The rounded sample now saturates at `(1 << bitwidth) - 1`.
 
 ### Removed
 - Unreferenced legacy build files: `build/Makefile.sourcery`, `cpustick/Makefile.cpustick`,

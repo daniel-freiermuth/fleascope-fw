@@ -327,6 +327,45 @@ test_stream_scale_sample(void)
     TEST_ASSERT_EQUAL_INT(4095, stream_scale_sample(4095, 12, 12));
 }
 
+// narrowing saturates at the bitwidth maximum instead of rounding the top
+// readings up to 1 << bitwidth, whose low bitwidth bits are 0 and whose
+// carry would spill into the next packed sample
+static void
+test_stream_scale_sample_saturates(void)
+{
+    unsigned int averaging;
+    unsigned int bitwidth;
+    unsigned int bits;
+    int max;
+    unsigned char bytes[8];
+    int values[3];
+
+    for (averaging = 1; averaging <= 5; averaging++) {
+        bits = stream_bits_per_sample(averaging);
+        for (bitwidth = 1; bitwidth < bits; bitwidth++) {
+            snprintf(msg, sizeof(msg), "averaging %u bitwidth %u", averaging, bitwidth);
+            max = (1 << bitwidth) - 1;
+            TEST_ASSERT_LESS_OR_EQUAL_INT_MESSAGE(max, stream_scale_sample(averaging * 4095, bits, bitwidth), msg);
+            TEST_ASSERT_EQUAL_INT_MESSAGE(max, stream_scale_sample((1 << bits) - 1, bits, bitwidth), msg);
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(255, stream_scale_sample(4095, 12, 8));
+    TEST_ASSERT_EQUAL_INT(255, stream_scale_sample(4088, 12, 8));
+    TEST_ASSERT_EQUAL_INT(255, stream_scale_sample(4087, 12, 8));
+    TEST_ASSERT_EQUAL_INT(1023, stream_scale_sample(16380, 14, 10));
+
+    // on the wire: a full-scale reading followed by two zeros, averaging 1,
+    // bitwidth 8 -> ff 00 00 (not 00 01 00)
+    {
+        static const unsigned char expected[] = { 0xff, 0x00, 0x00 };
+        values[0] = stream_scale_sample(4095, 12, 8);
+        values[1] = stream_scale_sample(0, 12, 8);
+        values[2] = stream_scale_sample(0, 12, 8);
+        TEST_ASSERT_EQUAL_INT(3, stream_pack_all(values, 3, 8, bytes));
+        TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, bytes, 3);
+    }
+}
+
 static void
 test_stream_pack_layouts(void)
 {
@@ -399,6 +438,7 @@ main(void)
     RUN_TEST(test_stream_samples_pending);
     RUN_TEST(test_stream_bits_per_sample);
     RUN_TEST(test_stream_scale_sample);
+    RUN_TEST(test_stream_scale_sample_saturates);
     RUN_TEST(test_stream_pack_layouts);
     RUN_TEST(test_stream_pack_every_bitwidth_full_scale);
     return UNITY_END();
