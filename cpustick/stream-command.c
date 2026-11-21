@@ -34,8 +34,8 @@
 // Ideas for config
 // - bitwidth
 // - channels
-void
-setup_board_stream()
+static void
+setup_board_stream(void)
 {
     // Clock Config
     configure_pmd_once();
@@ -61,7 +61,7 @@ setup_board_stream()
     pin_oc_unroute();
 }
 
-void setup_capture_timer(uint t) {
+static void setup_capture_timer(uint t) {
     // Configure adc trigger timer
 
     // set TMR3 to 3.6 MHz divided by horizontal scale
@@ -124,8 +124,8 @@ void setup_capture_timer(uint t) {
 }
 
 // prepare for DMA to capture samples imminently -- THIS IS EVERYTHING EXCEPT "T3CONSET = _T3CON_ON_MASK;"
-void
-prepare_dma()
+static void
+prepare_dma(void)
 {
     reset_buffers();
 
@@ -139,7 +139,7 @@ prepare_dma()
     ADCCON3bits.DIGEN4 = 1;      // Enable ADC
 }
 
-void
+static void
 stream_data(uint averaging, uint bitwidth)
 {
     uint sent = 0;
@@ -167,7 +167,7 @@ stream_data(uint averaging, uint bitwidth)
         while (run_stop && stream_samples_pending(current, sent)) {
             const short *group = adcbuffer + index;
             int v = group[0];
-            for (int i = 1; i < averaging; i++) {
+            for (int i = 1; (uint)i < averaging; i++) {
                 v += group[i];
             }
             sent += INTERLEAVE;
@@ -199,7 +199,7 @@ stream_data(uint averaging, uint bitwidth)
     }
 }
 
-void stop_capture() {
+static void stop_capture(void) {
     // N.B. THIS STOPS EVERYTHING!
     stop_T3();
 
@@ -211,8 +211,8 @@ void stop_capture() {
     ADCDSTATbits.DMAEN = 0;
 }
 
-void
-restore_board()
+static void
+restore_board(void)
 {
     // N.B. turn OCs off before reassigning to pins!
     OC1CONbits.ON = 0;

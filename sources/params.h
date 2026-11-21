@@ -30,7 +30,7 @@ enum param {
     PARAM_LAST = PARAMS_PAGE_SIZE/sizeof(uint32_t)/2
 };
 
-#define PARAMS_OFFSET(param)  (PARAMS_PAGE_SIZE-sizeof(uint32_t)-(PARAM_LAST-(param))*sizeof(uint32_t))
+#define PARAMS_OFFSET(param)  ((uint32_t)(PARAMS_PAGE_SIZE-sizeof(uint32_t)-(uint32_t)(PARAM_LAST-(param))*sizeof(uint32_t)))
 
 // bytes available for user words (flash variables)
 #define PARAMS_USER_BYTES  (PARAMS_PAGE_SIZE-(PARAM_LAST+1)*sizeof(uint32_t))

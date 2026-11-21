@@ -52,8 +52,8 @@ setup_timer_digital_stream(int us_per_sample)
 
     stop_T3();
     TMR3 = 0;
-    PR3 = pr3;
-    T3CON = tckps << _T3CON_TCKPS_POSITION;
+    PR3 = (uint32)pr3;
+    T3CON = (uint32)tckps << _T3CON_TCKPS_POSITION;
     start_T3();
 
     IFS0bits.T3IF = 0;
@@ -83,7 +83,7 @@ digital_stream_data(int channel_mask, int use_timer,
             IFS0bits.T3IF = 0;
         }
 
-        vbits = ptovbits(PORTB) & channel_mask;
+        vbits = ptovbits((int)PORTB) & channel_mask;
 
         bit_pos = ds_pack_sample(buffer, bit_pos, vbits, chan_pos, nchans);
 

@@ -19,8 +19,8 @@
 
 #include <stdbool.h>
 
-#define FLASHVARS_NOT_MINE  -2  // not a dim/print/assignment
-#define FLASHVARS_OK        -1  // done; reply holds any output
+#define FLASHVARS_NOT_MINE  (-2)  // not a dim/print/assignment
+#define FLASHVARS_OK        (-1)  // done; reply holds any output
 
 // forgets all declarations, as a reset does.
 void

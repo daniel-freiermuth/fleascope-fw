@@ -36,6 +36,7 @@ adc_timer_poll(bool debouncing)
     assert(adc_debounce_set < adc_num_debounce_history);
 
     for (i = 0; i < adc_num_channel; i++) {
+        // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound): ADCDATA12..19 are SFRs 16 bytes apart, not one object
         adc_result[i] = ReadADC10(i);  // 0..4095
         if (debouncing) {
             adc_debounce[i][adc_debounce_set] = adc_result[i];
@@ -47,28 +48,26 @@ adc_timer_poll(bool debouncing)
 
 
     // if a debounced set if full, then advance the debouncing index to the next set.
-    if (debouncing) {
-        if (++adc_debounce_set >= adc_num_debounce_history) {
-            adc_debounce_set = 0;
-        }
+    if (debouncing && ++adc_debounce_set >= adc_num_debounce_history) {
+        adc_debounce_set = 0;
     }
 }
 
 void
-adc_sleep()
+adc_sleep(void)
 {
 }
 
 int
 adc_get_value(int offset, int pin_qual)
 {
-    int value;
+    uint32 value;
 
     assert(offset < adc_num_channel);
 
     if (pin_qual & 1<<pin_qual_debounced) {
         unsigned int min, max, sum, i;
-        min = ~0;
+        min = ~0U;
         max = 0;
         sum = 0;
 
@@ -85,9 +84,9 @@ adc_get_value(int offset, int pin_qual)
         value = adc_result[offset];
     }
 
-    value = (uint32)value*pin_analog/4096;
+    value = value*(uint32)pin_analog/4096;
 
-    return value;
+    return (int)value;
 }
 
 // this function initializes the adc module.

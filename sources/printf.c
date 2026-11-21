@@ -4,7 +4,6 @@
 
 #include "main.h"
 #include <stdarg.h>
-extern bool debugger_attached;
 
 #define MAXDIGITS  32
 
@@ -20,11 +19,11 @@ convert(uintptr value, unsigned radix, char *buffer)
     int n;
     uintptr scale;
     uintptr lastscale;
-    int digit;
+    uintptr digit;
 
     i = 0;
 
-    if (radix == -10) {
+    if (radix == (unsigned)-10) {
         if ((intptr)value < 0) {
             buffer[i++] = '-';
             value = 0-value;
@@ -66,7 +65,7 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
     int i;
     int j;
     char c;
-    char *q;
+    const char *q;
     bool nl;
     bool longb;
     bool shortb;
@@ -79,7 +78,7 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
     char temp[1+MAXDIGITS+1];
 
     i = 0;
-    length = length_in;
+    length = (int)length_in;
 
     nl = false;
     for (p = format; *p; p++) {
@@ -138,7 +137,7 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
 
             switch (c) {
                 case 'b':
-                    j = convert(value, 2, temp);
+                    j = convert((uintptr)value, 2, temp);
                     break;
                 case 'c':
                     temp[0] = (char)va_arg(ap, int);
@@ -146,13 +145,13 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
                     j = 1;
                     break;
                 case 'd':
-                    j = convert(value, -10, temp);
+                    j = convert((uintptr)value, (unsigned)-10, temp);
                     break;
                 case 'u':
-                    j = convert(value, 10, temp);
+                    j = convert((uintptr)value, 10, temp);
                     break;
                 case 'o':
-                    j = convert(value, 8, temp);
+                    j = convert((uintptr)value, 8, temp);
                     break;
                 case 's':
                     q = va_arg(ap, char *);
@@ -160,7 +159,7 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
                     break;
                 case 'x':
                 case 'X':
-                    j = convert(value & 0xffffffff, 16, temp);
+                    j = convert((uintptr)value & 0xffffffff, 16, temp);
                     break;
                 case 'p':
                     j = convert((uintptr)va_arg(ap, void *), 16, temp);
@@ -173,9 +172,9 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
             if (j < width) {
                 if (i < length) {
                     if (zero) {
-                        strncpy(buffer+i, zeros, MIN(width-j, length-i));
+                        strncpy(buffer+i, zeros, (size_t)MIN(width-j, length-i));
                     } else {
-                        strncpy(buffer+i, spaces, MIN(width-j, length-i));
+                        strncpy(buffer+i, spaces, (size_t)MIN(width-j, length-i));
                     }
                 }
                 i += width-j;
@@ -183,11 +182,11 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
 
             if (c == 's') {
                 if (i < length) {
-                    strncpy(buffer+i, q, MIN(j, length-i));
+                    strncpy(buffer+i, q, (size_t)MIN(j, length-i));
                 }
             } else {
                 if (i < length) {
-                    strncpy(buffer+i, temp, MIN(j, length-i));
+                    strncpy(buffer+i, temp, (size_t)MIN(j, length-i));
                 }
             }
             i += j;
@@ -199,6 +198,7 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
                 i++;
             }
             if (i < length) {
+                // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound): i >= 0, it only grows by convert()/strlen() counts
                 buffer[i] = c;
             }
             i++;
@@ -206,6 +206,7 @@ vsnprintf(char *buffer, size_t length_in, const char *format, va_list ap)
     }
 
     if (i < length) {
+        // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound): i >= 0, it only grows by convert()/strlen() counts
         buffer[i] = '\0';
     } else {
         if (nl) {
@@ -263,8 +264,6 @@ static char printf_buffer[BASIC_OUTPUT_LINE_SIZE+2];  // 2 for \r\n
 int
 printf_write(char *buffer, int n)
 {
-    static uint32 last_scsi_attached_count;
-
     terminal_print((byte *)buffer, n);
     return n;
 }
@@ -276,11 +275,12 @@ vprintf(const char *format, va_list ap)
 
     assert(gpl() == 0);
 
-    n = vsnprintf(printf_buffer, sizeof(printf_buffer), format, ap);
+    n = (uint)vsnprintf(printf_buffer, sizeof(printf_buffer), format, ap);
     assert(! printf_buffer[sizeof(printf_buffer)-1]);
-    n = printf_write(printf_buffer, MIN(n, sizeof(printf_buffer)-1));
+    n = MIN(n, sizeof(printf_buffer)-1);
+    n = (uint)printf_write(printf_buffer, (int)n);
 
-    return n;
+    return (int)n;
 }
 
 int
@@ -292,12 +292,13 @@ printf(const char *format, ...)
     assert(gpl() == 0);
 
     va_start(ap, format);
-    n = vsnprintf(printf_buffer, sizeof(printf_buffer), format, ap);
+    n = (uint)vsnprintf(printf_buffer, sizeof(printf_buffer), format, ap);
     assert(! printf_buffer[sizeof(printf_buffer)-1]);
-    n = printf_write(printf_buffer, MIN(n, sizeof(printf_buffer)-1));
+    n = MIN(n, sizeof(printf_buffer)-1);
+    n = (uint)printf_write(printf_buffer, (int)n);
     va_end(ap);
 
-    return n;
+    return (int)n;
 }
 
 #if IN_MEMORY_TRACE

@@ -10,7 +10,7 @@
 //   PATCH — bug fix, no protocol change
 #define VERSION  "3.1.0"
 
-//#define SODEBUG  1
+#define SODEBUG  0  // set to 1 to enable debug assert()s and checks
 #define DEBUGGING  1  // enable to use mplab x debugger
 
 // Enable in-memory trace buffer for debugging with the trace() macro.
@@ -29,7 +29,7 @@ typedef uintptr_t uintptr;
 
 #include <myplib.h>
 
-#define asm_halt()  asm("SDBBP 0");
+#define asm_halt()  asm("SDBBP 0")
 
 typedef unsigned char byte;
 typedef unsigned int uint;
@@ -42,7 +42,7 @@ typedef unsigned int uint;
 #define MAX(a, b)  ((a) > (b) ? (a) : (b))
 #define ROUNDUP(n, s)  (((n)+(s)-1)&~((s)-1))  // N.B. s must be power of 2!
 #define ROUNDDOWN(n, s)  ((n)&~((s)-1))  // N.B. s must be power of 2!
-#define LENGTHOF(a)  (sizeof(a)/sizeof(a[0]))
+#define LENGTHOF(a)  (sizeof(a)/sizeof((a)[0]))
 #define OFFSETOF(t, f)  ((int)(intptr)(&((t *)0)->f))
 #define IS_POWER_OF_2(x) ((((x)-1)&(x))==0)
 
@@ -83,13 +83,10 @@ typedef unsigned int uint;
 
 #define os_yield()  // NULL
 
-int
-vprintf(const char *format, va_list ap);
-
 #define CASSERT(predicate) _impl_CASSERT_LINE(predicate,__LINE__)
 #define _impl_PASTE(a,b) a##b
 #define _impl_CASSERT_LINE(predicate, line) \
-    typedef char _impl_PASTE(cassert_failed_line##_,line)[2*!!(predicate)-1];
+    typedef char _impl_PASTE(cassert_failed_line##_,line)[2*!!(predicate)-1]
 
 // usable in function body
 #define cassert(predicate)  do { CASSERT(predicate); } while (0)
@@ -113,6 +110,13 @@ extern uint32 oscillator_frequency;
 
 extern bool debugger_attached;
 extern byte big_buffer[768];
+
+// exception handlers, called by the XC32 startup code
+void
+_general_exception_context(void);  // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp): name required by XC32 startup code
+
+void
+_bootstrap_exception_handler(void);  // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp): name required by XC32 startup code
 
 typedef void (*flash_upgrade_ram_begin_f)(void);
 

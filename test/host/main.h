@@ -19,13 +19,13 @@ typedef int32_t int32;
 typedef uint32_t uint32;
 typedef uintptr_t uintptr;
 
-#define LENGTHOF(a)  (sizeof(a)/sizeof(a[0]))
+#define LENGTHOF(a)  (sizeof(a)/sizeof((a)[0]))
 #define CASSERT(predicate)  _Static_assert(predicate, #predicate)
 
 #include "../../config.h"
 
 // the test's simulated program flash, FLASH_BYTES long
-extern byte host_flash[];
+extern byte *const host_flash;
 #undef FLASH_START
 #define FLASH_START  ((uintptr)host_flash)
 

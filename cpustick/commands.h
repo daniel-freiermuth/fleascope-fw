@@ -13,13 +13,14 @@ void
 stop(void);
 
 void
-parse_trim(char **text);
+parse_trim(const char **text);
 
 // matches word as a prefix of *text and skips it and following spaces
 bool
-parse_word(char **text, const char *word);
+parse_word(const char **text, const char *word);
 
 void
+__attribute__((noreturn))
 main_run(void);
 
 void

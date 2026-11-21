@@ -9,7 +9,7 @@ typedef void (*cdcacm_reset_cbfn)(void);
 typedef bool (*cdcacm_receive_cbfn)(byte *buffer, int length);
 
 void
-cdcacm_print(const byte *line, int length);
+cdcacm_print(const byte *buffer, int length);
 
 void
 cdcacm_command_ack(void);

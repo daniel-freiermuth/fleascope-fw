@@ -6,33 +6,33 @@
 void
 write32(byte *addr, uint32 data)
 {
-    *(byte *)(addr+0) = data & 0xff;
-    *(byte *)(addr+1) = (data>>8) & 0xff;
-    *(byte *)(addr+2) = (data>>16) & 0xff;
-    *(byte *)(addr+3) = (data>>24) & 0xff;
+    *(addr+0) = (byte)(data & 0xff);
+    *(addr+1) = (byte)((data>>8) & 0xff);
+    *(addr+2) = (byte)((data>>16) & 0xff);
+    *(addr+3) = (byte)((data>>24) & 0xff);
 }
 
 uint32
 read32(const byte *addr)
 {
-    return *(const byte *)(addr+3) << 24 |
-           *(const byte *)(addr+2) << 16 |
-           *(const byte *)(addr+1) << 8 |
-           *(const byte *)(addr+0);
+    return (uint32)*(addr+3) << 24 |
+           (uint32)*(addr+2) << 16 |
+           (uint32)*(addr+1) << 8 |
+           (uint32)*(addr+0);
 }
 
 void
 write16(byte *addr, uint16 data)
 {
-    *(byte *)(addr+0) = data & 0xff;
-    *(byte *)(addr+1) = (data>>8) & 0xff;
+    *(addr+0) = (byte)(data & 0xff);
+    *(addr+1) = (byte)((data>>8) & 0xff);
 }
 
 uint16
 read16(const byte *addr)
 {
-    return *(const byte *)(addr+1) << 8 |
-           *(const byte *)(addr+0);
+    return (uint16)(*(addr+1) << 8 |
+                    *(addr+0));
 }
 
 uint32
@@ -40,11 +40,11 @@ read_n_bytes(int size, const volatile void *addr)
 {
     switch (size) {
         case 4:
-            return *(volatile uint32 *)addr;
+            return *(const volatile uint32 *)addr;
         case 2:
-            return *(volatile uint16 *)addr;
+            return *(const volatile uint16 *)addr;
         case 1:
-            return *(volatile uint8 *)addr;
+            return *(const volatile uint8 *)addr;
         default:
             assert(0);
             return 0;
@@ -59,10 +59,10 @@ write_n_bytes(int size, volatile void *addr, uint32 value)
             *(volatile uint32 *)addr = value;
             break;
         case 2:
-            *(volatile uint16 *)addr = value;
+            *(volatile uint16 *)addr = (uint16)value;
             break;
         case 1:
-            *(volatile uint8 *)addr = value;
+            *(volatile uint8 *)addr = (uint8)value;
             break;
         default:
             assert(0);
@@ -94,7 +94,7 @@ gpl(void)
 {
     int oldlevel;
 
-    oldlevel = (_CP0_GET_STATUS() >> 10) & 7;
+    oldlevel = (int)((_CP0_GET_STATUS() >> 10) & 7);
     return oldlevel;
 }
 
@@ -106,7 +106,7 @@ splx(int level)
     int oldlevel;
 
     // get the sr
-    csr = _CP0_GET_STATUS();
+    csr = (int)_CP0_GET_STATUS();
 
 
     oldlevel = (csr >> 10) & 7;
@@ -118,10 +118,10 @@ splx(int level)
         level = MAX(level, oldlevel);
     }
     assert(level >= 0 && level <= 7);
-    csr = (csr & 0xffffe3ff) | (level << 10);
+    csr = (int)(((uint32)csr & 0xffffe3ff) | (uint32)(level << 10));
 
     // update the sr
-    _CP0_SET_STATUS(csr);
+    _CP0_SET_STATUS((uint32)csr);
 
     assert(oldlevel >= 0 && oldlevel <= 7);
     return -oldlevel;
@@ -172,7 +172,7 @@ delay(int32 ms)
 }
 
 int
-gethex(char *p)
+gethex(const char *p)
 {
     char c;
 
@@ -245,10 +245,10 @@ memmove(void *d,  const void *s, size_t n)
 {
     void *dd;
 
-    if ((char *)d > (char *)s && (char *)d < (char *)s+n) {
+    if ((char *)d > (const char *)s && (char *)d < (const char *)s+n) {
         dd = d;
         while (n--) {
-            *((char *)d+n) = *((char *)s+n);
+            *((char *)d+n) = *((const char *)s+n);
         }
         return dd;
     } else {
@@ -268,13 +268,13 @@ memset(void *p,  int d, size_t n)
         d = d & 0xff;
         dd = d<<24|d<<16|d<<8|d;
         while (n--) {
-            *(ptemp++) = dd;
+            *(ptemp++) = (uint32)dd;
         }
     } else {
         uint8 *ptemp = p;
 
         while (n--) {
-            *(ptemp++) = d;
+            *(ptemp++) = (uint8)d;
         }
     }
     return p;
@@ -304,7 +304,7 @@ strlen(const char *s)
     while (*stemp) {
         stemp++;
     }
-    return stemp - s;
+    return (size_t)(stemp - s);
 }
 
 char *
@@ -390,7 +390,7 @@ strncmp(const char *s1, const char *s2, size_t n)
         }
     }
 
-    if (n <= 0) {
+    if (n == 0) {
         return 0;
     }
 
@@ -406,10 +406,14 @@ strstr(const char *s1, const char *s2)
 {
     int len;
 
-    len = strlen(s2);
+    len = (int)strlen(s2);
     while (*s1) {
-        if (! strncmp(s1, s2, len)) {
+        if (! strncmp(s1, s2, (size_t)len)) {
+// the C library signature returns a non-const pointer into a const string
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
             return (char *)s1;
+#pragma GCC diagnostic pop
         }
         s1++;
     }
@@ -419,6 +423,9 @@ strstr(const char *s1, const char *s2)
 char *
 strchr(const char *s, int c)
 {
+// the C library signature returns a non-const pointer into a const string
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
     for (; *s; s++) {
         if (*s == c) {
             return (char *)s;
@@ -427,6 +434,7 @@ strchr(const char *s, int c)
     if (*s == c) {
         return (char *)s;
     }
+#pragma GCC diagnostic pop
     return NULL;
 }
 

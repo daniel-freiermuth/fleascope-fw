@@ -6,7 +6,7 @@ extern int servo_hz;
 
 #define UART_INTS  (2*MAX_UARTS)
 
-#define UART_INT(uart, output)  ((uart)*2+output)
+#define UART_INT(uart, output)  ((uart)*2+(output))
 
 // assigned pins
 
@@ -86,8 +86,8 @@ extern int pin_last;
 
 extern int32 pin_analog;
 
-const extern struct pin {
-    char *name;
+extern const struct pin {
+    const char *name;
     uint16 pin_type_mask;
 } pins[];  // indexed by pin_number
 
