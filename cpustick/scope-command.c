@@ -339,24 +339,16 @@ void stop_capture_scope() {
 }
 
 void
-send_result(int magnify, uint wait_samples)
+send_result(uint wait_samples)
 {
     int i;
     int bits;
-    int l, m;
     short(* bitsbuffer)[2*128*10] = get_bits_buffer();
     short* adcbuffer = get_adc_buffer();
 
-    l = 0;
     for (i = wait_samples; i < wait_samples+SAMPLES+EXTRA; i++) {
-        for (m = 0; m < magnify; m++) {
-            bits = bitsbuffer[i%INTERLEAVE][(i/INTERLEAVE)%get_bitbuffer_length()];
-            // Here we print to serial
-            printf("%d,%x\n", adcbuffer[i%get_adcbuffer_length()], ptovbits(bits));
-            if (++l == SAMPLES+EXTRA) {
-                return;
-            }
-        }
+        bits = bitsbuffer[i%INTERLEAVE][(i/INTERLEAVE)%get_bitbuffer_length()];
+        printf("%d,%x\n", adcbuffer[i%get_adcbuffer_length()], ptovbits(bits));
     }
 }
 
@@ -380,12 +372,8 @@ undo_board_config()
 }
 
 // Entrypoint
-void scope(int sample_length, int magnify, TriggerEdge edge, TriggerChannel channel, int trigger_value, int bits_of_interest, int delay_samples)
+void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trigger_value, int bits_of_interest, int delay_samples)
 {
-    //memset(adcbuffer, 0, sizeof(adcbuffer));
-    //memset(bitsbuffer, 0, sizeof(bitsbuffer));
-
-    //run_clear(false);
     setup_board_scope();
     if (setup_capture_timer_scope(sample_length) < 0) {
         undo_board_config();
@@ -434,12 +422,11 @@ void scope(int sample_length, int magnify, TriggerEdge edge, TriggerChannel chan
     stop_capture_scope();
 
     if (run_stop) {
-        send_result(magnify, delay_samples);
+        send_result(delay_samples);
     }
 
     run_stop = false;
     terminal_command_discard(false);
 
     undo_board_config();
-    //run_clear(false);
 }
