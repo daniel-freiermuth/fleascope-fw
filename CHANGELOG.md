@@ -76,6 +76,10 @@ All notable changes to the firmware are documented here.
 - `printf` with a conversion the firmware doesn't implement (e.g. `%i`) used a garbage
   length; it now prints nothing for it.
 - `memcmp()` returned the wrong sign for byte differences beyond ±127.
+- `upgrade`: a data record before the file's first extended address (`:04`) record was
+  placed using an uninitialized upper address and could be installed at an arbitrary
+  flash address. Such records now count as address 0 and are rejected. Files from the
+  build start with a `:04` record and install as before.
 
 ### Removed
 - Unreferenced legacy build files: `build/Makefile.sourcery`, `cpustick/Makefile.cpustick`,
