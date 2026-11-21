@@ -1,4 +1,5 @@
 // *** flash-vars.h ***************************************************
+// SPDX-License-Identifier: Parity-7.0.0
 // the subset of StickOS BASIC that hosts use to keep calibration in flash:
 //
 //   dim <name>[[<n>]] as flash[, ...]

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Parity-7.0.0
 // Host unit tests for cpustick/flash-vars.c, the StickOS-compatible flash
 // variables that hosts use for probe calibration.
 //

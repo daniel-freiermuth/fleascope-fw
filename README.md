@@ -46,3 +46,9 @@ Unit tests use [Unity](https://github.com/ThrowTheSwitch/Unity) (vendored in `te
 `test/unit/test_*.c` is built into its own executable and picked up automatically. Firmware modules without SFR
 access or I/O (`cpustick/fleascope-calc.h`, `cpustick/flash-vars.c`) are compiled for the host and linked into the
 tests from an archive; a test provides fakes for what they call. Development is on Linux; on Windows, use WSL.
+
+## License
+
+[Parity Public License 7.0.0](LICENSE.md): free to use and share, also commercially, as long as software built on it
+is shared alike. For other terms, contact [daniel-freiermuth](https://github.com/daniel-freiermuth). The code's origins
+in StickOS and the public-domain parts are described in [NOTICE.md](NOTICE.md).

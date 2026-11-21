@@ -1,4 +1,5 @@
 // *** commands.h *****************************************************
+// SPDX-License-Identifier: Parity-7.0.0
 
 extern char *volatile main_command;
 extern bool main_prompt;
