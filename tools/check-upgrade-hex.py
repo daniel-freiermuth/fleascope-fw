@@ -4,7 +4,7 @@
 `upgrade` command and is safe to install that way.
 
 Devices without a programmer can only be updated through `upgrade`
-(sources/flash.c: flash_upgrade()), and a bad image there cannot be undone.
+(src/platform/flash.c: flash_upgrade()), and a bad image there cannot be undone.
 This mirrors the rules flash_upgrade() applies while it parses the pasted
 file, so a file that passes here is accepted by every firmware version with
 that parser (StickOS 2.x/3.x and this firmware), and adds the checks the parser
@@ -20,7 +20,7 @@ cannot make:
 - the configuration words are exactly the pinned ones below. A wrong
   oscillator, USB PLL, or debug/protect setting can leave the device unable to
   enumerate, which without a programmer means bricked. Change PINNED_CONFIG only
-  together with main.c's #pragma config lines, after testing on hardware with a
+  together with src/main.c's #pragma config lines, after testing on hardware with a
   programmer at hand.
 
 Usage: check-upgrade-hex.py out/pic32.X.production.hex
@@ -28,7 +28,7 @@ Usage: check-upgrade-hex.py out/pic32.X.production.hex
 
 import sys
 
-COMMAND_LINE_MAX = 72 - 1            # sources/terminal.c: command[BASIC_INPUT_LINE_SIZE]
+COMMAND_LINE_MAX = 72 - 1            # src/platform/terminal.c: command[BASIC_INPUT_LINE_SIZE]
 
 FLASH_PA = 0x1D000000                # FLASH_START (0x9D000000) as a physical address
 FLASH_BYTES = 512 * 1024
@@ -36,7 +36,7 @@ BOOT_PA = 0x1FC00000                 # FLASH2_START (0x9FC00000) physical
 BOOT_BYTES = 20 * 1024               # FLASH2_BYTES
 PROGRAM_END = FLASH_PA + FLASH_BYTES // 2 - BOOT_BYTES
 
-# main.c #pragma config, as XC32 6.00 encodes it (DEVCFG3..0, DEVCP, SEQ)
+# src/main.c #pragma config, as XC32 6.00 encodes it (DEVCFG3..0, DEVCP, SEQ)
 PINNED_CONFIG = {
     0x1FC03FC0: 0x3F3FFFFF,
     0x1FC03FC4: 0x7FFAA728,
