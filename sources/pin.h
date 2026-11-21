@@ -140,11 +140,9 @@ pin_assign(int assign, int pin);
 extern void
 pin_initialize(void);
 
-#if ! STICK_GUEST
 void
 pin_oc_route(void);
 
 void
 pin_oc_unroute(void);
-#endif
 

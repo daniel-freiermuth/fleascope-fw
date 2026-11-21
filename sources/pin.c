@@ -99,7 +99,6 @@ static byte freq[2];  // 0, pin_type_analog_output, pin_type_servo_output, pin_t
 
 #define FREQ_PRESCALE  256
 
-#if ! STICK_GUEST
 
 // Debounce history for digital inputs.
 
@@ -147,7 +146,6 @@ pin_get_digital_debounced(int port_offset, int pin_offset)
     return value > pin_digital_debounce_history_depth/2;
 }
 
-#endif // ! STICK_GUEST
 
 unsigned char pin_to_an(int pin)
 {
@@ -178,7 +176,6 @@ static
 void
 pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN bool set, IN bool user)
 {
-#if ! STICK_GUEST && ! SHRINK
     uint32 offset;
 
     assert(pin_number != PIN_UNASSIGNED);
@@ -431,7 +428,6 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
             assert(0);
             break;
     }
-#endif
 }
 
 // this function declares a ram, flash, or pin variable!
@@ -448,7 +444,6 @@ static byte umask[MAX_UARTS];
 void
 pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
 {
-#if ! STICK_GUEST && ! SHRINK
     int32 value2;
     uint32 offset;
 
@@ -731,7 +726,6 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
             assert(0);
             break;
     }
-#endif // ! STICK_GUEST
 
     // if setting to 0, then enable the pin driver after the pin data value has been set to 0.  This prevents the processor from
     // driving a 1 (which the pin's latch may held at the start of this function).
@@ -745,7 +739,6 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
 int32
 pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
 {
-#if ! STICK_GUEST && ! SHRINK
     int32 value;
     uint32 offset;
 
@@ -928,9 +921,6 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
     }
 
     return value;
-#else
-    return 0;
-#endif
 }
 
 
@@ -939,7 +929,6 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
 void
 pin_uart_configure(int uart, int baud, int data, byte parity, bool loopback)
 {
-#if ! STICK_GUEST
     int divisor;
 
     if (! uart) {
@@ -967,14 +956,12 @@ pin_uart_configure(int uart, int baud, int data, byte parity, bool loopback)
 
         U2STA = _U2STA_URXEN_MASK|_U2STA_UTXEN_MASK;
     }
-#endif
     umask[uart] = data==8?0xff:0x7f;
 }
 
 bool
 pin_uart_tx_ready(int uart)
 {
-#if ! STICK_GUEST
     int usr;
 
     // if the uart transmitter is ready...
@@ -983,15 +970,11 @@ pin_uart_tx_ready(int uart)
         return true;
     }
     return false;
-#else
-    return true;
-#endif
 }
 
 bool
 pin_uart_tx_empty(int uart)
 {
-#if ! STICK_GUEST
     int usr;
 
     // if the uart transmitter is empty...
@@ -1000,15 +983,11 @@ pin_uart_tx_empty(int uart)
         return true;
     }
     return false;
-#else
-    return true;
-#endif
 }
 
 bool
 pin_uart_rx_ready(int uart)
 {
-#if ! STICK_GUEST
     int usr;
 
     // if the uart receiver is ready...
@@ -1016,7 +995,6 @@ pin_uart_rx_ready(int uart)
     if (usr & _U1STA_URXDA_MASK) {
         return true;
     }
-#endif
     return false;
 }
 
@@ -1033,13 +1011,11 @@ pin_uart_tx(int uart, byte value)
         x = splx(5);
     }
 
-#if ! STICK_GUEST
     if (uart) {
         U2TXREG = value;
     } else {
         U1TXREG = value;
     }
-#endif
     ulasttx[uart] = value;
     uart_armed[UART_INT(uart, true)] = true;
 
@@ -1055,7 +1031,6 @@ pin_uart_rx(int uart)
     x = splx(5);
 
     if (pin_uart_rx_ready(uart)) {
-#if ! STICK_GUEST
         if (uart) {
             value = U2RXREG;
             U2STACLR = _U2STA_OERR_MASK;
@@ -1063,9 +1038,6 @@ pin_uart_rx(int uart)
             value = U1RXREG;
             U1STACLR = _U1STA_OERR_MASK;
         }
-#else
-        value = 0;
-#endif
         value = value & umask[uart];
     } else {
         value = 0;
@@ -1087,11 +1059,16 @@ pin_clear(void)
     // N.B. we use 0 to mean no frequency type
     assert(! pin_type_digital_input);
 
-#if ! STICK_GUEST
-    i2c_uninitialize();
-    qspi_uninitialize();
+    // the pin mapping the removed I2C and QSPI drivers restored here; kept so
+    // boot leaves the pins as before (revisit on hardware)
+    I2C1CONbits.ON = false;
+    RPG8R = 5;  // OC4 -> RG8
+    RPG7R = 5;  // OC2 -> RG7
+    SPI2CON = 0;
+    RPB4R = 4;  // SDO2 -> RB4
+    SDI2R = 1;  // RB5 -> SDI2
+    SS2R = 3;  // RB10 -> SS2
     // XXX -- should we unconfigure uarts?
-#endif
 
     // reset all explicitly declared pins to digital input
     for (i = 0; i < PIN_UNASSIGNED; i++) {
@@ -1102,20 +1079,17 @@ pin_clear(void)
         }
     }
 
-#if ! STICK_GUEST
     // we have to manage shared timer resources across pins
     // REVISIT -- for now, we force timer 2 to pwm mode, disallowing two
     // different frequency output pins; we can do better in the long run
     // by dynamically allocating both timer 2 and 3 as needed.
     memset(freq, pin_type_digital_input, sizeof(freq));
-#endif
 }
 
 // only called on debouncing ticks from timer_isr()
 void
 pin_timer_poll(void)
 {
-#if ! STICK_GUEST
     pin_port_sample_t *sample;
 
     sample = pin_digital_debounce[pin_digital_debounce_cycle];
@@ -1134,7 +1108,6 @@ pin_timer_poll(void)
     if (++pin_digital_debounce_cycle >= pin_digital_debounce_history_depth) {
         pin_digital_debounce_cycle = 0;
     }
-#endif // ! STICK_GUEST
 }
 
 void
@@ -1154,7 +1127,6 @@ pin_assign(int assign, int pin)
     }
 }
 
-#if ! STICK_GUEST
 // route OC1-OC6 to their output pins
 void
 pin_oc_route(void)
@@ -1178,17 +1150,14 @@ pin_oc_unroute(void)
     RPG7R = 0;  // undo OC2 -> RG7
     RPG6R = 0;  // undo OC1 -> RG6
 }
-#endif
 
 extern void
 pin_initialize(void)
 {
-#if ! STICK_GUEST
     int i;
     int32 hz;
     int32 pin;
     int32 analog;
-#endif
 
     assert(PIN_LAST <= PIN_MAX);
     assert(pin_type_last < (sizeof(uint16)*8));
@@ -1197,9 +1166,8 @@ pin_initialize(void)
 
     memset(umask, -1, sizeof(umask));
 
-#if ! STICK_GUEST
     // load up our servo frequency
-    hz = var_get_flash(FLASH_SERVO);
+    hz = params_get(PARAM_SERVO);
     if (hz != (uint32)-1 && hz >= 20 && hz <= 500) {
         servo_hz = hz;
     }
@@ -1223,21 +1191,17 @@ pin_initialize(void)
 
     // load up our pin assignments
     for (i = 0; i < pin_assignment_max; i++) {
-        pin = var_get_flash(FLASH_ASSIGNMENTS_BEGIN+i);
+        pin = params_get(PARAM_ASSIGNMENTS_BEGIN+i);
         if (pin != (uint32)-1 && pin >= 0 && pin < PIN_LAST) {
             pin_assignments[i] = pin;
         }
         pin_assign(i, pin_assignments[i]);
     }
 
-    // if autorun disable is asserted on boot, skip autorun
-    disable_autorun = ! pin_get(pin_assignments[pin_assignment_safemode], pin_type_digital_input, 0);
-
     // set our analog level
-    analog = var_get_flash(FLASH_ANALOG);
+    analog = params_get(PARAM_ANALOG);
     if (analog != (uint32)-1 && analog >= 1000 && analog <= 5000) {
         pin_analog = analog;
     }
-#endif
 }
 
