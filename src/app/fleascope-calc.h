@@ -105,7 +105,7 @@ stream_pack_sample(unsigned int *leftover, unsigned int *leftover_bits,
 
 // ------------------------------------------------------- digital_stream
 
-#define DS_PACKET_BYTES_MAX  63  // 1 USB FS bulk packet
+#define DS_PACKET_BYTES_MAX  63  // largest digital_stream packet; not aligned with USB packets
 #define DS_CHANNELS  9  // virtual digital channels b0-b8
 
 // Largest us_per_sample Timer3 can reach with its 1:256 prescaler
