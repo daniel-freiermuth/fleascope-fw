@@ -33,6 +33,10 @@ DFP_DIR ?= $(firstword $(wildcard $(DFP_FETCH_DIR) \
 BUILD_DIR ?= out
 TARGET    := $(BUILD_DIR)/pic32.X.production
 
+# `make SODEBUG=1` builds with debug assert()s and checks (main.h); CI builds
+# both configurations, so the warnings stay clean in each
+SODEBUG_FLAG := $(if $(SODEBUG),-DSODEBUG=$(SODEBUG))
+
 PROCESSOR := 32MK0512GPK064
 
 SRCS ?= $(sort $(wildcard cpustick/*.c)) \
@@ -63,7 +67,7 @@ WARNINGS := -Wall -Wextra -Wpedantic -Wconversion \
 # NULL dereferences, leaks).
 CFLAGS := -g -std=gnu17 -mprocessor=$(PROCESSOR) -mmicromips -mno-float \
           -O3 -funroll-loops -fomit-frame-pointer -fno-common -fno-builtin \
-          -I. -Icpustick -Isources \
+          -I. -Icpustick -Isources $(SODEBUG_FLAG) \
           $(WARNINGS) -Waddress-attribute-use -Wframe-larger-than=512 -fanalyzer \
           -mdfp="$(DFP_DIR)"
 
@@ -168,7 +172,7 @@ CLANG_WARNINGS := -Wall -Wextra -Wconversion -Wshadow-all -Wundef -Wcast-qual \
 
 # Recursive (=): expanded only by the lint recipes, after $(XC32_DEFINES) is
 # made, and only they need XC32.
-LINT_CPPFLAGS = -I. -Icpustick -Isources $(shell cat $(XC32_DEFINES))
+LINT_CPPFLAGS = -I. -Icpustick -Isources $(SODEBUG_FLAG) $(shell cat $(XC32_DEFINES))
 LINT_CFLAGS   = --target=mipsel-unknown-none-elf -march=mips32r2 -msoft-float \
                 -ffreestanding -nostdlibinc -std=gnu17 $(LINT_CPPFLAGS) \
                 -isystem "$(DFP_DIR)/include" -isystem "$(XC32_ROOT)/pic32m/include" \
@@ -203,7 +207,8 @@ cppcheck: $(XC32_DEFINES)
 
 # ---- host tests (no XC32 needed) -----------------------------------------
 
-HOST_CC     ?= cc
+# GCC: WARNINGS has GCC-only options (-Wcast-align=strict, -Wduplicated-cond, ...)
+HOST_CC     ?= gcc
 HOST_DIR    := $(BUILD_DIR)/host
 UNITY_DIR   := test/unity
 # test/host first: its main.h stands in for the firmware's when a module
