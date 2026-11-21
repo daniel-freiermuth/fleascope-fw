@@ -83,7 +83,8 @@ test_redeclare_reports_each(void)
        "var 'cal_3v3_x1' already declared at this scope\n");
 }
 
-// python/scope.py and the original web client reserve unused[8] first
+// the original Python client (python/scope.py, since removed) and the
+// original web client reserve unused[8] first
 static void
 test_python_layout(void)
 {
