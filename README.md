@@ -3,9 +3,10 @@ mixed-signal logic analyzer with a built-in waveform generator. This is its firm
 
 The firmware started as Rich Testardi's StickOS BASIC port to the Flea-Scope. It no longer contains the
 BASIC interpreter: it is a plain command line over USB (CDC ACM) with the commands hosts use — `scope`, `stream`,
-`digital_stream`, `wave`, `ver`, `hostname`, `reset`, `upgrade`, `echo`, `prompt` — plus the BASIC flash-variable
-statements (`dim … as flash`, `print`, assignment) that hosts use to keep probe calibration in flash. Replies are
-unchanged, so existing hosts such as [fleascope-rs](https://github.com/daniel-freiermuth/fleascope-rs) keep working.
+`digital_stream`, `wave`, `ver`, `hostname`, `reset`, `upgrade`, `echo`, `prompt`. Their replies are unchanged. Probe
+calibration is no longer stored on the device: the BASIC flash-variable statements (`dim … as flash`, `print`,
+assignment) that hosts such as [fleascope-rs](https://github.com/daniel-freiermuth/fleascope-rs) used for that are
+gone, so hosts keep calibration themselves.
 
 See the Flea Scope™ User's Guide: [https://rtestardi.github.io/usbte/flea-scope.pdf](https://rtestardi.github.io/usbte/flea-scope.pdf)
 
@@ -44,7 +45,7 @@ make test        # Unity unit tests (test/unit/test_*.c); needs only a host C co
 
 Unit tests use [Unity](https://github.com/ThrowTheSwitch/Unity) (vendored in `test/unity/`, v2.7.0). Each
 `test/unit/test_*.c` is built into its own executable and picked up automatically. Firmware modules without SFR
-access or I/O (`cpustick/fleascope-calc.h`, `cpustick/flash-vars.c`, `sources/params.c`) are compiled for the host and
+access or I/O (`cpustick/fleascope-calc.h`, `sources/params.c`) are compiled for the host and
 linked into the tests from an archive; a test provides fakes for what they call (e.g. a simulated flash), and
 `test/host/main.h` stands in for the firmware's `main.h`. Development is on Linux; on Windows, use WSL.
 

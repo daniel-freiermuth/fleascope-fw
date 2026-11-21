@@ -496,11 +496,6 @@ flash_upgrade(void)
         }
         printf("upgrade failed\n");
         terminal_echo = true;
-
-        // staging erased the parameter pages; as StickOS did here, start over
-        // with flash variables cleared to 0 and no declarations
-        params_initialize();
-        flashvars_reset();
         return;
     }
 

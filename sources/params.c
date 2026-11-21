@@ -56,33 +56,6 @@ update(uint32 offset, const uint32 *words, uint32 nwords)
     flash_write_words(next+PARAMS_WORDS-1, &generation, 1);
 }
 
-// The first boot after a reflash or `upgrade` (which erases the upper half
-// of flash, these pages included) finds no page ever written. StickOS then
-// cleared its flash variables to 0, and hosts rely on that: the original web
-// GUI takes a calibration word of 0 as "not calibrated". Do the same, keeping
-// the system words as they are.
-void
-params_initialize(void)
-{
-    uint32 *cur;
-    uint32 *next;
-    uint32 generation;
-
-    cur = current();
-    if (cur[PARAMS_WORDS-1] != 0xFFFFFFFF) {
-        return;
-    }
-    next = other();
-
-    memcpy(scratch, cur, PARAMS_PAGE_SIZE-sizeof(uint32));
-    memset(scratch, 0, PARAMS_USER_BYTES);
-
-    flash_erase_pages(next, 1);
-    flash_write_words(next, scratch, PARAMS_WORDS-1);
-    generation = 0;
-    flash_write_words(next+PARAMS_WORDS-1, &generation, 1);
-}
-
 int32
 params_get(int param)
 {
@@ -129,24 +102,4 @@ params_set_name(const char *name)
     }
     memcpy(words, name, n);
     update(PARAMS_OFFSET(PARAM_NAME_0), words, LENGTHOF(words));
-}
-
-int32
-params_get_user(uint32 offset)
-{
-    assert(! (offset%sizeof(uint32)) && offset < PARAMS_USER_BYTES);
-    return (int32)current()[offset/sizeof(uint32)];
-}
-
-void
-params_set_user(uint32 offset, int32 value)
-{
-    uint32 word;
-
-    assert(! (offset%sizeof(uint32)) && offset < PARAMS_USER_BYTES);
-    if (params_get_user(offset) == value) {
-        return;
-    }
-    word = (uint32)value;
-    update(offset, &word, 1);
 }
