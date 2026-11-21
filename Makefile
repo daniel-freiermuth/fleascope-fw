@@ -3,6 +3,7 @@
 #   make                  build out/pic32.X.production.{elf,hex,map}
 #   make fetch-dfp        download the pinned PIC32MK-GP device pack
 #   make test             host unit tests (Unity, test/unit/test_*.c)
+#   make lint             clang-tidy and cppcheck over the firmware sources
 #   make clean
 #
 # Override XC32_ROOT / DFP_DIR on the command line or in the environment if
@@ -40,17 +41,39 @@ SRCS ?= $(sort $(wildcard cpustick/*.c)) \
 
 OBJS := $(SRCS:%.c=$(BUILD_DIR)/obj/%.o)
 
-CFLAGS := -g -mprocessor=$(PROCESSOR) -mmicromips -mno-float \
+# Warnings for all C we compile, firmware and host tests; any warning fails the
+# build. In C, -Wconversion includes -Wsign-conversion.
+WARNINGS := -Wall -Wextra -Wpedantic -Wconversion \
+            -Wshadow -Wundef -Wcast-qual -Wcast-align=strict -Wpointer-arith -Wwrite-strings \
+            -Wstrict-prototypes -Wold-style-definition -Wmissing-prototypes -Wmissing-declarations \
+            -Wredundant-decls -Wnested-externs \
+            -Wformat=2 -Wformat-signedness -Wformat-overflow=2 -Wformat-truncation=2 \
+            -Wswitch-enum -Wswitch-default \
+            -Wnull-dereference -Wduplicated-cond -Wduplicated-branches -Wlogical-op \
+            -Wjump-misses-init -Winit-self -Wbad-function-cast -Wdouble-promotion -Wfloat-equal \
+            -Wshift-overflow=2 -Wstringop-overflow=4 -Warray-bounds=2 -Walloc-zero -Wvla -Walloca \
+            -Wsuggest-attribute=noreturn -Wsuggest-attribute=format -Wunused-macros -Wpacked \
+            -Wtrampolines -Wdisabled-optimization -Wdate-time -Wmissing-include-dirs \
+            -Werror
+
+# Firmware only: no stack frame may exceed 512 bytes of the 3 KiB stack
+# (_min_stack_size below; -Wvla/-Walloca keep frames fixed-size), not
+# -Wstack-usage, which XC32 can't compute for interrupt handlers. -fanalyzer is
+# GCC's interprocedural static analyzer (use after free, uninitialized reads,
+# NULL dereferences, leaks).
+CFLAGS := -g -std=gnu17 -mprocessor=$(PROCESSOR) -mmicromips -mno-float \
           -O3 -funroll-loops -fomit-frame-pointer -fno-common -fno-builtin \
           -I. -Icpustick -Isources \
-          -Wall -Waddress-attribute-use -mdfp="$(DFP_DIR)"
+          $(WARNINGS) -Waddress-attribute-use -Wframe-larger-than=512 -fanalyzer \
+          -mdfp="$(DFP_DIR)"
 
 LDFLAGS := -mprocessor=$(PROCESSOR) -mdfp="$(DFP_DIR)" \
            -Wl,--defsym=__MPLAB_BUILD=1,--defsym=_min_heap_size=0,--defsym=_min_stack_size=3072 \
            -Wl,--gc-sections,--no-code-in-dinit,--no-dinit-in-serial-mem \
+           -Wl,--fatal-warnings \
            -Wl,-Map=$(TARGET).map,--memorysummary,$(BUILD_DIR)/memoryfile.xml
 
-.PHONY: all clean fetch-dfp check-dfp test unit-test FORCE
+.PHONY: all clean fetch-dfp check-dfp test unit-test lint tidy cppcheck FORCE
 # a .hex that failed normalization or the upgrade check must not look up to date
 .DELETE_ON_ERROR:
 all: $(TARGET).hex
@@ -118,6 +141,66 @@ fetch-dfp:
 	  rm -rf "$(DFP_FETCH_DIR)"; mv -T "$$tmp/x" "$(DFP_FETCH_DIR)"; \
 	fi
 
+# ---- static analysis (make lint) -----------------------------------------
+
+# clang-tidy (checks in .clang-tidy, plus clang's own warnings) and cppcheck,
+# over the firmware sources as XC32 sees them: clang parses with XC32's and the
+# pack's headers and XC32's target macros. Both tools are pinned PyPI wheels,
+# run with uvx; override CLANG_TIDY / CPPCHECK to use other binaries.
+CLANG_TIDY_VERSION := 23.1.4
+# the cppcheck wheel 1.5.3 is Cppcheck 2.22.0
+CPPCHECK_WHEEL     := 1.5.3
+UVX        ?= uvx
+CLANG_TIDY ?= $(UVX) --from clang-tidy==$(CLANG_TIDY_VERSION) clang-tidy
+CPPCHECK   ?= $(UVX) --from cppcheck==$(CPPCHECK_WHEEL) cppcheck
+
+LINT_DIR     := $(BUILD_DIR)/lint
+XC32_DEFINES := $(LINT_DIR)/xc32-defines
+
+# Warnings clang has beyond WARNINGS. XC32's #pragma config and attributes
+# (ramfunc, unique_section) are unknown to clang; GCC checks those.
+CLANG_WARNINGS := -Wall -Wextra -Wconversion -Wshadow-all -Wundef -Wcast-qual \
+                  -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
+                  -Wmissing-variable-declarations -Wconditional-uninitialized -Wcomma \
+                  -Wunreachable-code-aggressive -Wunused-macros -Wextra-semi-stmt \
+                  -Wloop-analysis -Wshift-sign-overflow -Wformat=2 -Wformat-signedness \
+                  -Wno-unknown-pragmas -Wno-unknown-attributes
+
+# Recursive (=): expanded only by the lint recipes, after $(XC32_DEFINES) is
+# made, and only they need XC32.
+LINT_CPPFLAGS = -I. -Icpustick -Isources $(shell cat $(XC32_DEFINES))
+LINT_CFLAGS   = --target=mipsel-unknown-none-elf -march=mips32r2 -msoft-float \
+                -ffreestanding -nostdlibinc -std=gnu17 $(LINT_CPPFLAGS) \
+                -isystem "$(DFP_DIR)/include" -isystem "$(XC32_ROOT)/pic32m/include" \
+                -isystem "$(XC32_ROOT)/pic32m/include/pic32m-libs" \
+                -isystem "$(XC32_ROOT)/pic32m/include/musl" \
+                -idirafter "$(shell $(XC32_CC) -print-file-name=include)" \
+                $(CLANG_WARNINGS)
+
+lint: tidy cppcheck
+
+# -D flags for the macros XC32 predefines for the device, the toolchain and the
+# ABI (all numeric); clang defines its own for the MIPS target.
+$(XC32_DEFINES): $(COMPILE_STAMP) | check-dfp
+	@mkdir -p $(@D)
+	$(XC32_CC) $(CFLAGS) -dM -E -x c /dev/null | \
+	  grep -E '^#define (_*PIC32|_*XC|_*C32|_*LANGUAGE_C|__32MK|_MCHP_SZ|__mchp_|__mips_(micromips|dsp|no_float))' | \
+	  sed -E 's/^#define ([A-Za-z0-9_]+) ([0-9]+)$$/-D\1=\2/' > $@
+	@! grep -v '^-D' $@
+
+# One clang-tidy per source, so -j parallelizes; never up to date.
+tidy: $(SRCS:%.c=$(LINT_DIR)/%.tidy)
+
+$(LINT_DIR)/%.tidy: %.c $(XC32_DEFINES) .clang-tidy
+	$(CLANG_TIDY) --quiet $< -- $(LINT_CFLAGS)
+
+cppcheck: $(XC32_DEFINES)
+	@mkdir -p $(LINT_DIR)/cppcheck
+	$(CPPCHECK) --quiet --error-exitcode=1 --inline-suppr --std=c17 --platform=mips32 \
+	  --enable=warning,style,performance,portability --check-level=exhaustive \
+	  --suppress=missingIncludeSystem --suppress=variableScope \
+	  --cppcheck-build-dir=$(LINT_DIR)/cppcheck $(LINT_CPPFLAGS) $(SRCS)
+
 # ---- host tests (no XC32 needed) -----------------------------------------
 
 HOST_CC     ?= cc
@@ -125,7 +208,9 @@ HOST_DIR    := $(BUILD_DIR)/host
 UNITY_DIR   := test/unity
 # test/host first: its main.h stands in for the firmware's when a module
 # under test includes "main.h"
-HOST_CFLAGS := -std=gnu11 -Wall -Wextra -Werror -Itest/host -I$(UNITY_DIR) -Icpustick -Isources
+HOST_CFLAGS := -std=gnu11 $(WARNINGS) -Itest/host -I$(UNITY_DIR) -Icpustick -Isources
+# Unity is vendored: built as upstream ships it, not held to WARNINGS
+UNITY_CFLAGS := -std=gnu11 -Wall -Wextra -Werror -I$(UNITY_DIR)
 
 # Firmware modules with no SFR access or I/O, compiled for the host. Tests link
 # them from an archive, so each test pulls in only what it calls and provides
@@ -141,7 +226,7 @@ UNIT_BINS  := $(UNIT_TESTS:test/unit/%.c=$(HOST_DIR)/%)
 
 $(HOST_DIR)/obj/unity.o: $(UNITY_DIR)/unity.c
 	@mkdir -p $(@D)
-	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -c -o $@ $<
+	$(HOST_CC) $(UNITY_CFLAGS) -MMD -MP -c -o $@ $<
 
 $(HOST_DIR)/obj/%.o: %.c
 	@mkdir -p $(@D)

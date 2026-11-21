@@ -1,0 +1,40 @@
+# clang-tidy for `make lint` (the Makefile passes the compile flags).
+# Disabled checks are pure style, advice to use C11 Annex K functions (which
+# XC32's libc doesn't have), or flag what this firmware must do: fixed SFR and
+# flash addresses, inline assembly, bit operations on int constants.
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-signed-bitwise,
+  cert-*,
+  clang-analyzer-*,
+  clang-diagnostic-*,
+  -clang-analyzer-optin.core.FixedAddressDereference,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -clang-analyzer-security.insecureAPI.strcpy,
+  concurrency-*,
+  misc-*,
+  -misc-include-cleaner,
+  performance-*,
+  -performance-no-int-to-ptr,
+  portability-*,
+  -portability-no-assembler,
+  readability-*,
+  -readability-avoid-nested-conditional-operator,
+  -readability-braces-around-statements,
+  -readability-else-after-return,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-implicit-bool-conversion,
+  -readability-isolate-declaration,
+  -readability-magic-numbers,
+  -readability-math-missing-parentheses,
+  -readability-redundant-parentheses,
+  -readability-trailing-comma
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*'
+CheckOptions:
+  # `p += bytes/sizeof(*p)` is how this code steps word pointers through flash
+  bugprone-sizeof-expression.WarnOnOffsetDividedBySizeOf: false
+  cert-arr39-c.WarnOnOffsetDividedBySizeOf: false

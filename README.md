@@ -48,6 +48,25 @@ access or I/O (`cpustick/fleascope-calc.h`, `cpustick/flash-vars.c`, `sources/pa
 linked into the tests from an archive; a test provides fakes for what they call (e.g. a simulated flash), and
 `test/host/main.h` stands in for the firmware's `main.h`. Development is on Linux; on Windows, use WSL.
 
+## Static checks
+
+Firmware and test sources (not the vendored Unity) are compiled with a strict warning set and `-Werror` (`WARNINGS` in
+the `Makefile`), among others `-Wextra -Wpedantic -Wconversion` (implicit narrowing and sign changes), `-Wshadow`,
+`-Wcast-qual`, `-Wcast-align=strict`, `-Wstrict-prototypes`, `-Wmissing-prototypes`, `-Wformat=2 -Wformat-signedness`
+(the firmware's own `printf` family carries format attributes) and `-Wswitch-enum`. The firmware adds GCC's static
+analyzer (`-fanalyzer`) and `-Wframe-larger-than=512` (no stack frame over 512 bytes of the 3 KiB stack; `-Wvla` and
+`-Walloca` keep frames fixed-size). The linker runs with `--fatal-warnings`.
+
+```sh
+make lint        # clang-tidy (.clang-tidy, plus clang's own warnings) and cppcheck; needs XC32 and uv
+```
+
+`make lint` checks the firmware sources as XC32 compiles them: clang parses them with XC32's and the device pack's
+headers, and both tools get XC32's target macros. Both are pinned PyPI wheels (`CLANG_TIDY_VERSION`, `CPPCHECK_WHEEL`)
+run with [`uvx`](https://docs.astral.sh/uv/); `CLANG_TIDY=` / `CPPCHECK=` select other binaries. CI runs it after the
+firmware build. Findings are fixed, not silenced; the few deliberate exceptions are suppressed at the line with the
+reason (`NOLINT(check): …`, `cppcheck-suppress id ; …`, `#pragma GCC diagnostic`).
+
 ## License
 
 [Parity Public License 7.0.0](LICENSE.md): free to use and share, also commercially, as long as software built on it

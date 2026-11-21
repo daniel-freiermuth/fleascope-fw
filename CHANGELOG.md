@@ -40,6 +40,14 @@ All notable changes to the firmware are documented here.
   `test/testcalc.sh` and the `calc-tests`/`host-tests` workflows.
 - **Unity** (v2.7.0, vendored in `test/unity/`) for host unit tests; the
   `fleascope-calc.h` test moved to `test/unit/test_fleascope_calc.c`.
+- **Compile-time checks.** Firmware and test sources (not the vendored Unity) build with a
+  strict GCC warning set and `-Werror` (`-Wextra -Wpedantic -Wconversion -Wshadow -Wcast-qual
+  -Wcast-align=strict -Wstrict-prototypes -Wmissing-prototypes -Wformat=2`, …); the
+  firmware adds GCC's static analyzer (`-fanalyzer`), `-Wframe-larger-than=512` and
+  linker `--fatal-warnings`. The firmware's `printf` family has format attributes, so
+  every format string is checked. `make lint` runs clang-tidy (`.clang-tidy`, with
+  clang's own warnings) and cppcheck on the firmware sources with XC32's headers and
+  macros, both pinned PyPI wheels run with `uvx`; both CIs run it after the build.
 
 ### Changed
 - Toolchain moved from XC32 4.35 to XC32 6.00 (GCC 13 base) and
