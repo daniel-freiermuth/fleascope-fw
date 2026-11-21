@@ -255,7 +255,7 @@ rx_arm(void)
         if (length > 0) {
             if (rx_next == rx_in) {
                 // close the open buffer; it needs a successor to open
-                next = (rx_in+1)%NRX;
+                next = (byte)((rx_in+1)%NRX);
                 if (next == rx_out) {
                     break;
                 }
@@ -263,9 +263,9 @@ rx_arm(void)
                 rx_in = next;
             }
             usb_device_enqueue(bulk_in_ep, 1, rx[rx_next], length);
-            armed_fifo[(armed_head+rx_armed)&1] = rx_next;
+            armed_fifo[(armed_head+rx_armed)&1] = (signed char)rx_next;
             rx_armed++;
-            rx_next = (rx_next+1)%NRX;
+            rx_next = (byte)((rx_next+1)%NRX);
             zlp_owed = length == PACKET_SIZE;
         } else if (zlp_owed && ! rx_armed) {
             // the transfer ended on a full packet: end it explicitly
@@ -307,6 +307,7 @@ cdcacm_print(const byte *buffer, int length)
         attached_count = cdcacm_attached_count;
     }
 
+
     x = splx(5);
 
     // wait until the empty buffers after rx_in can take what does not fit
@@ -331,7 +332,7 @@ cdcacm_print(const byte *buffer, int length)
     do {
         // append to rx_in, opening the next buffer when it is full
         m = MIN(length, PACKET_SIZE-rx_length[rx_in]);
-        memcpy(rx[rx_in]+rx_length[rx_in], buffer, m);
+        memcpy(rx[rx_in]+rx_length[rx_in], buffer, (size_t)m);
         rx_length[rx_in] += m;
 
         buffer += m;
@@ -339,7 +340,7 @@ cdcacm_print(const byte *buffer, int length)
 
         if (length) {
             assert(rx_length[rx_in] == PACKET_SIZE);
-            rx_in = (rx_in+1)%NRX;
+            rx_in = (byte)((rx_in+1)%NRX);
             assert(rx_in != rx_out);
             assert(! rx_length[rx_in]);
         }
@@ -370,7 +371,7 @@ static uint8 line_coding[7] = {
 
 // this function implements the CDCACM usb setup control transfer.
 static int
-cdcacm_control_transfer(struct setup *setup, byte *buffer, int length)
+cdcacm_control_transfer(const struct setup *setup, byte *buffer, int length)
 {
 #if SODEBUG
     if ((setup->requesttype & 0x60) != (SETUP_TYPE_CLASS<<5)) {
@@ -391,7 +392,7 @@ cdcacm_control_transfer(struct setup *setup, byte *buffer, int length)
         case CDCRQ_GET_ENCAPSULATED_RESPONSE:
             assert(setup->requesttype & 0x80);
             assert(length <= 64);
-            memset(buffer, 0, length);
+            memset(buffer, 0, (size_t)length);
             break;
         case CDCRQ_SET_LINE_CODING:
             assert(! (setup->requesttype & 0x80));
@@ -465,13 +466,13 @@ cdcacm_bulk_transfer(bool in, byte *buffer, int length)
 
         // the oldest armed packet went out
         assert(rx_armed > 0);
-        b = armed_fifo[armed_head];
+        b = armed_fifo[armed_head];  // NOLINT(bugprone-signed-char-misuse,cert-str34-c): a buffer index or -1 for a zero-length packet, not a character
         armed_head ^= 1;
         rx_armed--;
         if (b >= 0) {
             assert(b == rx_out);
             rx_length[b] = 0;
-            rx_out = (b+1)%NRX;
+            rx_out = (byte)((b+1)%NRX);
         }
 
         // keep the rx ball rolling
@@ -508,6 +509,7 @@ cdcacm_reset(void)
     reset_cbfn();
 }
 
+#if SODEBUG
 static int
 check(const byte *descriptor, int length)
 {
@@ -523,6 +525,7 @@ check(const byte *descriptor, int length)
     assert(i == length);
     return j;
 }
+#endif
 
 // this function is called by upper level code to register callback
 // functions.

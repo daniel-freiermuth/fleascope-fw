@@ -32,8 +32,6 @@ static char tail[BASIC_INPUT_LINE_SIZE];
 // terminal_poll().
 static char echo[BASIC_INPUT_LINE_SIZE*2];
 
-static bool ack = true;
-
 void
 terminal_print(const byte *buffer, int length)
 {
@@ -63,28 +61,30 @@ enum keys {
 struct keycode {
     char keys[7];
     byte code;
-} const keycodes[] = {
-    "\033[C", KEY_RIGHT,
-    "\033[D", KEY_LEFT,
-    "\033[A", KEY_UP,
-    "\033[B", KEY_DOWN,
-    "\033[H", KEY_HOME,
-    "\033[1~", KEY_HOME,
-    "\033[K", KEY_END,
-    "\033[4~", KEY_END,
-    "\010", KEY_BS,
-    "\177", KEY_BS_DEL,  // ambiguous
-    "\033[3~", KEY_DEL,
+};
+
+static const struct keycode keycodes[] = {
+    { "\033[C", KEY_RIGHT },
+    { "\033[D", KEY_LEFT },
+    { "\033[A", KEY_UP },
+    { "\033[B", KEY_DOWN },
+    { "\033[H", KEY_HOME },
+    { "\033[1~", KEY_HOME },
+    { "\033[K", KEY_END },
+    { "\033[4~", KEY_END },
+    { "\010", KEY_BS },
+    { "\177", KEY_BS_DEL },  // ambiguous
+    { "\033[3~", KEY_DEL },
 
     // Everything prior to this line is indexed by "enum keys" values.
     // Aliases for keys must follow this line.
 
-    "\006", KEY_RIGHT, // ctrl-f
-    "\002", KEY_LEFT, // ctrl-b
-    "\020", KEY_UP, // ctrl-p
-    "\016", KEY_DOWN, // ctrl-n
-    "\001", KEY_HOME, // ctrl-a
-    "\005", KEY_END // ctrl-e
+    { "\006", KEY_RIGHT }, // ctrl-f
+    { "\002", KEY_LEFT }, // ctrl-b
+    { "\020", KEY_UP }, // ctrl-p
+    { "\016", KEY_DOWN }, // ctrl-n
+    { "\001", KEY_HOME }, // ctrl-a
+    { "\005", KEY_END } // ctrl-e
 };
 
 #define KEYS_RIGHT  "\033[%dC"
@@ -127,8 +127,8 @@ accumulate(char c)
         keys[ki] = '\0';
         assert(ki < sizeof(keys));
 
-        for (i = 0; i < LENGTHOF(keycodes); i++) {
-            if (! strncmp(keycodes[i].keys, keys, ki)) {
+        for (i = 0; i < (int)LENGTHOF(keycodes); i++) {
+            if (! strncmp(keycodes[i].keys, keys, (size_t)ki)) {
                 // potential match
                 if (keycodes[i].keys[ki]) {
                     // partial match
@@ -139,7 +139,7 @@ accumulate(char c)
 
                 switch (keycodes[i].code) {
                     case KEY_RIGHT:
-                        if (cursor < strlen(command)) {
+                        if ((size_t)cursor < strlen(command)) {
                             strcat(echo, keycodes[KEY_RIGHT].keys);
                             assert(strlen(echo) < sizeof(echo));
                             cursor++;
@@ -188,7 +188,7 @@ accumulate(char c)
                             // reprint the line
                             strcat(echo, command);
                             assert(strlen(echo) < sizeof(echo));
-                            cursor = strlen(command);
+                            cursor = (int)strlen(command);
                         }
                         break;
                     case KEY_HOME:
@@ -199,10 +199,10 @@ accumulate(char c)
                         }
                         break;
                     case KEY_END:
-                        if (strlen(command)-cursor) {
-                            sprintf(echo+strlen(echo), KEYS_RIGHT, strlen(command)-cursor);
+                        if ((int)strlen(command) != cursor) {
+                            sprintf(echo+strlen(echo), KEYS_RIGHT, (int)strlen(command)-cursor);
                             assert(strlen(echo) < sizeof(echo));
-                            cursor = strlen(command);
+                            cursor = (int)strlen(command);
                         }
                         break;
                     case KEY_BS_DEL:
@@ -213,14 +213,14 @@ accumulate(char c)
                             strcat(echo, KEY_DELETE);
                             assert(strlen(echo) < sizeof(echo));
                             cursor--;
-                            memmove(command+cursor, command+cursor+1, sizeof(command)-cursor-1);
+                            memmove(command+cursor, command+cursor+1, sizeof(command)-(size_t)cursor-1);
                         }
                         break;
                     case KEY_DEL:
                         if (command[cursor]) {
                             strcat(echo, KEY_DELETE);
                             assert(strlen(echo) < sizeof(echo));
-                            memmove(command+cursor, command+cursor+1, sizeof(command)-cursor-1);
+                            memmove(command+cursor, command+cursor+1, sizeof(command)-(size_t)cursor-1);
                         }
                         break;
                     default:
@@ -245,9 +245,9 @@ accumulate(char c)
         orig = cursor;
         for (i = 0; i < ki; i++) {
             if (isprint(keys[i])) {
-                n = strlen(command);
-                if (n < sizeof(command)-1) {
-                    memmove(command+cursor+1, command+cursor, n+1-cursor);
+                n = (int)strlen(command);
+                if ((size_t)n < sizeof(command)-1) {
+                    memmove(command+cursor+1, command+cursor, (size_t)(n+1-cursor));
                     command[cursor] = keys[i];
                     cursor++;
                     assert(cursor <= sizeof(command)-1);
@@ -258,7 +258,7 @@ accumulate(char c)
         if (cursor > orig) {
             // print the new characters
             p = strchr(echo, '\0');
-            strncpy(p, command+orig, cursor-orig);
+            strncpy(p, command+orig, (size_t)(cursor-orig));
             p[cursor-orig] = '\0';
 
             // N.B. the remainder of the line still needs to be reprinted!
@@ -284,19 +284,19 @@ terminal_receive_internal(byte *buffer, int length)
     // allow \n or \r to terminate lines, but not both
     j = 0;
     for (i = 0; i < length; i++) {
-        c = buffer[i];
+        c = (char)buffer[i];
         if (c == '\n' || c == '\r') {
-            if (! term || term == c) {
+            if (! term || term == (byte)c) {
                 buffer[j] = '\r';
                 j++;
             }
             if (! term) {
-                term = c;
+                term = (byte)c;
             } else {
                 term = 0;
             }
         } else {
-            buffer[j] = c;
+            buffer[j] = (byte)c;
             j++;
             term = 0;
         }
@@ -320,17 +320,15 @@ terminal_receive_internal(byte *buffer, int length)
                 assert(strlen(echo) < sizeof(echo));
                 tail[0] = '\0';
 
-                if (strcmp(history[HISTWRAP(hist_in-1)], command)) {
+                if (strcmp(history[HISTWRAP(hist_in-1)], command) != 0) {
                     strcpy(history[hist_in], command);
                     hist_in = HISTWRAP(hist_in+1);
                 }
 
                 // save extra for later
                 assert(length >= j+1);
-                strncpy(extra, (char *)buffer+j+1, length-(j+1));
+                strncpy(extra, (char *)buffer+j+1, (size_t)(length-(j+1)));
                 extra[length-(j+1)] = '\0';
-
-                ack = false;
 
                 assert(command_cbfn);
                 command_cbfn(command);
@@ -338,7 +336,7 @@ terminal_receive_internal(byte *buffer, int length)
                 // wait for terminal_command_ack();
                 return false;
             } else {
-                accumulate(buffer[j]);
+                accumulate((char)buffer[j]);
             }
         }
     }
@@ -349,7 +347,7 @@ terminal_receive_internal(byte *buffer, int length)
 
     // and back the cursor up
     if (strlen(tail)) {
-        sprintf(echo+strlen(echo), KEYS_LEFT, strlen(tail));
+        sprintf(echo+strlen(echo), KEYS_LEFT, (int)strlen(tail));
         assert(strlen(echo) < sizeof(echo));
     }
 
@@ -388,14 +386,14 @@ terminal_command_ack(bool edit)
         cursor = 0;
     } else {
         printf("%s", command);
-        cursor = strlen(command);
+        cursor = (int)strlen(command);
     }
 
     // if we had extra left over from last time...
     if (extra[0]) {
         // process it now
         x = splx(5);
-        boo = terminal_receive_internal((byte *)extra, strlen(extra));
+        boo = terminal_receive_internal((byte *)extra, (int)strlen(extra));
         splx(x);
         if (! boo) {
             // we just issued another command
@@ -404,8 +402,6 @@ terminal_command_ack(bool edit)
     }
 
     cdcacm_command_ack();
-
-    ack = true;
 }
 
 // this function is called by upper level code in response to an
@@ -450,7 +446,6 @@ void
 terminal_poll(void)
 {
     int x;
-    static int last;
     char copy[BASIC_INPUT_LINE_SIZE*2];
 
     assert(gpl() == 0);
@@ -462,8 +457,7 @@ terminal_poll(void)
     splx(x);
 
     if (terminal_echo && copy[0]) {
-        terminal_print((byte *)copy, strlen(copy));
-        last = msecs;
+        terminal_print((byte *)copy, (int)strlen(copy));
     }
 
 
@@ -471,8 +465,8 @@ terminal_poll(void)
 }
 
 void
-terminal_register(terminal_command_cbfn command, terminal_ctrlc_cbfn ctrlc)
+terminal_register(terminal_command_cbfn command_in, terminal_ctrlc_cbfn ctrlc)
 {
-    command_cbfn = command;
+    command_cbfn = command_in;
     ctrlc_cbfn = ctrlc;
 }

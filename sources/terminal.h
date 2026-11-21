@@ -22,4 +22,4 @@ void
 terminal_poll(void);
 
 void
-terminal_register(terminal_command_cbfn command, terminal_ctrlc_cbfn ctrlc);
+terminal_register(terminal_command_cbfn command_in, terminal_ctrlc_cbfn ctrlc);

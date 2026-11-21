@@ -6,18 +6,11 @@
 
 #define PA_TO_KVA  PA_TO_KVA0
 
-#define DEVICE_DESCRIPTOR_SIZE  18
-#define CONFIGURATION_DESCRIPTOR_SIZE  128
-
 #define BULK_ATTRIBUTES  2
 #define INTERRUPT_ATTRIBUTES  3
 
 #define TOKEN_OUT  0x01
-#define TOKEN_ACK  0x02
-#define TOKEN_DATA0  0x03
 #define TOKEN_IN  0x09
-#define TOKEN_NAK  0x0a
-#define TOKEN_DATA1  0x0b
 #define TOKEN_SETUP  0x0d
 
 #define BD_FLAGS_BC_ENC(x)  (((x) & 0x3ff) << 16)
@@ -31,14 +24,14 @@
 
 #define BDT_RAM_SIZE  256
 
-struct bdt {
+static struct bdt {
     int flags;
     byte *buffer;
 } *bdts;  // 512 byte aligned in buffer
 
 #define ENDPOINTS  4
 
-struct endpoint {
+static struct endpoint {
     byte toggle[2];  // rx [0] and tx [1] next packet data0 (0) or data1 (BD_FLAGS_DATA)
     byte bdtodd[2];  // rx [0] and tx [1] next bdt even (0) or odd (1)
     byte armed;  // tx packets handed to the hardware and not yet completed (endpoints > 0)
@@ -55,7 +48,7 @@ byte bulk_in_ep;
 byte bulk_out_ep;
 byte int_ep;
 
-volatile int usb_isrs;
+static volatile int usb_isrs;
 
 #if SODEBUG
 volatile bool usb_in_isr;
@@ -113,9 +106,6 @@ static int configuration_descriptor_length;
 static const byte *string_descriptor;
 static int string_descriptor_length;
 
-static const byte *bos_descriptor;
-static int bos_descriptor_length;
-
 static usb_reset_cbfn reset_cbfn;
 static usb_control_cbfn control_transfer_cbfn;
 static usb_bulk_cbfn bulk_transfer_cbfn;
@@ -124,7 +114,7 @@ static usb_bulk_cbfn bulk_transfer_cbfn;
 // for a usb reset from the host.
 static
 void
-usb_device_wait()
+usb_device_wait(void)
 {
     // enable (only) usb reset interrupt
     U1IR = 0xff;
@@ -141,14 +131,14 @@ usb_device_wait()
 // waiting for a "set configuration" command from the host.
 static
 void
-usb_device_default()
+usb_device_default(void)
 {
     // default to address 0 on reset
     U1ADDR = (uint8)0;
 
     // enable usb device mode
     U1CON |= _U1CON_PPBRST_MASK;
-    U1CON &= ~_U1CON_PPBRST_MASK;
+    U1CON &= ~(uint32)_U1CON_PPBRST_MASK;
 
     memset(bdts, 0, BDT_RAM_SIZE);
     memset(endpoints, 0, sizeof(endpoints));
@@ -168,7 +158,7 @@ usb_device_default()
 
 // enqueue a packet to the usb engine for transfer to/from the host
 void
-usb_device_enqueue(int endpoint, int tx, byte *buffer, int length)
+usb_device_enqueue(int endpoint, int tx, byte *buffer, int length)  // NOLINT(readability-non-const-parameter): the usb engine writes rx packets into buffer
 {
     int ep;
     bool odd;
@@ -200,6 +190,7 @@ usb_device_enqueue(int endpoint, int tx, byte *buffer, int length)
         bdt->buffer = (byte *)TF_LITTLE(KVA_TO_PA((int)buffer));
         flags = TF_LITTLE(bdt->flags);
         assert(! (flags & BD_FLAGS_OWN));
+        (void)flags;  // only checked by assert(); the volatile bdt read stays
         assert(length <= endpoints[endpoint].packetsize);
         if (endpoint && tx == 1) {
             endpoints[endpoint].armed++;
@@ -229,13 +220,11 @@ usb_device_enqueue(int endpoint, int tx, byte *buffer, int length)
     }
 }
 
-static byte setup_buffer[SETUP_SIZE];  // from host
+static struct setup setup_buffer __attribute__ ((aligned(4)));  // from host
+CASSERT(sizeof(setup_buffer) == SETUP_SIZE);
 static byte next_address;  // set after successful status
 
 // *** isr ***
-
-static byte descriptor[DEVICE_DESCRIPTOR_SIZE];
-static byte configuration[CONFIGURATION_DESCRIPTOR_SIZE];
 
 // called by usb on device attach
 void
@@ -271,7 +260,7 @@ usb_isr(void)
         struct setup *setup;
 
         // we just completed a packet transfer
-        stat = U1STAT;
+        stat = (int)U1STAT;
         tx = !! (stat & _U1STAT_DIR_MASK);
         odd = !! (stat & _U1STAT_PPBI_MASK);
         endpoint = (stat & 0xf0) >> 4;
@@ -302,11 +291,11 @@ usb_isr(void)
             assert(bc == 8);
             assert(! tx);
 
-            setup = (struct setup *)TF_LITTLE((int)PA_TO_KVA((int)bdt->buffer));
-            assert((void *)setup == (void *)setup_buffer);
+            setup = (struct setup *)TF_LITTLE((int)PA_TO_KVA((uintptr)bdt->buffer));
+            assert((void *)setup == (void *)&setup_buffer);
 
             // unsuspend the usb packet engine
-            U1CON &= ~_U1CON_TOKBUSY_MASK;
+            U1CON &= ~(uint32)_U1CON_TOKBUSY_MASK;
 
             length = TF_LITTLE(setup->length);
 
@@ -324,12 +313,12 @@ usb_isr(void)
                         // #1
                         assert(device_descriptor_length && device_descriptor_length <= sizeof(endpoints[endpoint].data_buffer));
                         endpoints[endpoint].data_length = MIN(device_descriptor_length, length);
-                        memcpy(endpoints[endpoint].data_buffer, device_descriptor, endpoints[endpoint].data_length);
+                        memcpy(endpoints[endpoint].data_buffer, device_descriptor, (size_t)endpoints[endpoint].data_length);
                     } else if ((value >> 8) == CONFIGURATION_DESCRIPTOR) {
                         // #2
                         assert(configuration_descriptor_length && configuration_descriptor_length <= sizeof(endpoints[endpoint].data_buffer));
                         endpoints[endpoint].data_length = MIN(configuration_descriptor_length, length);
-                        memcpy(endpoints[endpoint].data_buffer, configuration_descriptor, endpoints[endpoint].data_length);
+                        memcpy(endpoints[endpoint].data_buffer, configuration_descriptor, (size_t)endpoints[endpoint].data_length);
                     } else if ((value >> 8) == STRING_DESCRIPTOR) {
                         // #4
                         int i;
@@ -348,7 +337,7 @@ usb_isr(void)
                         } else {
                             assert(string_descriptor[j]);
                             endpoints[endpoint].data_length = MIN(string_descriptor[j], length);
-                            memcpy(endpoints[endpoint].data_buffer, string_descriptor+j, endpoints[endpoint].data_length);
+                            memcpy(endpoints[endpoint].data_buffer, string_descriptor+j, (size_t)endpoints[endpoint].data_length);
                             if (endpoints[endpoint].data_buffer[2] == '@' || endpoints[endpoint].data_buffer[2] == '#') {
                                 if (endpoints[endpoint].data_buffer[2] == '@') {
                                     // patch in the hostname
@@ -357,10 +346,10 @@ usb_isr(void)
                                     // patch in the serial number
                                     p = usb_serial;
                                 }
-                                endpoints[endpoint].data_buffer[0] = 2 + strlen(p)*2;
+                                endpoints[endpoint].data_buffer[0] = (byte)(2 + strlen(p)*2);
                                 endpoints[endpoint].data_length = MIN(endpoints[endpoint].data_buffer[0], length);
                                 for (j = 2; j < endpoints[endpoint].data_length; j += 2) {
-                                    endpoints[endpoint].data_buffer[j] = *p++;
+                                    endpoints[endpoint].data_buffer[j] = (byte)*p++;
                                     endpoints[endpoint].data_buffer[j+1] = '\0';
                                 }
                             }
@@ -397,7 +386,7 @@ usb_isr(void)
                             assert(0);
                         }
                     } else if (setup->request == REQUEST_SET_ADDRESS) {
-                        next_address = value;
+                        next_address = (byte)value;
                     } else if (setup->request == REQUEST_SET_CONFIGURATION) {
                         assert(value == 1);
                         cdcacm_attached_count++;
@@ -443,8 +432,9 @@ XXX_SKIP2_XXX:;
                     } else {
                         // data transfer is done; put it to our caller!
                         assert(control_transfer_cbfn);
-                        rv = control_transfer_cbfn((struct setup *)setup_buffer, NULL, 0);
+                        rv = control_transfer_cbfn(&setup_buffer, NULL, 0);
                         assert(rv != -1);
+                        (void)rv;  // only checked by assert()
 
                         // status uses data1
                         assert(endpoints[endpoint].toggle[1] == BD_FLAGS_DATA);
@@ -458,7 +448,8 @@ XXX_SKIP2_XXX:;
             assert(endpoints[endpoint].data_length <= sizeof(endpoints[endpoint].data_buffer));
         } else if (! endpoint) {
             assert(pid == TOKEN_IN || pid == TOKEN_OUT);
-            data = (byte *)TF_LITTLE((int)PA_TO_KVA((int)bdt->buffer));
+            data = (byte *)TF_LITTLE((int)PA_TO_KVA((uintptr)bdt->buffer));
+            (void)data;  // only checked by assert(); the volatile bdt read stays
 
             // if this is part of the data transfer...
             if (pid == endpoints[endpoint].data_pid) {
@@ -493,8 +484,9 @@ XXX_SKIP2_XXX:;
                     } else {
                         // put it to our caller!
                         assert(control_transfer_cbfn);
-                        rv = control_transfer_cbfn((struct setup *)setup_buffer, endpoints[endpoint].data_buffer, endpoints[endpoint].data_length);
+                        rv = control_transfer_cbfn(&setup_buffer, endpoints[endpoint].data_buffer, endpoints[endpoint].data_length);
                         assert(rv != -1);
+                        (void)rv;  // only checked by assert()
 
                         // status uses data1
                         assert(endpoints[endpoint].toggle[1] == BD_FLAGS_DATA);
@@ -518,11 +510,11 @@ XXX_SKIP2_XXX:;
                 endpoints[endpoint].toggle[1] = BD_FLAGS_DATA;
 
                 // prepare to receive setup token
-                usb_device_enqueue(0, 0, setup_buffer, sizeof(setup_buffer));
+                usb_device_enqueue(0, 0, (byte *)&setup_buffer, sizeof(setup_buffer));
             }
         } else if (endpoint != int_ep) {
             assert(pid == TOKEN_IN || pid == TOKEN_OUT);
-            data = (byte *)TF_LITTLE((int)PA_TO_KVA((int)bdt->buffer));
+            data = (byte *)TF_LITTLE((int)PA_TO_KVA((uintptr)bdt->buffer));
 
             // we just received or sent data from or to the host
             assert(bulk_transfer_cbfn);
@@ -547,7 +539,7 @@ XXX_SKIP2_XXX:;
         endpoints[0].toggle[1] = BD_FLAGS_DATA;
 
         // prepare to receive setup token
-        usb_device_enqueue(0, 0, setup_buffer, sizeof(setup_buffer));
+        usb_device_enqueue(0, 0, (byte *)&setup_buffer, sizeof(setup_buffer));
 
         led_unknown_progress();
 
@@ -560,11 +552,10 @@ XXX_SKIP2_XXX:;
         cdcacm_attached = 0;
 
         // disable usb sleep interrupts
-        U1IE &= ~_U1IE_IDLEIE_MASK;
+        U1IE &= ~(uint32)_U1IE_IDLEIE_MASK;
         U1IR = _U1IR_IDLEIF_MASK;
     }
 
-XXX_SKIP_XXX:
     assert(usb_in_isr);
     assert((usb_in_isr = false) ? true : true);
     assert((usb_out_ticks = ticks) ? true : true);
@@ -611,11 +602,11 @@ usb_string_descriptor(const byte *descriptor, int length)
 void
 usb_initialize(void)
 {
-    static __attribute__ ((aligned(512))) byte bdt_ram[BDT_RAM_SIZE];
+    static __attribute__ ((aligned(512))) struct bdt bdt_ram[BDT_RAM_SIZE/sizeof(struct bdt)];
 
     snprintf(usb_serial, sizeof(usb_serial), "%08x%08x%08x", DEVSN3^DEVSN2, DEVSN1, DEVSN0);
 
-    bdts = (struct bdt *)bdt_ram;
+    bdts = bdt_ram;
 
     assert(BDT_RAM_SIZE >= LENGTHOF(endpoints)*4*sizeof(struct bdt));
 

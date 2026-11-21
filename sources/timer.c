@@ -14,8 +14,8 @@ volatile int32 ticks;  // incremented by pit0 isr every tick
 volatile int32 msecs;  // incremented by pit0 isr every millisecond
 volatile int32 seconds;  // incremented by pit0 isr every second
 
-volatile static byte msecs_in_second;  // incremented by pit0 isr every millisecond
-volatile static byte eighths_in_second;  // incremented by pit0 isr 8 times per second
+static volatile byte msecs_in_second;  // incremented by pit0 isr every millisecond
+static volatile byte eighths_in_second;  // incremented by pit0 isr 8 times per second
 
 enum { msecs_per_debounce = 4 }; // tunable
 

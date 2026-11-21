@@ -6,7 +6,7 @@
 enum led {
     led_red = 0,  // dtin3
     led_blue = 0,  // dtin3
-    led_max
+    led_max = 1
 };
 
 static int led_count[led_max];
@@ -26,13 +26,14 @@ static
 void
 led_set(enum led n, int on)
 {
+    (void)n;  // only checked by assert()
     assert (n >= 0 && n < led_max);
 
     pin_set(pin_assignments[pin_assignment_heartbeat], pin_type_digital_output, 0, on);
 }
 
 void
-led_timer_poll()
+led_timer_poll(void)
 {
     static int calls;
 

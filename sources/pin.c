@@ -3,13 +3,11 @@
 
 #include "main.h"
 
-#define SHRINK  0
-
 int servo_hz = 45;
 
 #define SERVO_MAX (1000000/servo_hz)  // microseconds
 #define SERVO_PRESCALE  64
-#define SERVO_MOD  (bus_frequency/SERVO_PRESCALE/servo_hz)
+#define SERVO_MOD  (bus_frequency/SERVO_PRESCALE/(uint32)servo_hz)
 
 const char * const pin_assignment_names[] = {
     "heartbeat",
@@ -63,29 +61,29 @@ static byte declared[(PIN_UNASSIGNED+7)/8];
 #define DIO  (1<<pin_type_digital_output|1<<pin_type_digital_input)
 
 const struct pin pins[] = {
-    "a0", DIO,
-    "a1", DIO|1<<pin_type_analog_input,
-    "a2", DIO|1<<pin_type_analog_input,
-    "a3", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output,  //oc5
-    "a4", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output,  //oc6
-    "a5", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output,  //oc3
-    "a6", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output,  //oc4
-    "a7", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output,  //oc2
-    "a8", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output,  //oc1
-    "b0", DIO,
-    "b1", DIO,
-    "b2", DIO,
-    "b3", DIO,
-    "b4", DIO|1<<pin_type_uart_input,
-    "b5", DIO,
-    "b6", DIO|1<<pin_type_uart_input,
-    "b7", DIO|1<<pin_type_uart_output,
-    "b8", DIO|1<<pin_type_uart_output,
-    "e1", DIO,
-    "e2", DIO,
-    "e3", DIO,
-    "s1", DIO,
-    "none", 0,
+    {"a0", DIO},
+    {"a1", DIO|1<<pin_type_analog_input},
+    {"a2", DIO|1<<pin_type_analog_input},
+    {"a3", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output},  //oc5
+    {"a4", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output},  //oc6
+    {"a5", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output},  //oc3
+    {"a6", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output},  //oc4
+    {"a7", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output},  //oc2
+    {"a8", DIO|1<<pin_type_analog_input|1<<pin_type_analog_output|1<<pin_type_frequency_output|1<<pin_type_servo_output},  //oc1
+    {"b0", DIO},
+    {"b1", DIO},
+    {"b2", DIO},
+    {"b3", DIO},
+    {"b4", DIO|1<<pin_type_uart_input},
+    {"b5", DIO},
+    {"b6", DIO|1<<pin_type_uart_input},
+    {"b7", DIO|1<<pin_type_uart_output},
+    {"b8", DIO|1<<pin_type_uart_output},
+    {"e1", DIO},
+    {"e2", DIO},
+    {"e3", DIO},
+    {"s1", DIO},
+    {"none", 0},
 };
 
 bool uart_armed[UART_INTS];
@@ -147,7 +145,7 @@ pin_get_digital_debounced(int port_offset, int pin_offset)
 }
 
 
-unsigned char pin_to_an(int pin)
+static unsigned char pin_to_an(int pin)
 {
     if (pin == PIN_A1) {
         return 0;
@@ -167,7 +165,7 @@ unsigned char pin_to_an(int pin)
         return 7;
     } else {
         assert(0);
-        return -1;
+        return (unsigned char)-1;
     }
 }
 
@@ -214,7 +212,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
         case PIN_A3:
         case PIN_A4:
             // RE
-            offset = 12 + pin_number - PIN_A1;
+            offset = (uint32)(12 + pin_number - PIN_A1);
             assert(offset >= 12 && offset <= 15);
             CNPUECLR = 1 << offset;
             if (pin_type == pin_type_analog_input) {
@@ -240,7 +238,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
                             // set pwm prescale to 1
                             T2CON = 0;
                             TMR2 = 0;
-                            PR2 = pin_analog-1;
+                            PR2 = (uint32_t)(pin_analog-1);
                             T2CON = _T2CON_ON_MASK;
                         } else {
                             // configure timer 2 for servo pwm generation
@@ -251,7 +249,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
                             assert(SERVO_PRESCALE == 64);
                             T2CON = _T2CON_ON_MASK|(6 << _T2CON_TCKPS_POSITION);
                         }
-                        freq[0] = pin_type;
+                        freq[0] = (byte)pin_type;
                     }
                 }
             } else if (pin_type == pin_type_frequency_output) {
@@ -276,7 +274,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
         case PIN_A7:
         case PIN_A8:
             // RG
-            offset = 6 + PIN_A8 - pin_number;
+            offset = (uint32)(6 + PIN_A8 - pin_number);
             assert(offset >= 6 && offset <= 9);
             CNPUGCLR = 1 << offset;
             if (pin_type == pin_type_analog_input) {
@@ -302,7 +300,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
                             // set pwm prescale to 1
                             T2CON = 0;
                             TMR2 = 0;
-                            PR2 = pin_analog-1;
+                            PR2 = (uint32_t)(pin_analog-1);
                             T2CON = _T2CON_ON_MASK;
                         } else {
                             // configure timer 2 for servo pwm generation
@@ -313,7 +311,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
                             assert(SERVO_PRESCALE == 64);
                             T2CON = _T2CON_ON_MASK|(6 << _T2CON_TCKPS_POSITION);
                         }
-                        freq[0] = pin_type;
+                        freq[0] = (byte)pin_type;
                     }
                 }
             } else if (pin_type == pin_type_frequency_output) {
@@ -341,7 +339,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
         case PIN_B1:
         case PIN_B2:
             // RB
-            offset = 4 + pin_number - PIN_B0;
+            offset = (uint32)(4 + pin_number - PIN_B0);
             ASSERT(offset >= 4 && offset <= 6);
             CNPUBCLR = 1 << offset;
             if (pin_type == pin_type_digital_input) {
@@ -361,7 +359,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
         case PIN_B7:
         case PIN_B8:
             // RB
-            offset = 10 + pin_number - PIN_B3;
+            offset = (uint32)(10 + pin_number - PIN_B3);
             assert(offset >= 10 && offset <= 15);
             CNPUBCLR = 1 << offset;
             if (pin_type == pin_type_uart_input || pin_type == pin_type_uart_output) {
@@ -395,7 +393,7 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
         case PIN_E2:
         case PIN_E3:
             // RA
-            offset = 4 + (pin_number - PIN_E2)*6;
+            offset = (uint32)(4 + (pin_number - PIN_E2)*6);
             assert(offset == 4 || offset == 10);
             CNPUACLR = 1 << offset;
             if (pin_type == pin_type_digital_input) {
@@ -422,7 +420,6 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
                 ANSELCCLR = 1 << offset;
                 TRISCCLR = 1 << offset;
             }
-            break;
             break;
         default:
             assert(0);
@@ -471,7 +468,7 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
             value = 0;
         }
         if (value) {
-            value = bus_frequency/FREQ_PRESCALE/value/2;
+            value = (int32)(bus_frequency/FREQ_PRESCALE/(uint32)value/2);
             if (value) {
                 value--;
             }
@@ -522,33 +519,34 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
         case PIN_A3:
         case PIN_A4:
             // RE
-            offset = 12 + pin_number - PIN_A1;
+            offset = (uint32)(12 + pin_number - PIN_A1);
             assert(offset >= 12 && offset <= 15);
             if (pin_type == pin_type_analog_output || pin_type == pin_type_servo_output) {
                 if (pin_type == pin_type_servo_output) {
-                    value = value*SERVO_MOD/SERVO_MAX;
+                    // NOLINTNEXTLINE(clang-analyzer-core.DivideZero): servo_hz is only ever 45 or 20..500 (pin_initialize), so SERVO_MAX >= 2000
+                    value = (int32)((uint32)value*SERVO_MOD/(uint32)SERVO_MAX);
                 }
                 if (pin_number == PIN_A3) {
                     OC5CONCLR = _OC5CON_ON_MASK;
                     OC5R = 0;
-                    OC5RS = value;
+                    OC5RS = (uint32_t)value;
                     OC5CON = _OC5CON_ON_MASK|(6<<_OC5CON_OCM0_POSITION);
                 } else {
                     assert(pin_number == PIN_A4);
                     OC6CONCLR = _OC6CON_ON_MASK;
                     OC6R = 0;
-                    OC6RS = value;
+                    OC6RS = (uint32_t)value;
                     OC6CON = _OC6CON_ON_MASK|(6<<_OC6CON_OCM0_POSITION);
                 }
             } else if (pin_type == pin_type_frequency_output) {
                 // configure timer 3 for frequency generation
                 T3CONCLR = _T3CON_ON_MASK;
                 TMR3 = 0;
-                PR3 = value;
+                PR3 = (uint32_t)value;
                 if (pin_number == PIN_A3) {
                     OC5CONCLR = _OC5CON_ON_MASK;
                     OC5R = 0;
-                    OC5RS = value;
+                    OC5RS = (uint32_t)value;
                     // hack to work around high minimum frequency
                     if (value) {
                         OC5CON = _OC5CON_ON_MASK|_OC5CON_OCTSEL_MASK|(3<<_OC5CON_OCM0_POSITION);
@@ -557,7 +555,7 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
                     assert(pin_number == PIN_A4);
                     OC6CONCLR = _OC6CON_ON_MASK;
                     OC6R = 0;
-                    OC6RS = value;
+                    OC6RS = (uint32_t)value;
                     // hack to work around high minimum frequency
                     if (value) {
                         OC6CON = _OC6CON_ON_MASK|_OC6CON_OCTSEL_MASK|(3<<_OC6CON_OCM0_POSITION);
@@ -580,43 +578,44 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
         case PIN_A7:
         case PIN_A8:
             // RG
-            offset = 6 + PIN_A8 - pin_number;
+            offset = (uint32)(6 + PIN_A8 - pin_number);
             assert(offset >= 6 && offset <= 9);
             if (pin_type == pin_type_analog_output || pin_type == pin_type_servo_output) {
                 if (pin_type == pin_type_servo_output) {
-                    value = value*SERVO_MOD/SERVO_MAX;
+                    // NOLINTNEXTLINE(clang-analyzer-core.DivideZero): servo_hz is only ever 45 or 20..500 (pin_initialize), so SERVO_MAX >= 2000
+                    value = (int32)((uint32)value*SERVO_MOD/(uint32)SERVO_MAX);
                 }
                 if (pin_number == PIN_A5) {
                     OC3CONCLR = _OC3CON_ON_MASK;
                     OC3R = 0;
-                    OC3RS = value;
+                    OC3RS = (uint32_t)value;
                     OC3CON = _OC3CON_ON_MASK|(6<<_OC3CON_OCM0_POSITION);
                 } else if (pin_number == PIN_A6) {
                     OC4CONCLR = _OC4CON_ON_MASK;
                     OC4R = 0;
-                    OC4RS = value;
+                    OC4RS = (uint32_t)value;
                     OC4CON = _OC4CON_ON_MASK|(6<<_OC4CON_OCM0_POSITION);
                 } else if (pin_number == PIN_A7) {
                     OC2CONCLR = _OC2CON_ON_MASK;
                     OC2R = 0;
-                    OC2RS = value;
+                    OC2RS = (uint32_t)value;
                     OC2CON = _OC2CON_ON_MASK|(6<<_OC2CON_OCM0_POSITION);
                 } else {
                     assert(pin_number == PIN_A8);
                     OC1CONCLR = _OC6CON_ON_MASK;
                     OC1R = 0;
-                    OC1RS = value;
+                    OC1RS = (uint32_t)value;
                     OC1CON = _OC1CON_ON_MASK|(6<<_OC1CON_OCM0_POSITION);
                 }
             } else if (pin_type == pin_type_frequency_output) {
                 // configure timer 3 for frequency generation
                 T3CONCLR = _T3CON_ON_MASK;
                 TMR3 = 0;
-                PR3 = value;
+                PR3 = (uint32_t)value;
                 if (pin_number == PIN_A5) {
                     OC3CONCLR = _OC3CON_ON_MASK;
                     OC3R = 0;
-                    OC3RS = value;
+                    OC3RS = (uint32_t)value;
                     // hack to work around high minimum frequency
                     if (value) {
                         OC3CON = _OC3CON_ON_MASK|_OC3CON_OCTSEL_MASK|(3<<_OC3CON_OCM0_POSITION);
@@ -624,7 +623,7 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
                 } else if (pin_number == PIN_A6) {
                     OC4CONCLR = _OC4CON_ON_MASK;
                     OC4R = 0;
-                    OC4RS = value;
+                    OC4RS = (uint32_t)value;
                     // hack to work around high minimum frequency
                     if (value) {
                         OC4CON = _OC4CON_ON_MASK|_OC4CON_OCTSEL_MASK|(3<<_OC4CON_OCM0_POSITION);
@@ -632,7 +631,7 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
                 } else if (pin_number == PIN_A7) {
                     OC2CONCLR = _OC2CON_ON_MASK;
                     OC2R = 0;
-                    OC2RS = value;
+                    OC2RS = (uint32_t)value;
                     // hack to work around high minimum frequency
                     if (value) {
                         OC2CON = _OC2CON_ON_MASK|_OC2CON_OCTSEL_MASK|(3<<_OC2CON_OCM0_POSITION);
@@ -641,7 +640,7 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
                     assert(pin_number == PIN_A8);
                     OC1CONCLR = _OC1CON_ON_MASK;
                     OC1R = 0;
-                    OC1RS = value;
+                    OC1RS = (uint32_t)value;
                     // hack to work around high minimum frequency
                     if (value) {
                         OC1CON = _OC1CON_ON_MASK|_OC1CON_OCTSEL_MASK|(3<<_OC1CON_OCM0_POSITION);
@@ -663,7 +662,7 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
         case PIN_B1:
         case PIN_B2:
             // RB
-            offset = 4 + pin_number - PIN_B0;
+            offset = (uint32)(4 + pin_number - PIN_B0);
             ASSERT(offset >= 4 && offset <= 6);
             if (value) {
                 LATBSET = 1 << offset;
@@ -680,9 +679,9 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
             // RB
             if (pin_type == pin_type_uart_output) {
                 assert(pin_number == PIN_B7 || pin_number == PIN_B8);
-                pin_uart_tx(pin_number == PIN_B7, value);
+                pin_uart_tx(pin_number == PIN_B7, (byte)value);
             } else {
-                offset = 10 + pin_number - PIN_B3;
+                offset = (uint32)(10 + pin_number - PIN_B3);
                 assert(offset >= 10 && offset <= 15);
                 if (value) {
                     LATBSET = 1 << offset;
@@ -704,7 +703,7 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
         case PIN_E2:
         case PIN_E3:
             // RA
-            offset = 4 + (pin_number - PIN_E2)*6;
+            offset = (uint32)(4 + (pin_number - PIN_E2)*6);
             assert(offset == 4 || offset == 10);
             if (value) {
                 LATASET = 1 << offset;
@@ -757,7 +756,7 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
             assert(offset == 7);
             if (pin_qual & 1<<pin_qual_debounced) {
                 assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_b, offset);
+                value = pin_get_digital_debounced(port_b, (int)offset);
             } else {
               value = !! (PORTB & 1 << offset);
             }
@@ -767,29 +766,29 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
         case PIN_A3:
         case PIN_A4:
             // RE
-            offset = 12 + pin_number - PIN_A1;
+            offset = (uint32)(12 + pin_number - PIN_A1);
             assert(offset >= 12 && offset <= 15);
             if (pin_type == pin_type_analog_output || pin_type == pin_type_servo_output || pin_type == pin_type_frequency_output) {
                 // XXX -- servo pins get 2 less than set
                 if (pin_number == PIN_A3) {
-                    value = OC5RS + ((pin_type == pin_type_frequency_output && (OC5CON & _OC5CON_ON_MASK) == 0)?1000000000:0);
+                    value = (int32)(OC5RS + ((pin_type == pin_type_frequency_output && (OC5CON & _OC5CON_ON_MASK) == 0)?1000000000:0));
                 } else {
                     assert(pin_number == PIN_A4);
-                    value = OC6RS + ((pin_type == pin_type_frequency_output && (OC6CON & _OC6CON_ON_MASK) == 0)?1000000000:0);
+                    value = (int32)(OC6RS + ((pin_type == pin_type_frequency_output && (OC6CON & _OC6CON_ON_MASK) == 0)?1000000000:0));
                 }
                 if (pin_type == pin_type_frequency_output) {
                     if (! value) {
                         value = 0x10000;
                     }
-                    value = bus_frequency/FREQ_PRESCALE/(value+1)/2;
+                    value = (int32)(bus_frequency/FREQ_PRESCALE/(uint32)(value+1)/2);
                 } else if (pin_type == pin_type_servo_output) {
-                    value = value*SERVO_MAX/SERVO_MOD;
+                    value = (int32)((uint32)(value*SERVO_MAX)/SERVO_MOD);
                 }
             } else if (pin_type == pin_type_analog_input) {
                 value = adc_get_value(pin_to_an(pin_number), pin_qual);
             } else if (pin_qual & 1<<pin_qual_debounced) {
                 assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_e, offset);
+                value = pin_get_digital_debounced(port_e, (int)offset);
             } else {
                 value = !! (PORTE & 1 << offset);
             }
@@ -799,33 +798,33 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
         case PIN_A7:
         case PIN_A8:
             // RG
-            offset = 6 + PIN_A8 - pin_number;
+            offset = (uint32)(6 + PIN_A8 - pin_number);
             assert(offset >= 6 && offset <= 9);
             if (pin_type == pin_type_analog_output || pin_type == pin_type_servo_output || pin_type == pin_type_frequency_output) {
                 // XXX -- servo pins get 2 less than set
                 if (pin_number == PIN_A5) {
-                    value = OC3RS + ((pin_type == pin_type_frequency_output && (OC3CON & _OC3CON_ON_MASK) == 0)?1000000000:0);
+                    value = (int32)(OC3RS + ((pin_type == pin_type_frequency_output && (OC3CON & _OC3CON_ON_MASK) == 0)?1000000000:0));
                 } else if (pin_number == PIN_A6) {
-                    value = OC4RS + ((pin_type == pin_type_frequency_output && (OC4CON & _OC4CON_ON_MASK) == 0)?1000000000:0);
+                    value = (int32)(OC4RS + ((pin_type == pin_type_frequency_output && (OC4CON & _OC4CON_ON_MASK) == 0)?1000000000:0));
                 } else if (pin_number == PIN_A7) {
-                    value = OC2RS + ((pin_type == pin_type_frequency_output && (OC2CON & _OC2CON_ON_MASK) == 0)?1000000000:0);
+                    value = (int32)(OC2RS + ((pin_type == pin_type_frequency_output && (OC2CON & _OC2CON_ON_MASK) == 0)?1000000000:0));
                 } else {
                     assert(pin_number == PIN_A8);
-                    value = OC1RS + ((pin_type == pin_type_frequency_output && (OC1CON & _OC1CON_ON_MASK) == 0)?1000000000:0);
+                    value = (int32)(OC1RS + ((pin_type == pin_type_frequency_output && (OC1CON & _OC1CON_ON_MASK) == 0)?1000000000:0));
                 }
                 if (pin_type == pin_type_frequency_output) {
                     if (! value) {
                         value = 0x10000;
                     }
-                    value = bus_frequency/FREQ_PRESCALE/(value+1)/2;
+                    value = (int32)(bus_frequency/FREQ_PRESCALE/(uint32)(value+1)/2);
                 } else if (pin_type == pin_type_servo_output) {
-                    value = value*SERVO_MAX/SERVO_MOD;
+                    value = (int32)((uint32)(value*SERVO_MAX)/SERVO_MOD);
                 }
             } else if (pin_type == pin_type_analog_input) {
                 value = adc_get_value(pin_to_an(pin_number), pin_qual);
             } else if (pin_qual & 1<<pin_qual_debounced) {
                 assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_g, offset);
+                value = pin_get_digital_debounced(port_g, (int)offset);
             } else {
                 value = !! (PORTG & 1 << offset);
             }
@@ -834,11 +833,11 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
         case PIN_B1:
         case PIN_B2:
             // RB
-            offset = 4 + pin_number - PIN_B0;
+            offset = (uint32)(4 + pin_number - PIN_B0);
             ASSERT(offset >= 4 && offset <= 6);
             if (pin_qual & 1<<pin_qual_debounced) {
                 assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_b, offset);
+                value = pin_get_digital_debounced(port_b, (int)offset);
             } else {
                 value = !! (PORTB & 1 << offset);
             }
@@ -857,11 +856,11 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
                 assert(pin_number == PIN_B7 || pin_number == PIN_B8);
                 value = pin_uart_tx_empty(pin_number == PIN_B7)?0:ulasttx[pin_number == PIN_B7];
             } else {
-                offset = 10 + pin_number - PIN_B3;
+                offset = (uint32)(10 + pin_number - PIN_B3);
                 assert(offset >= 10 && offset <= 15);
                 if (pin_qual & 1<<pin_qual_debounced) {
                     assert(pin_type == pin_type_digital_input);
-                    value = pin_get_digital_debounced(port_b, offset);
+                    value = pin_get_digital_debounced(port_b, (int)offset);
                 } else {
                     value = !! (PORTB & 1 << offset);
                 }
@@ -873,7 +872,7 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
             assert(offset == 6);
             if (pin_qual & 1<<pin_qual_debounced) {
                 assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_c, offset);
+                value = pin_get_digital_debounced(port_c, (int)offset);
             } else {
                 value = !! (PORTC & 1 << offset);
             }
@@ -881,11 +880,11 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
         case PIN_E2:
         case PIN_E3:
             // RA
-            offset = 4 + (pin_number - PIN_E2)*6;
+            offset = (uint32)(4 + (pin_number - PIN_E2)*6);
             assert(offset == 4 || offset == 10);
             if (pin_qual & 1<<pin_qual_debounced) {
                 assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_a, offset);
+                value = pin_get_digital_debounced(port_a, (int)offset);
             } else {
                 value = !! (PORTA & 1 << offset);
             }
@@ -896,7 +895,7 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
             assert(offset == 7);
             if (pin_qual & 1<<pin_qual_debounced) {
                 assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_c, offset);
+                value = pin_get_digital_debounced(port_c, (int)offset);
             } else {
                 value = !! (PORTC & 1 << offset);
             }
@@ -932,25 +931,25 @@ pin_uart_configure(int uart, int baud, int data, byte parity, bool loopback)
     int divisor;
 
     if (! uart) {
-        U1MODE &= ~_U1MODE_UARTEN_MASK;
+        U1MODE &= ~(uint32_t)_U1MODE_UARTEN_MASK;
 
-        divisor = bus_frequency/baud/16;
+        divisor = (int)(bus_frequency/(uint32)baud/16);
         if (divisor >= 0x10000) {
             divisor = 0xffff;
         }
-        U1BRG = divisor;
+        U1BRG = (uint32_t)divisor;
 
         U1MODE = _U1MODE_UARTEN_MASK|(loopback?_U1MODE_LPBACK_MASK:0)|((data==8&&parity!=2)?(parity?_U1MODE_PDSEL1_MASK:_U1MODE_PDSEL0_MASK):0);
 
         U1STA = _U1STA_URXEN_MASK|_U1STA_UTXEN_MASK;
     } else {
-        U2MODE &= ~_U2MODE_UARTEN_MASK;
+        U2MODE &= ~(uint32_t)_U2MODE_UARTEN_MASK;
 
-        divisor = bus_frequency/baud/16;
+        divisor = (int)(bus_frequency/(uint32)baud/16);
         if (divisor >= 0x10000) {
             divisor = 0xffff;
         }
-        U2BRG = divisor;
+        U2BRG = (uint32_t)divisor;
 
         U2MODE = _U2MODE_UARTEN_MASK|(loopback?_U2MODE_LPBACK_MASK:0)|((data==8&&parity!=2)?(parity?_U2MODE_PDSEL1_MASK:_U2MODE_PDSEL0_MASK):0);
 
@@ -962,7 +961,7 @@ pin_uart_configure(int uart, int baud, int data, byte parity, bool loopback)
 bool
 pin_uart_tx_ready(int uart)
 {
-    int usr;
+    uint32 usr;
 
     // if the uart transmitter is ready...
     usr = uart?U2STA:U1STA;
@@ -975,7 +974,7 @@ pin_uart_tx_ready(int uart)
 bool
 pin_uart_tx_empty(int uart)
 {
-    int usr;
+    uint32 usr;
 
     // if the uart transmitter is empty...
     usr = uart?U2STA:U1STA;
@@ -988,7 +987,7 @@ pin_uart_tx_empty(int uart)
 bool
 pin_uart_rx_ready(int uart)
 {
-    int usr;
+    uint32 usr;
 
     // if the uart receiver is ready...
     usr = uart?U2STA:U1STA;
@@ -1032,10 +1031,10 @@ pin_uart_rx(int uart)
 
     if (pin_uart_rx_ready(uart)) {
         if (uart) {
-            value = U2RXREG;
+            value = (byte)U2RXREG;
             U2STACLR = _U2STA_OERR_MASK;
         } else {
-            value = U1RXREG;
+            value = (byte)U1RXREG;
             U1STACLR = _U1STA_OERR_MASK;
         }
         value = value & umask[uart];
@@ -1072,10 +1071,8 @@ pin_clear(void)
 
     // reset all explicitly declared pins to digital input
     for (i = 0; i < PIN_UNASSIGNED; i++) {
-        if (declared[i/8] & (1 << (i%8))) {
-            if (pins[i].pin_type_mask & (1 << pin_type_digital_input)) {
-                pin_declare_internal(i, pin_type_digital_input, 0, false, false);
-            }
+        if ((declared[i/8] & (1 << (i%8))) && (pins[i].pin_type_mask & (1 << pin_type_digital_input))) {
+            pin_declare_internal(i, pin_type_digital_input, 0, false, false);
         }
     }
 
@@ -1096,14 +1093,14 @@ pin_timer_poll(void)
 
     // for each port...
 #ifdef PORTA
-    sample[port_a] = PORTA;
+    sample[port_a] = (pin_port_sample_t)PORTA;
 #endif
-    sample[port_b] = PORTB;
-    sample[port_c] = PORTC;
-    sample[port_d] = PORTD;
-    sample[port_e] = PORTE;
-    sample[port_f] = PORTF;
-    sample[port_g] = PORTG;
+    sample[port_b] = (pin_port_sample_t)PORTB;
+    sample[port_c] = (pin_port_sample_t)PORTC;
+    sample[port_d] = (pin_port_sample_t)PORTD;
+    sample[port_e] = (pin_port_sample_t)PORTE;
+    sample[port_f] = (pin_port_sample_t)PORTF;
+    sample[port_g] = (pin_port_sample_t)PORTG;
 
     if (++pin_digital_debounce_cycle >= pin_digital_debounce_history_depth) {
         pin_digital_debounce_cycle = 0;
@@ -1116,7 +1113,7 @@ pin_assign(int assign, int pin)
     assert(assign < pin_assignment_max);
     assert(pin < PIN_LAST);
 
-    pin_assignments[assign] = pin;
+    pin_assignments[assign] = (byte)pin;
 
     if (pin < PIN_UNASSIGNED) {
         if (assign == pin_assignment_safemode) {
@@ -1168,7 +1165,7 @@ pin_initialize(void)
 
     // load up our servo frequency
     hz = params_get(PARAM_SERVO);
-    if (hz != (uint32)-1 && hz >= 20 && hz <= 500) {
+    if (hz >= 20 && hz <= 500) {
         servo_hz = hz;
     }
 
@@ -1192,15 +1189,15 @@ pin_initialize(void)
     // load up our pin assignments
     for (i = 0; i < pin_assignment_max; i++) {
         pin = params_get(PARAM_ASSIGNMENTS_BEGIN+i);
-        if (pin != (uint32)-1 && pin >= 0 && pin < PIN_LAST) {
-            pin_assignments[i] = pin;
+        if (pin >= 0 && pin < PIN_LAST) {
+            pin_assignments[i] = (byte)pin;
         }
         pin_assign(i, pin_assignments[i]);
     }
 
     // set our analog level
     analog = params_get(PARAM_ANALOG);
-    if (analog != (uint32)-1 && analog >= 1000 && analog <= 5000) {
+    if (analog >= 1000 && analog <= 5000) {
         pin_analog = analog;
     }
 }

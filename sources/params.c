@@ -36,7 +36,7 @@ other(void)
 static void
 update(uint32 offset, const uint32 *words, uint32 nwords)
 {
-    uint32 *cur;
+    const uint32 *cur;
     uint32 *next;
     uint32 generation;
 
@@ -48,7 +48,7 @@ update(uint32 offset, const uint32 *words, uint32 nwords)
     generation = cur[PARAMS_WORDS-1];
 
     memcpy(scratch, cur, PARAMS_PAGE_SIZE-sizeof(uint32));
-    memcpy(scratch+offset/sizeof(uint32), words, nwords*sizeof(uint32));
+    memcpy(&scratch[offset/sizeof(uint32)], words, nwords*sizeof(uint32));
 
     flash_erase_pages(next, 1);
     flash_write_words(next, scratch, PARAMS_WORDS-1);
@@ -64,7 +64,7 @@ update(uint32 offset, const uint32 *words, uint32 nwords)
 void
 params_initialize(void)
 {
-    uint32 *cur;
+    const uint32 *cur;
     uint32 *next;
     uint32 generation;
 
@@ -108,7 +108,7 @@ params_get_name(void)
 {
     const uint32 *name;
 
-    name = current()+PARAMS_OFFSET(PARAM_NAME_0)/sizeof(uint32);
+    name = &current()[PARAMS_OFFSET(PARAM_NAME_0)/sizeof(uint32)];
     if ((int32)name[0] == -1 || ! *(const char *)name) {
         return "Flea-Scope";
     }

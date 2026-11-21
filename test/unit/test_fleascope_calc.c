@@ -266,7 +266,7 @@ stream_pack_all(const int *values, int nvalues, unsigned int bitwidth,
         n = stream_pack_sample(&leftover, &leftover_bits, values[i], bitwidth, out);
         snprintf(msg, sizeof(msg), "bitwidth %u: leftover 0x%x/%u", bitwidth, leftover, leftover_bits);
         TEST_ASSERT_TRUE_MESSAGE(leftover_bits < 8 && leftover >> leftover_bits == 0, msg);
-        memcpy(bytes + nbytes, out, n);
+        memcpy(bytes + nbytes, out, (size_t)n);
         nbytes += n;
     }
     return nbytes;
@@ -316,7 +316,7 @@ test_stream_scale_sample(void)
         TEST_ASSERT_LESS_THAN_INT_MESSAGE(1 << bits, (int)(averaging * 4095), msg);
 
         // widening is exact, so full scale stays in 16 bits
-        v = stream_scale_sample(averaging * 4095, bits, 16);
+        v = stream_scale_sample((int)(averaging * 4095), bits, 16);
         TEST_ASSERT_EQUAL_INT_MESSAGE((int)(averaging * 4095) << (16 - bits), v, msg);
         TEST_ASSERT_LESS_THAN_INT_MESSAGE(0x10000, v, msg);
 
@@ -346,7 +346,7 @@ test_stream_scale_sample_saturates(void)
         for (bitwidth = 1; bitwidth < bits; bitwidth++) {
             snprintf(msg, sizeof(msg), "averaging %u bitwidth %u", averaging, bitwidth);
             max = (1 << bitwidth) - 1;
-            TEST_ASSERT_LESS_OR_EQUAL_INT_MESSAGE(max, stream_scale_sample(averaging * 4095, bits, bitwidth), msg);
+            TEST_ASSERT_LESS_OR_EQUAL_INT_MESSAGE(max, stream_scale_sample((int)(averaging * 4095), bits, bitwidth), msg);
             TEST_ASSERT_EQUAL_INT_MESSAGE(max, stream_scale_sample((1 << bits) - 1, bits, bitwidth), msg);
         }
     }

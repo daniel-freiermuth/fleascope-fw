@@ -26,11 +26,11 @@
 //           10000 -> 1.8 ksps -> 0.36 kHz timer with 5x interleave
 //           20000 -> 0.9 ksps -> 0.18 kHz timer with 5x interleave
 
-volatile int g;
+static volatile int g;
 
 // Clock, pin and route configuration
-void
-setup_board_scope()
+static void
+setup_board_scope(void)
 {
     configure_pmd_once();
     
@@ -53,7 +53,7 @@ setup_board_scope()
     pin_oc_unroute();
 }
 
-int setup_capture_timer_scope(int number1) {
+static int setup_capture_timer_scope(int number1) {
     int t;
     int ps;
     int bus_mhz;
@@ -73,9 +73,9 @@ int setup_capture_timer_scope(int number1) {
     T3CONCLR = _T3CON_ON_MASK;
     g++;
     TMR3 = 0;
-    PR3 = t-1;
+    PR3 = (uint32)(t-1);
     assert(ps == 1 || ps == 16);
-    T3CON = (ps==16?4:0) <<_T3CON_TCKPS_POSITION;  // 1:ps prescale
+    T3CON = (ps==16?4U:0U) <<_T3CON_TCKPS_POSITION;  // 1:ps prescale
 
     // configure adc trigger output compares
 
@@ -84,8 +84,8 @@ int setup_capture_timer_scope(int number1) {
     g++;
     OC1CONbits.OCTSEL = 1;  // timer 3
     OC1CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC1R = t/INTERLEAVE-1;
-    OC1RS = t/INTERLEAVE+1;
+    OC1R = (uint32)(t/INTERLEAVE-1);
+    OC1RS = (uint32)(t/INTERLEAVE+1);
     OC1CONbits.ON = 1;
 
     // use 40% of T3 trigger for adc1
@@ -93,8 +93,8 @@ int setup_capture_timer_scope(int number1) {
     g++;
     OC2CONbits.OCTSEL = 1;  // timer 3
     OC2CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC2R = 2*t/INTERLEAVE-1;
-    OC2RS = 2*t/INTERLEAVE+1;
+    OC2R = (uint32)(2*t/INTERLEAVE-1);
+    OC2RS = (uint32)(2*t/INTERLEAVE+1);
     OC2CONbits.ON = 1;
 
     // use 60% of T3 trigger for adc2
@@ -102,8 +102,8 @@ int setup_capture_timer_scope(int number1) {
     g++;
     OC3CONbits.OCTSEL = 1;  // timer 3
     OC3CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC3R = 3*t/INTERLEAVE-1;
-    OC3RS = 3*t/INTERLEAVE+1;
+    OC3R = (uint32)(3*t/INTERLEAVE-1);
+    OC3RS = (uint32)(3*t/INTERLEAVE+1);
     OC3CONbits.ON = 1;
 
     // use 80% of T3 trigger for adc3
@@ -111,16 +111,16 @@ int setup_capture_timer_scope(int number1) {
     g++;
     OC4CONbits.OCTSEL = 1;  // timer 3
     OC4CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC4R = 4*t/INTERLEAVE-1;
-    OC4RS = 4*t/INTERLEAVE+1;
+    OC4R = (uint32)(4*t/INTERLEAVE-1);
+    OC4RS = (uint32)(4*t/INTERLEAVE+1);
     OC4CONbits.ON = 1;
 
     return 0;
 }
 
 // prepare for DMA to capture samples imminently -- THIS IS EVERYTHING EXCEPT "T3CONSET = _T3CON_ON_MASK;"
-void
-prepare_dma_scope()
+static void
+prepare_dma_scope(void)
 {
     reset_buffers();
 
@@ -140,12 +140,12 @@ prepare_dma_scope()
     DCH4CONbits.CHEN = 1;
 }
 
-void enable_analog_trigger(int number1, int number2, bool fall) {
+static void enable_analog_trigger(int number1, int number2, bool fall) {
     // configure analog comparator voltage reference
 
     // set dac3 to number2
     DAC3CONbits.REFSEL = 3;  // Positive reference voltage = AVDD
-    DAC3CONbits.DACDAT = number2 << 2;  // 10 bit input to 12 bit register
+    DAC3CONbits.DACDAT = (uint16)(number2 << 2);  // 10 bit input to 12 bit register
 
     //DAC3CONbits.DACOE = 1;  // enable DAC3OUT on CDAC3/RA8
     DAC3CONbits.ON = 1;
@@ -182,7 +182,7 @@ vtopbits(int bits)
     return ((bits&0x01f8)<<7) | ((bits&0x0007)<<4);
 }
 
-void
+static void
 wait_for_analog_trigger(TriggerEdge edge)
 {
     int i;
@@ -193,7 +193,7 @@ wait_for_analog_trigger(TriggerEdge edge)
     loops = 1000000;  // XXX -- tune this!
 
     // delay a sub-ms random time to make a better demo with 1kHz test signal on auto/level trigger!
-    r = random_32()%blips_per_ms;
+    r = (int)(random_32()%(uint32)blips_per_ms);
     for (i = 0; i < r; i++) {
         blip();
     }
@@ -225,7 +225,7 @@ wait_for_analog_trigger(TriggerEdge edge)
     }
 }
 
-void
+static void
 wait_for_digital_trigger(TriggerEdge edge, int number2, int number3)
 {
     int i;
@@ -236,7 +236,7 @@ wait_for_digital_trigger(TriggerEdge edge, int number2, int number3)
     loops = 1000000;  // XXX -- tune this!
 
     // delay a sub-ms random time to make a better demo with 1kHz test signal on auto/level trigger!
-    r = random_32()%blips_per_ms;
+    r = (int)(random_32()%(uint32)blips_per_ms);
     for (i = 0; i < r; i++) {
         blip();
     }
@@ -254,27 +254,27 @@ wait_for_digital_trigger(TriggerEdge edge, int number2, int number3)
 
     switch (edge) {
     case AUTO:
-        while ((PORTB & number3x) != number2x && loop++ <= loops && run_stop) {
+        while ((PORTB & (uint32)number3x) != (uint32)number2x && loop++ <= loops && run_stop) {
         }
         break;
     case LEVEL_AKA_MATCHING:
-        while ((PORTB & number3x) != number2x && run_stop) {
+        while ((PORTB & (uint32)number3x) != (uint32)number2x && run_stop) {
         }
         break;
     case RISE_AKA_START:
-        value_found_now = (PORTB & number3x) == number2x;
+        value_found_now = (PORTB & (uint32)number3x) == (uint32)number2x;
         value_found_previously = value_found_now;
         while ((!value_found_now || value_found_previously == value_found_now) && run_stop) {
             value_found_previously = value_found_now;
-            value_found_now = (PORTB & number3x) == number2x;
+            value_found_now = (PORTB & (uint32)number3x) == (uint32)number2x;
         }
         break;
     case FALL_AKA_STOP:
-        value_found_now = (PORTB & number3x) == number2x;
+        value_found_now = (PORTB & (uint32)number3x) == (uint32)number2x;
         value_found_previously = value_found_now;
         while ((value_found_now || value_found_previously == value_found_now) && run_stop) {
             value_found_previously = value_found_now;
-            value_found_now = (PORTB & number3x) == number2x;
+            value_found_now = (PORTB & (uint32)number3x) == (uint32)number2x;
         }
         break;
     default:
@@ -282,7 +282,7 @@ wait_for_digital_trigger(TriggerEdge edge, int number2, int number3)
     }
 }
 
-void
+static void
 wait_for_end(uint wait_samples)
 {
     int i;
@@ -313,7 +313,7 @@ wait_for_end(uint wait_samples)
     }
 }
 
-void stop_capture_scope() {
+static void stop_capture_scope(void) {
     // N.B. THIS STOPS EVERYTHING!
     T3CONCLR = _T3CON_ON_MASK;
     g++;
@@ -338,7 +338,7 @@ void stop_capture_scope() {
     DCH4ECONbits.CABORT = 1;
 }
 
-void
+static void
 send_result(uint wait_samples)
 {
     int i;
@@ -346,14 +346,14 @@ send_result(uint wait_samples)
     short(* bitsbuffer)[2*128*10] = get_bits_buffer();
     short* adcbuffer = get_adc_buffer();
 
-    for (i = wait_samples; i < wait_samples+SAMPLES+EXTRA; i++) {
+    for (i = (int)wait_samples; (uint)i < wait_samples+SAMPLES+EXTRA; i++) {
         bits = bitsbuffer[i%INTERLEAVE][(i/INTERLEAVE)%get_bitbuffer_length()];
-        printf("%d,%x\n", adcbuffer[i%get_adcbuffer_length()], ptovbits(bits));
+        printf("%d,%x\n", adcbuffer[i%get_adcbuffer_length()], (uint)ptovbits(bits));
     }
 }
 
-void
-undo_board_config()
+static void
+undo_board_config(void)
 {
     // N.B. turn OCs off before reassigning to pins!
     OC1CONbits.ON = 0;
@@ -415,14 +415,14 @@ void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trig
     }
     pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger
 
-    wait_for_end(delay_samples);
+    wait_for_end((uint)delay_samples);
     // resume timer interrupts
     IEC0bits.T1IE = 1;
 
     stop_capture_scope();
 
     if (run_stop) {
-        send_result(delay_samples);
+        send_result((uint)delay_samples);
     }
 
     run_stop = false;

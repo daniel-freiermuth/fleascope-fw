@@ -16,10 +16,11 @@
 
 #define WORDS  (PARAMS_PAGE_SIZE/sizeof(uint32_t))
 
-_Alignas(PARAMS_PAGE_SIZE) byte host_flash[FLASH_BYTES];
+static _Alignas(PARAMS_PAGE_SIZE) uint32_t host_flash_words[FLASH_BYTES/sizeof(uint32_t)];
+byte *const host_flash = (byte *)host_flash_words;
 
-static uint32_t *const page_a = (uint32_t *)(host_flash+FLASH_BYTES-2*PARAMS_PAGE_SIZE);
-static uint32_t *const page_b = (uint32_t *)(host_flash+FLASH_BYTES-PARAMS_PAGE_SIZE);
+static uint32_t *const page_a = host_flash_words+(FLASH_BYTES-2*PARAMS_PAGE_SIZE)/sizeof(uint32_t);
+static uint32_t *const page_b = host_flash_words+(FLASH_BYTES-PARAMS_PAGE_SIZE)/sizeof(uint32_t);
 
 static int erases;
 static int writes;
@@ -33,7 +34,7 @@ flash_erase_pages(uint32 *addr, uint32 npages)
 }
 
 void
-flash_write_words(uint32 *addr, uint32 *data, uint32 nwords)
+flash_write_words(uint32 *addr, const uint32 *data, uint32 nwords)
 {
     uint32 i;
 

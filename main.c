@@ -78,15 +78,15 @@
 
 
 EXCEPTION_HANDLER
-void _general_exception_context(void)
+void _general_exception_context(void)  // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp): name required by XC32 startup code
 {
-    led_hex(_CP0_GET_CAUSE());
+    led_hex((int)_CP0_GET_CAUSE());
 }
 
 EXCEPTION_HANDLER
-void _bootstrap_exception_handler(void)
+void _bootstrap_exception_handler(void)  // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp): name required by XC32 startup code
 {
-    led_hex(_CP0_GET_CAUSE());
+    led_hex((int)_CP0_GET_CAUSE());
 }
 
 uint16 flash_checksum;
@@ -101,14 +101,15 @@ bool debugger_attached;
 // N.B. big_buffer may not be aligned; it is up to the caller to align it if needed.
 byte big_buffer[768];
 
-extern int (_ebase_address)();
-extern int (_on_bootstrap)();
+// symbols defined by the XC32 linker script and startup code
+extern int (_ebase_address)(void);  // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp): XC32 symbol name
+extern int (_on_bootstrap)(void);  // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp): XC32 symbol name
 
 int
-main()  // we're called directly by startup code
+main(void)  // NOLINT(misc-use-internal-linkage): we're called directly by startup code
 {
     int x;
-    byte *p;
+    const byte *p;
 
     TRISACLR = 0x410;
     LATASET = 0x410;
@@ -129,7 +130,7 @@ main()  // we're called directly by startup code
     /* Lock system since done with clock configuration */
     SYSKEY = 0x33333333;
 
-//#ifdef SODEBUG
+//#if SODEBUG
     // set clock testpoints
     RPD5R = 0x12;  // REFCLKO4/RD5
     REFO4CON = 0x2009000;  // SYSCLK/2/512
@@ -191,7 +192,7 @@ main()  // we're called directly by startup code
     oscillator_frequency = 12000000;
     bus_frequency = 120000000;
 
-    end_of_static = (byte *)_on_bootstrap;
+    end_of_static = (byte *)(uintptr)_on_bootstrap;
 
     pin_initialize();
 

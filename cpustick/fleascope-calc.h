@@ -35,7 +35,7 @@ scope_timer_count(int number1, int bus_mhz, int *ps)
     } else {
         *ps = 1;
     }
-    return ((unsigned int)bus_mhz*number1*INTERLEAVE / *ps + MSPS/2)/MSPS;  // 1:ps prescale
+    return (int)(((unsigned int)bus_mhz*(unsigned int)number1*INTERLEAVE / (unsigned int)*ps + MSPS/2)/MSPS);  // 1:ps prescale
 }
 
 // --------------------------------------------------------------- stream
@@ -71,7 +71,7 @@ stream_bits_per_sample(unsigned int averaging)
 static inline int
 stream_scale_sample(int v, unsigned int bits_per_sample, unsigned int bitwidth)
 {
-    int bits_to_shift = bits_per_sample - bitwidth;
+    int bits_to_shift = (int)(bits_per_sample - bitwidth);
     int max = (1 << bitwidth) - 1;
 
     if (bits_to_shift > 0) {
@@ -91,7 +91,7 @@ stream_pack_sample(unsigned int *leftover, unsigned int *leftover_bits,
 {
     int n;
 
-    *leftover = *leftover | (v << *leftover_bits);
+    *leftover = *leftover | ((unsigned int)v << *leftover_bits);
     *leftover_bits += bitwidth;
 
     n = 0;

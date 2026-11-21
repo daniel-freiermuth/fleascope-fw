@@ -73,7 +73,7 @@ void
 usb_device_enqueue(int endpoint, int tx, byte *buffer, int length);
 
 typedef void (*usb_reset_cbfn)(void);
-typedef int (*usb_control_cbfn)(struct setup *setup, byte *buffer, int length);
+typedef int (*usb_control_cbfn)(const struct setup *setup, byte *buffer, int length);
 typedef int (*usb_bulk_cbfn)(bool in, byte *buffer, int length);
 typedef void (*usb_interrupt_cbfn)(void);
 
@@ -93,4 +93,8 @@ usb_string_descriptor(const byte *descriptor, int length);
 
 void
 usb_initialize(void);
+
+// usb interrupt service routine
+void
+usb_isr(void);
 

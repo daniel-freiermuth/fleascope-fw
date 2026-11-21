@@ -54,13 +54,13 @@ void
 delay(int32 ms);
 
 int
-gethex(char *p);
+gethex(const char *p);
 
 int
 get2hex(char **p);
 
 void
-tailtrim(char *p);
+tailtrim(char *text);
 
 void *
 memcpy(void *d,  const void *s, size_t n);

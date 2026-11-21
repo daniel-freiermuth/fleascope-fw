@@ -39,7 +39,7 @@ stop(void)
 }
 
 void
-parse_trim(char **text)
+parse_trim(const char **text)
 {
     while (**text == ' ' || **text == '\t') {
         (*text)++;
@@ -47,12 +47,12 @@ parse_trim(char **text)
 }
 
 bool
-parse_word(char **text, const char *word)
+parse_word(const char **text, const char *word)
 {
-    int len;
+    size_t len;
 
     len = strlen(word);
-    if (strncmp(*text, word, len)) {
+    if (strncmp(*text, word, len) != 0) {
         return false;
     }
     *text += len;
@@ -62,7 +62,7 @@ parse_word(char **text, const char *word)
 
 // a decimal or 0x hex constant, as StickOS's run_input_const()
 static bool
-parse_const(char **text, int *value_out)
+parse_const(const char **text, int *value_out)
 {
     int value;
     char c;
@@ -97,12 +97,12 @@ parse_const(char **text, int *value_out)
 
 // a command name, ending at a space or the end of the line
 static bool
-parse_command(char **text, const char *name)
+parse_command(const char **text, const char *name)
 {
-    int len;
+    size_t len;
 
     len = strlen(name);
-    if (strncmp(*text, name, len) || ((*text)[len] && (*text)[len] != ' ' && (*text)[len] != '\t')) {
+    if (strncmp(*text, name, len) != 0 || ((*text)[len] && (*text)[len] != ' ' && (*text)[len] != '\t')) {
         return false;
     }
     *text += len;
@@ -112,7 +112,7 @@ parse_command(char **text, const char *name)
 
 // echo/prompt [on|off]; returns false on a syntax error
 static bool
-mode(char **text, bool *var)
+mode(const char **text, bool *var)
 {
     if (! **text) {
         printf("%s\n", *var ? "on" : "off");
@@ -129,7 +129,7 @@ mode(char **text, bool *var)
 }
 
 static bool
-command_scope(char **text)
+command_scope(const char **text)
 {
     int number1;
     int number2;
@@ -175,7 +175,7 @@ command_scope(char **text)
 }
 
 static bool
-command_stream(char **text)
+command_stream(const char **text)
 {
     int timer_period_ticks = 2333;  // ~51 kHz (bus_frequency/1000000 * 70 * INTERLEAVE / MSPS)
     int averaging = 1;              // no averaging
@@ -194,12 +194,12 @@ command_stream(char **text)
     if (**text) {
         return false;
     }
-    stream(timer_period_ticks, averaging, bitwidth);
+    stream((uint)timer_period_ticks, (uint)averaging, (uint)bitwidth);
     return true;
 }
 
 static bool
-command_digital_stream(char **text)
+command_digital_stream(const char **text)
 {
     int mask;
     int us_per_sample;
@@ -227,25 +227,25 @@ command_digital_stream(char **text)
 }
 
 static bool
-command_wave(char **text)
+command_wave(const char **text)
 {
     static const char * const patterns[] = { "square", "ekg", "sine", "triangle" };
     int hz;
     int i;
 
-    for (i = 0; i < LENGTHOF(patterns); i++) {
+    for (i = 0; i < (int)LENGTHOF(patterns); i++) {
         if (parse_word(text, patterns[i])) {
             break;
         }
     }
-    if (i == LENGTHOF(patterns) || ! parse_const(text, &hz) || **text) {
+    if (i == (int)LENGTHOF(patterns) || ! parse_const(text, &hz) || **text) {
         return false;
     }
     if (hz > 10000000) {
         printf("bad frequency\n");
         return true;
     }
-    wave((char *)patterns[i], hz);
+    wave(patterns[i], hz);
     return true;
 }
 
@@ -257,8 +257,8 @@ reset(void)
     SYSKEY = 0xAA996655;
     SYSKEY = 0x556699AA;
     RSWRSTSET = _RSWRST_SWRST_MASK;
-    while (RSWRST, true) {
-        // NULL
+    while (true) {
+        (void)RSWRST;  // reading RSWRST triggers the reset
     }
 }
 
@@ -277,7 +277,7 @@ print_lines(const char *text)
         n = end ? end-text : (int)strlen(text);
         assert(n <= BASIC_OUTPUT_LINE_SIZE);
         n = MIN(n, BASIC_OUTPUT_LINE_SIZE);
-        memcpy(line, text, n);
+        memcpy(line, text, (size_t)n);
         line[n] = '\0';
         printf("%s\n", line);
         text = end ? end+1 : text+strlen(text);
@@ -286,9 +286,9 @@ print_lines(const char *text)
 
 // runs one command line
 static void
-run(char *text_in)
+run(const char *text_in)
 {
-    char *text;
+    const char *text;
     char reply[BASIC_OUTPUT_LINE_SIZE*4];
     int rv;
     bool ok;

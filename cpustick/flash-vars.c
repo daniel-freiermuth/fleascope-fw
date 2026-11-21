@@ -74,7 +74,7 @@ parse_word(const char **text, const char *word)
     char c;
 
     n = strlen(word);
-    if (strncmp(*text, word, n)) {
+    if (strncmp(*text, word, n) != 0) {
         return false;
     }
     c = (*text)[n];
@@ -176,10 +176,8 @@ parse_ref(const char **text, char *name, int32_t *index)
         return false;
     }
     *index = NO_INDEX;
-    if (parse_char(text, '[')) {
-        if (! parse_int(text, index) || ! parse_char(text, ']')) {
-            return false;
-        }
+    if (parse_char(text, '[') && (! parse_int(text, index) || ! parse_char(text, ']'))) {
+        return false;
     }
     return true;
 }
@@ -241,13 +239,13 @@ declare(const char *name, int32_t max_index)
     strcpy(var->name, name);
     var->offset = next_offset;
     var->max_index = max_index;
-    next_offset += (uint32_t)max_index*sizeof(uint32_t);
+    next_offset += (uint32_t)max_index*(uint32_t)sizeof(uint32_t);
 }
 
 static uint32_t
 element(const struct var *var, int32_t index)
 {
-    return var->offset+(uint32_t)(index < 0 ? 0 : index)*sizeof(uint32_t);
+    return var->offset+(uint32_t)(index < 0 ? 0 : index)*(uint32_t)sizeof(uint32_t);
 }
 
 void
@@ -296,7 +294,7 @@ statement(enum statement kind, const char *line, const char *text, bool execute)
     int32_t index;
     int32_t value;
     int32_t i;
-    struct var *var;
+    const struct var *var;
     bool first;
 
     print_line[0] = '\0';
@@ -354,6 +352,9 @@ statement(enum statement kind, const char *line, const char *text, bool execute)
                         params_set_user(element(var, index), value);
                     }
                 }
+                break;
+
+            default:
                 break;
         }
         first = false;

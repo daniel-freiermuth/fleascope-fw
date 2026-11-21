@@ -11,9 +11,7 @@
 #define NVMOP_WORD_PGM          0x1      // Word program operation
 #define NVMOP_QWORD_PGM         0x2      // Quad Word program operation
 
-#undef NVMCON_WREN
 #undef NVMCON_WR
-#define NVMCON_WREN _NVMCON_WREN_MASK
 #define NVMCON_WR  _NVMCON_WR_MASK
 
     // NVMOP can be written only when WREN is zero. So, clear WREN.
@@ -28,7 +26,7 @@
 #define FLASH_OPERATION(nvmop) \
     NVMCONCLR = _NVMCON_WREN_MASK; \
     NVMCONCLR = _NVMCON_NVMOP_MASK; \
-    NVMCONSET = ( _NVMCON_NVMOP_MASK & (((uint32_t)nvmop) << _NVMCON_NVMOP_POSITION) ); \
+    NVMCONSET = ( _NVMCON_NVMOP_MASK & (((uint32_t)(nvmop)) << _NVMCON_NVMOP_POSITION) ); \
     NVMCONSET = _NVMCON_WREN_MASK; \
     NVMKEY = 0x0; \
     NVMKEY = 0xAA996655; \
@@ -37,7 +35,7 @@
     while (NVMCON & NVMCON_WR) { \
     } \
     assert_ram(! (NVMCON & NVMCON_WR)); \
-    assert_ram(! (NVMCON & (_NVMCON_WRERR_MASK | _NVMCON_LVDERR_MASK)));
+    assert_ram(! (NVMCON & (_NVMCON_WRERR_MASK | _NVMCON_LVDERR_MASK)))
 
 static
 void
@@ -91,14 +89,14 @@ flash_erase_pages(uint32 *addr_in, uint32 npages_in)
 }
 
 void
-flash_write_words(uint32 *addr_in, uint32 *data_in, uint32 nwords_in)
+flash_write_words(uint32 *addr_in, const uint32 *data_in, uint32 nwords_in)
 {
 #if SODEBUG
     int i;
 #endif
     int x;
     uint32 *addr;
-    uint32 *data;
+    const uint32 *data;
     uint32 nwords;
 
     addr = addr_in;
@@ -140,7 +138,7 @@ flash_write_words(uint32 *addr_in, uint32 *data_in, uint32 nwords_in)
 // this function performs the final step of a firmware flash upgrade.
 void
 __longramfunc__
-__attribute__((nomips16))
+__attribute__((nomips16, noreturn))
 flash_upgrade_ram(void)
 {
 #if SODEBUG
@@ -149,7 +147,7 @@ flash_upgrade_ram(void)
     static int wd;
 #endif
     static uint32 *addr;
-    static uint32 *data;
+    static const uint32 *data;
     static uint32 nwords;
     static uint32 npages;
 
@@ -273,8 +271,8 @@ flash_upgrade_ram(void)
     SYSKEY = 0xAA996655;
     SYSKEY = 0x556699AA;
     RSWRSTSET = _RSWRST_SWRST_MASK;
-    while (RSWRST, true) {
-        // NULL
+    while (true) {
+        (void)RSWRST;  // reading RSWRST triggers the reset
     }
 }
 
@@ -285,14 +283,12 @@ flash_upgrade(void)
 {
     int i;
     int n;
-    int x;
     int y;
-    char c;
     int sum;
     int addr;
-    int paddr;
-    int vaddr;
-    int taddr;
+    uint32 paddr;
+    uint32 vaddr;
+    uint32 taddr;
     int type;
     int count;
     int extend;
@@ -300,10 +296,9 @@ flash_upgrade(void)
     bool done;
     bool error;
     uint32 data;
-    uint32 zero;
     bool begun;
 
-    if ((int)end_of_static > FLASH_START+FLASH_BYTES/2-FLASH2_BYTES) {
+    if ((uintptr)end_of_static > FLASH_START+FLASH_BYTES/2-FLASH2_BYTES) {
         printf("code exceeds half of flash\n");
         return;
     }
@@ -371,8 +366,8 @@ flash_upgrade(void)
             break;
         }
         addr = extend<<16 | addr;
-        paddr = (int)KVA_TO_PA(addr);
-        vaddr = (int)PA_TO_KVA1(paddr);
+        paddr = KVA_TO_PA(addr);
+        vaddr = (uint32)PA_TO_KVA1(paddr);
 
         // 1 byte of record type
         n = get2hex(&hex);
@@ -422,14 +417,14 @@ flash_upgrade(void)
                         break;
                     }
                     sum += n;
-                    data = data|(n<<(8*i));  // endian
+                    data = data|((uint32)n<<(8*i));  // endian
                 }
                 if (i != 4) {
                     break;
                 }
 
                 if (paddr >= KVA_TO_PA(FLASH_START) && paddr < KVA_TO_PA(FLASH_START)+FLASH_BYTES/2-FLASH2_BYTES) {
-                    if (*(uint32 *)(vaddr+FLASH_BYTES/2) == -1) {
+                    if (*(uint32 *)(vaddr+FLASH_BYTES/2) == 0xFFFFFFFF) {
                         // program the words
                         flash_write_words((uint32 *)(vaddr+FLASH_BYTES/2), &data, 1);
                     } else if (! error) {
@@ -438,7 +433,7 @@ flash_upgrade(void)
                     }
                 } else if (paddr >= KVA_TO_PA(FLASH2_START) && paddr < KVA_TO_PA(FLASH2_START)+FLASH2_BYTES) {
                     taddr = FLASH_START + FLASH_BYTES - FLASH2_BYTES + (vaddr - FLASH2_START);
-                    if (*(uint32 *)taddr == -1) {
+                    if (*(uint32 *)taddr == 0xFFFFFFFF) {
                         // this is bootflash data; program the words in the last FLASH2_BYTES of the staging area
                         flash_write_words((uint32 *)taddr, &data, 1);
                     } else if (! error) {
@@ -472,7 +467,7 @@ flash_upgrade(void)
         }
         sum += n;
         if ((sum & 0xff) != 0x00) {
-            printf("\nbad checksum 0x%x\n", sum & 0xff);
+            printf("\nbad checksum 0x%x\n", (uint)(sum & 0xff));
             break;
         }
 
@@ -515,7 +510,7 @@ flash_upgrade(void)
     // we might be in trouble.
 
     // disable interrupts
-    x = splx(7);
+    (void)splx(7);
 
     DMACONSET = _DMACON_SUSPEND_MASK;
     while (! DMACONbits.SUSPEND) {
