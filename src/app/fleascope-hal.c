@@ -343,7 +343,7 @@ static short triangle[] = {
 #define WAVES  100
 
 void
-wave(const char *pattern, int hz)
+wave(WaveShape shape, int hz)
 {
     int t;
     int ps;
@@ -354,7 +354,7 @@ wave(const char *pattern, int hz)
 
     delay(500);  // this always takes a while!
 
-    square = parse_word(&pattern, "square");
+    square = shape == WAVE_SQUARE;
 
     T2CONCLR = _T2CON_ON_MASK;
     while (T2CONbits.ON);    // Wait until Timer2 is fully stopped
@@ -421,16 +421,24 @@ wave(const char *pattern, int hz)
         dacdat = (volatile short *)&DAC2CON;
         dacdat++;  // dacdat is high word of dac2con;
 
-        if (parse_word(&pattern, "ekg")) {
+        switch (shape) {
+        case WAVE_EKG:
             DCH5SSIZ = sizeof(ekg);  // source buffer size
             DCH5SSA = (uint32)KVA_TO_PA(ekg);  // source address
-        } else if (parse_word(&pattern, "sine")) {
+            break;
+        case WAVE_SINE:
             DCH5SSIZ = sizeof(sine);  // source buffer size
             DCH5SSA = (uint32)KVA_TO_PA(sine);  // source address
-        } else if (parse_word(&pattern, "triangle")) {
+            break;
+        case WAVE_TRIANGLE:
             DCH5SSIZ = sizeof(triangle);  // source buffer size
             DCH5SSA = (uint32)KVA_TO_PA(triangle);  // source address
-        } else {
+            break;
+        case WAVE_SQUARE:  // handled above
+        case WAVE_COUNT:
+            return;
+        default:  // -Wswitch-default; -Wswitch-enum still flags a missing case
+            assert(0);
             return;
         }
 

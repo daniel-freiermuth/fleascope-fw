@@ -226,26 +226,37 @@ command_digital_stream(const char **text)
     return true;
 }
 
+// sized by its initialisers so the CASSERT below fails to compile when a
+// WaveShape is appended without a name
+static const char * const wave_names[] = {
+    [WAVE_SQUARE] = "square",
+    [WAVE_EKG] = "ekg",
+    [WAVE_SINE] = "sine",
+    [WAVE_TRIANGLE] = "triangle",
+};
+CASSERT(LENGTHOF(wave_names) == WAVE_COUNT);
+
 static bool
 command_wave(const char **text)
 {
-    static const char * const patterns[] = { "square", "ekg", "sine", "triangle" };
+    WaveShape shape;
     int hz;
-    int i;
 
-    for (i = 0; i < (int)LENGTHOF(patterns); i++) {
-        if (parse_word(text, patterns[i])) {
+    for (shape = 0; shape < WAVE_COUNT; shape++) {
+        // a name missing from the middle of the table is NULL; skip it
+        // rather than hand it to parse_word()
+        if (wave_names[shape] && parse_word(text, wave_names[shape])) {
             break;
         }
     }
-    if (i == (int)LENGTHOF(patterns) || ! parse_const(text, &hz) || **text) {
+    if (shape == WAVE_COUNT || ! parse_const(text, &hz) || **text) {
         return false;
     }
     if (hz > 10000000) {
         printf("bad frequency\n");
         return true;
     }
-    wave(patterns[i], hz);
+    wave(shape, hz);
     return true;
 }
 
