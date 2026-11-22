@@ -95,27 +95,34 @@ scope_find_analog_edge(const short *adc, int ring, int hi, int lo, int threshold
 }
 
 // Condition (bits[s] & mask) == value; returns the oldest transition, as the
-// recorded PORTB samples are exactly what the trigger condition tests.
+// recorded PORTB samples are exactly what the trigger condition tests.  This
+// runs during fast sampling, so it steps a pointer instead of indexing.
 static inline int
 scope_find_digital_edge(const short *bits, int lane, int hi, int lo, int value, int mask, bool to)
 {
     int s;
     int l;
-    int k;
+    const short *p;
+    const short *end;
     bool now;
     bool before;
 
     l = lo % INTERLEAVE;
-    k = (lo / INTERLEAVE) % lane;
-    before = (bits[l*lane + k] & mask) == value;
+    p = bits + l*lane + (lo / INTERLEAVE) % lane;
+    end = bits + lane;  // one past the last sample of lane 0
+    before = (*p & mask) == value;
     for (s = lo+1; s <= hi; s++) {
         if (l < INTERLEAVE-1) {
             l++;
+            p += lane;
         } else {
             l = 0;
-            k = k < lane-1 ? k+1 : 0;
+            p -= (INTERLEAVE-1)*lane - 1;
+            if (p == end) {
+                p = bits;
+            }
         }
-        now = (bits[l*lane + k] & mask) == value;
+        now = (*p & mask) == value;
         if (now == to && before != to) {
             return s;
         }

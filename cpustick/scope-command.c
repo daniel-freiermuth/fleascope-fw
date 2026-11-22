@@ -200,6 +200,24 @@ trigger_holdoff()
     }
 }
 
+// auto triggers capture anyway after this long without a trigger
+#define AUTO_TIMEOUT_MS  200
+
+static uint auto_start;
+
+static void
+auto_arm()
+{
+    auto_start = _CP0_GET_COUNT();
+}
+
+// N.B. the core timer counts at half the cpu frequency
+static bool
+auto_expired()
+{
+    return _CP0_GET_COUNT() - auto_start > cpu_frequency/2/1000*AUTO_TIMEOUT_MS;
+}
+
 // Wait for an analog trigger.  The comparator latches crossings in CEVT (rising, or falling for
 // FALL_AKA_STOP; see enable_analog_trigger()), so none is missed while scope_isr preempts us.
 // Returns true if a crossing ended the wait, to be located in the recorded data; false if the
@@ -207,21 +225,16 @@ trigger_holdoff()
 static bool
 wait_for_analog_trigger(TriggerEdge edge)
 {
-    int loop;
-    int loops;
-
-    loops = 1000000;  // XXX -- tune this!
-    loop = 0;
-
     // start looking for trigger now
     CM1CONbits.COUT = 0;
     CM1CONbits.CEVT = 0;
+    auto_arm();
 
     if ((edge == AUTO || edge == LEVEL_AKA_MATCHING) && CM1CONbits.COUT) {
         return false;
     }
     while (! CM1CONbits.CEVT && run_stop) {
-        if (edge == AUTO && loop++ > loops) {
+        if (edge == AUTO && auto_expired()) {
             return false;
         }
     }
@@ -231,41 +244,42 @@ wait_for_analog_trigger(TriggerEdge edge)
 // Wait for a digital trigger.  Change notification latches every edge of the masked pins in
 // CNFB, so none is missed while scope_isr preempts us; the recorded samples around each batch of
 // edges, which are exactly what the trigger condition tests, then tell whether and where it
-// triggered.  Returns the trigger sample, or -1 if the condition already held when armed
-// (level/auto), auto timed out or we were stopped.
+// triggered.  Returns the trigger sample, or -1 if the condition already held when armed or holds
+// after a batch without a located transition (level/auto), auto timed out or we were stopped.
 static int
 wait_for_digital_trigger(TriggerEdge edge, int trigger_value, int bits_of_interest)
 {
-    int loop;
-    int loops;
     int value;
     int mask;
     int from;
     int now;
     int s;
+    bool level;
     short(* bitsbuffer)[2*128*10] = get_bits_buffer();
-
-    loops = 1000000;  // XXX -- tune this!
-    loop = 0;
 
     value = vtopbits(trigger_value);
     mask = vtopbits(bits_of_interest);
+    level = edge == AUTO || edge == LEVEL_AKA_MATCHING;
 
     // latch rising and falling edges of the masked pins
     CNENB = mask;
     CNNEB = mask;
     CNCONB = _CNCONB_ON_MASK | _CNCONB_EDGEDETECT_MASK;
     CNFB = 0;
+    auto_arm();
 
-    // start looking for trigger now; earlier samples are not checked
-    from = get_sample_position();
-    if ((edge == AUTO || edge == LEVEL_AKA_MATCHING) && (PORTB & mask) == value) {
+    // start looking for trigger now; the baseline is the last sample taken before arming, so
+    // every change after the check below is found in the samples after it
+    do {
+        from = get_sample_position()-1;
+    } while (run_stop && from < 0);
+    if (level && (PORTB & mask) == value) {
         return -1;
     }
 
     for (;;) {
         while (! (CNFB & mask)) {
-            if (! run_stop || (edge == AUTO && loop++ > loops)) {
+            if (! run_stop || (edge == AUTO && auto_expired())) {
                 return -1;
             }
         }
@@ -277,7 +291,10 @@ wait_for_digital_trigger(TriggerEdge edge, int trigger_value, int bits_of_intere
             now = get_sample_position();
         } while (run_stop && now - scope_same_epoch(s, now, CURRENT_REBASE) < INTERLEAVE);
 
-        // check the samples since the last check, but only those that can still hold these edges
+        // check the samples since the last check, but only those that can still hold these
+        // edges: the trigger must stay close enough to the newest samples for the pretrigger
+        // history (SCOPE_MAX_PRETRIGGER).  At interval 1 a masked bus that keeps changing can make
+        // the search fall behind sampling; the samples it then skips can hide a rise/fall.
         from = scope_same_epoch(from, now, CURRENT_REBASE);
         if (now-1 - from > TRIGGER_SEARCH) {
             from = now-1 - TRIGGER_SEARCH;
@@ -286,6 +303,10 @@ wait_for_digital_trigger(TriggerEdge edge, int trigger_value, int bits_of_intere
                                     edge != FALL_AKA_STOP);
         if (s >= 0) {
             return s;
+        }
+        // a level match whose transition the search skipped still triggers, as it holds now
+        if ((level && (PORTB & mask) == value) || (edge == AUTO && auto_expired())) {
+            return -1;
         }
         from = now-1;
     }
