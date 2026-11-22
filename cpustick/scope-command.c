@@ -304,8 +304,13 @@ wait_for_digital_trigger(TriggerEdge edge, int trigger_value, int bits_of_intere
         if (s >= 0) {
             return s;
         }
-        // a level match whose transition the search skipped still triggers, as it holds now
-        if ((level && (PORTB & mask) == value) || (edge == AUTO && auto_expired())) {
+        // a level match whose transition the search skipped still triggers, as it holds now; but
+        // if a masked pin changed since this batch began, the match may be newer than now-1 and
+        // the next batch locates it.  N.B. read PORTB before CNFB, so a change in between is seen.
+        if (level && (PORTB & mask) == value && ! (CNFB & mask)) {
+            return -1;
+        }
+        if (edge == AUTO && auto_expired()) {
             return -1;
         }
         from = now-1;
