@@ -38,6 +38,99 @@ scope_timer_count(int number1, int bus_mhz, int *ps)
     return ((unsigned int)bus_mhz*number1*INTERLEAVE / *ps + MSPS/2)/MSPS;  // 1:ps prescale
 }
 
+// Samples taken since the capture started.  `copied` is scope_isr's counter
+// (whole adc chunks); `periods` is the lane 4 DMA pointer in samples, i.e. the
+// Timer3 periods taken modulo the lane length (ring/INTERLEAVE).  Fewer than
+// `ring` samples are ever taken but not yet copied.
+static inline int
+scope_samples_taken(int copied, int periods, int ring)
+{
+    return copied + (INTERLEAVE*periods - copied%ring + ring) % ring;
+}
+
+// Sample positions held across a `current` rebase (by `rebase`, a multiple of
+// the ring) are off by `rebase`; this returns x in the same epoch as ref.
+// Ring indices are unaffected by rebasing.
+static inline int
+scope_same_epoch(int x, int ref, int rebase)
+{
+    if (x - ref > rebase/2) {
+        return x - rebase;
+    }
+    if (ref - x > rebase/2) {
+        return x + rebase;
+    }
+    return x;
+}
+
+// Triggers are located in the recorded data, as the poll loop notices them
+// late.  Both searches return a sample s in (lo, hi] whose condition is `to`
+// while sample s-1's is not, or -1 if there is none.  Absolute sample s is at
+// s % ring in the adc ring and at bits[(s % INTERLEAVE)*lane + (s / INTERLEAVE)
+// % lane] in the INTERLEAVE digital lanes of length lane.  Ring indices are
+// stepped rather than divided per sample: the search runs while sampling
+// overwrites the ring.
+
+// Condition adc[s] >= threshold; returns the newest crossing, the one the
+// comparator (with its filter and hysteresis) has just reported.
+static inline int
+scope_find_analog_edge(const short *adc, int ring, int hi, int lo, int threshold, bool to)
+{
+    int s;
+    int o;
+    bool now;
+    bool before;
+
+    o = hi % ring;
+    now = adc[o] >= threshold;
+    for (s = hi; s > lo; s--) {
+        o = o ? o-1 : ring-1;
+        before = adc[o] >= threshold;
+        if (now == to && before != to) {
+            return s;
+        }
+        now = before;
+    }
+    return -1;
+}
+
+// Condition (bits[s] & mask) == value; returns the oldest transition, as the
+// recorded PORTB samples are exactly what the trigger condition tests.  This
+// runs during fast sampling, so it steps a pointer instead of indexing.
+static inline int
+scope_find_digital_edge(const short *bits, int lane, int hi, int lo, int value, int mask, bool to)
+{
+    int s;
+    int l;
+    const short *p;
+    const short *end;
+    bool now;
+    bool before;
+
+    l = lo % INTERLEAVE;
+    p = bits + l*lane + (lo / INTERLEAVE) % lane;
+    end = bits + lane;  // one past the last sample of lane 0
+    before = (*p & mask) == value;
+    for (s = lo+1; s <= hi; s++) {
+        if (l < INTERLEAVE-1) {
+            l++;
+            p += lane;
+        } else {
+            l = 0;
+            p -= (INTERLEAVE-1)*lane - 1;
+            if (p == end) {
+                p = bits;
+            }
+        }
+        now = (*p & mask) == value;
+        if (now == to && before != to) {
+            return s;
+        }
+        before = now;
+    }
+    return -1;
+}
+
 // --------------------------------------------------------------- stream
 
 // True when the DMA sample counter `current` is ahead of `sent`.  Both are

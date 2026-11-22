@@ -32,6 +32,8 @@ All notable changes to the firmware are documented here.
   `tools/check-upgrade-hex.py`), including the configuration words.
 
 ### Added
+- **Pretrigger capture** for `scope`: the delay may now be negative (down to −6400
+  samples) to report samples from before the trigger, e.g. `scope 10 +512 0 -1000`.
 - **Host interpreter tests in CI**: the STICK_GUEST interpreter now builds with GCC on
   Linux (`make guest`), and CI runs the golden-output suites `test/test.sh`
   and `test/test3.sh` plus a `help.c` staleness check on every pull request.
@@ -42,6 +44,10 @@ All notable changes to the firmware are documented here.
   `fleascope-calc.h` test moved to `test/unit/test_fleascope_calc.c`.
 
 ### Changed
+- `scope` samples continuously while waiting for the trigger (previously sampling
+  started at the trigger). Trigger events are latched in hardware (comparator CEVT,
+  PORTB change notification) so none is missed while the ADC copy interrupt runs,
+  and their position is taken from the recorded data, exact to the sample.
 - Toolchain moved from XC32 4.35 to XC32 6.00 (GCC 13 base) and
   PIC32MK-GP_DFP 1.8.253 to 1.10.264. The old CI image used an AUR package
   that patched out XC32's license check to get `-O3`. XC32 6.00 provides

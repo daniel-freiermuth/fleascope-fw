@@ -80,6 +80,106 @@ test_scope_prescaler_switch(void)
     TEST_ASSERT_EQUAL_INT(2085, t);
 }
 
+// ---- scope trigger position ---------------------------------------------
+
+#define RING  (INTERLEAVE*2*128*10)  // adcbuffer
+#define LANE  (RING/INTERLEAVE)      // one bitsbuffer lane
+
+static short adc[RING];
+static short bits[INTERLEAVE*LANE];
+
+// records absolute samples [from, to) of a signal that is high in [edge, edge+width)
+static void
+record_pulse(int from, int to, int edge, int width)
+{
+    int s;
+    bool high;
+
+    for (s = from; s < to; s++) {
+        high = s >= edge && s < edge+width;
+        adc[s%RING] = high ? 3000 : 500;
+        // virt b0 (rb4) follows the pulse; rb15 (virt b8) is always set and masked off
+        bits[(s%INTERLEAVE)*LANE + (s/INTERLEAVE)%LANE] = (short)(0x8000 | (high ? 0x0010 : 0));
+    }
+}
+
+// the pending samples between scope_isr's copies and the lane 4 DMA pointer,
+// including when the ring wraps between them
+static void
+test_scope_samples_taken(void)
+{
+    int copied;
+    int taken;
+
+    for (copied = 0; copied <= 3*RING; copied += 5*128) {
+        for (taken = copied; taken <= copied + 2*5*128; taken += INTERLEAVE) {
+            snprintf(msg, sizeof(msg), "copied %d taken %d", copied, taken);
+            TEST_ASSERT_EQUAL_INT_MESSAGE(taken, scope_samples_taken(copied, (taken/INTERLEAVE)%LANE, RING), msg);
+        }
+    }
+}
+
+// the edge is found exactly wherever it lies in the search range, also when the
+// range spans the ring wrap and the lane boundaries
+static void
+test_scope_find_edges(void)
+{
+    int base;
+    int edge;
+    int hi;
+    int width = 300;
+    bool rise;
+
+    for (base = RING - 700; base < RING + 700; base += 97) {
+        hi = base + 1000;
+        record_pulse(hi - 2000, hi + 1, base, width);
+        for (edge = base; edge <= base + width; edge += width) {
+            rise = edge == base;
+            snprintf(msg, sizeof(msg), "base %d rise %d", base, rise);
+            TEST_ASSERT_EQUAL_INT_MESSAGE(edge, scope_find_analog_edge(adc, RING, hi, hi - 1500, 512 << 2, rise), msg);
+            TEST_ASSERT_EQUAL_INT_MESSAGE(edge, scope_find_digital_edge(bits, LANE, hi, hi - 1500, 0x0010, 0x0010, rise), msg);
+        }
+    }
+}
+
+// with two edges in range the analog search returns the newest (the one the comparator just
+// reported), the digital search the oldest (the first after arming); s = hi and s = lo+1 are
+// searched, s = lo is not
+static void
+test_scope_find_edge_bounds(void)
+{
+    record_pulse(0, 3000, 1000, 500);
+
+    // a second rising edge at 2000
+    record_pulse(1999, 2001, 2000, 1000);
+    TEST_ASSERT_EQUAL_INT(2000, scope_find_analog_edge(adc, RING, 2500, 0, 2048, true));
+    TEST_ASSERT_EQUAL_INT(1000, scope_find_digital_edge(bits, LANE, 2500, 0, 0x0010, 0x0010, true));
+
+    TEST_ASSERT_EQUAL_INT(2000, scope_find_analog_edge(adc, RING, 2000, 1999, 2048, true));
+    TEST_ASSERT_EQUAL_INT(-1, scope_find_analog_edge(adc, RING, 2000, 2000, 2048, true));
+    TEST_ASSERT_EQUAL_INT(-1, scope_find_analog_edge(adc, RING, 1999, 1000, 2048, true));
+    TEST_ASSERT_EQUAL_INT(2000, scope_find_digital_edge(bits, LANE, 2000, 1999, 0x0010, 0x0010, true));
+    TEST_ASSERT_EQUAL_INT(-1, scope_find_digital_edge(bits, LANE, 2000, 2000, 0x0010, 0x0010, true));
+    TEST_ASSERT_EQUAL_INT(-1, scope_find_digital_edge(bits, LANE, 1999, 1000, 0x0010, 0x0010, true));
+
+    // a level that is already true has no edge in range
+    TEST_ASSERT_EQUAL_INT(-1, scope_find_analog_edge(adc, RING, 1400, 1100, 2048, true));
+    TEST_ASSERT_EQUAL_INT(-1, scope_find_digital_edge(bits, LANE, 1400, 1100, 0x0010, 0x0010, true));
+}
+
+// a position held across a rebase of current is mapped back next to the reference, both ways,
+// and keeps its ring index
+static void
+test_scope_same_epoch(void)
+{
+    int r = RING*65536;
+
+    TEST_ASSERT_EQUAL_INT(r + 500, scope_same_epoch(2*r + 500, r + 2000, r));
+    TEST_ASSERT_EQUAL_INT(2*r - 100, scope_same_epoch(r - 100, 2*r + 50, r));
+    TEST_ASSERT_EQUAL_INT(r + 1999, scope_same_epoch(r + 1999, r + 2000, r));
+    TEST_ASSERT_EQUAL_INT((2*r + 500) % RING, scope_same_epoch(2*r + 500, r, r) % RING);
+}
+
 // ---- digital_stream Timer3 ----------------------------------------------
 
 static void
@@ -429,6 +529,10 @@ main(void)
     RUN_TEST(test_scope_every_accepted_interval_fits_pr3);
     RUN_TEST(test_scope_interval_limits);
     RUN_TEST(test_scope_prescaler_switch);
+    RUN_TEST(test_scope_samples_taken);
+    RUN_TEST(test_scope_find_edges);
+    RUN_TEST(test_scope_find_edge_bounds);
+    RUN_TEST(test_scope_same_epoch);
     RUN_TEST(test_ds_timer_limits);
     RUN_TEST(test_ds_timer_every_period_smallest_prescaler);
     RUN_TEST(test_ds_packet_sizing);

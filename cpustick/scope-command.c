@@ -2,7 +2,8 @@
 #include "fleascope-calc.h"
 
 
-// XXX -- is there any way to use dma counts to get accurate trigger position mid-capture???
+// we sample continuously while waiting for the trigger, so the reported window can start before
+// the trigger (negative delay); edge triggers are located in the recorded data, see locate_trigger()
 
 // hardware configuration: ra0, ra1, rb0, rb1, ra11 interleaved analog input
 
@@ -11,8 +12,12 @@
 #define SAMPLES  (2000*MSPS/20)  // approximate width of display canvas
 #define EXTRA  200  // extra samples in case web page wants to fine-scale
 
+// how far back from its detection we look for a trigger edge; scope_isr preempts the trigger poll
+// loop for less than one adc chunk (it must copy a chunk faster than the next one arrives)
+#define TRIGGER_SEARCH  (2*ADC_CHUNK_SAMPLES)
+
 // command line:
-// <sampleinterval> [+-=](<voltage>|0x<bits>) [<slew>|0x<mask>] [<delaysamples>]
+// <sampleinterval> [+-=](<voltage>|0x<bits>) [<slew>|0x<mask>] [[-]<delaysamples>]
 //          -10    -> 18  Msps -> 3.6  MHz timer with 5x interleave and 10x magnification
 //          -5     -> 18  Msps -> 3.6  MHz timer with 5x interleave and 5x magnification
 //          -2     -> 18  Msps -> 3.6  MHz timer with 5x interleave and 2x magnification
@@ -182,135 +187,189 @@ vtopbits(int bits)
     return ((bits&0x01f8)<<7) | ((bits&0x0007)<<4);
 }
 
-void
-wait_for_analog_trigger(TriggerEdge edge)
+// delay a sub-ms random time to make a better demo with 1kHz test signal on auto/level trigger!
+static void
+trigger_holdoff()
 {
     int i;
     int r;
-    int loop;
-    int loops;
 
-    loops = 1000000;  // XXX -- tune this!
-
-    // delay a sub-ms random time to make a better demo with 1kHz test signal on auto/level trigger!
     r = random_32()%blips_per_ms;
     for (i = 0; i < r; i++) {
         blip();
     }
+}
 
-    loop = 0;
+// auto triggers capture anyway after this long without a trigger
+#define AUTO_TIMEOUT_MS  200
 
-    // wait for trigger
+static uint auto_start;
+
+static void
+auto_arm()
+{
+    auto_start = _CP0_GET_COUNT();
+}
+
+// N.B. the core timer counts at half the cpu frequency
+static bool
+auto_expired()
+{
+    return _CP0_GET_COUNT() - auto_start > cpu_frequency/2/1000*AUTO_TIMEOUT_MS;
+}
+
+// Wait for an analog trigger.  The comparator latches crossings in CEVT (rising, or falling for
+// FALL_AKA_STOP; see enable_analog_trigger()), so none is missed while scope_isr preempts us.
+// Returns true if a crossing ended the wait, to be located in the recorded data; false if the
+// level already held when armed, auto timed out or we were stopped.
+static bool
+wait_for_analog_trigger(TriggerEdge edge)
+{
     // start looking for trigger now
     CM1CONbits.COUT = 0;
     CM1CONbits.CEVT = 0;
+    auto_arm();
 
-    switch (edge) {
-        case AUTO:
-            while (!CM1CONbits.COUT && loop++ <= loops && run_stop) {
+    if ((edge == AUTO || edge == LEVEL_AKA_MATCHING) && CM1CONbits.COUT) {
+        return false;
+    }
+    while (! CM1CONbits.CEVT && run_stop) {
+        if (edge == AUTO && auto_expired()) {
+            return false;
+        }
+    }
+    return CM1CONbits.CEVT;
+}
+
+// Wait for a digital trigger.  Change notification latches every edge of the masked pins in
+// CNFB, so none is missed while scope_isr preempts us; the recorded samples around each batch of
+// edges, which are exactly what the trigger condition tests, then tell whether and where it
+// triggered.  Returns the trigger sample, or -1 if the condition already held when armed or holds
+// after a batch without a located transition (level/auto), auto timed out or we were stopped.
+static int
+wait_for_digital_trigger(TriggerEdge edge, int trigger_value, int bits_of_interest)
+{
+    int value;
+    int mask;
+    int from;
+    int now;
+    int s;
+    bool level;
+    short(* bitsbuffer)[2*128*10] = get_bits_buffer();
+
+    value = vtopbits(trigger_value);
+    mask = vtopbits(bits_of_interest);
+    level = edge == AUTO || edge == LEVEL_AKA_MATCHING;
+
+    // latch rising and falling edges of the masked pins
+    CNENB = mask;
+    CNNEB = mask;
+    CNCONB = _CNCONB_ON_MASK | _CNCONB_EDGEDETECT_MASK;
+    CNFB = 0;
+    auto_arm();
+
+    // start looking for trigger now; the baseline is the last sample taken before arming, so
+    // every change after the check below is found in the samples after it
+    do {
+        from = get_sample_position()-1;
+    } while (run_stop && from < 0);
+    if (level && (PORTB & mask) == value) {
+        return -1;
+    }
+
+    for (;;) {
+        while (! (CNFB & mask)) {
+            if (! run_stop || (edge == AUTO && auto_expired())) {
+                return -1;
             }
-            break;
-        case LEVEL_AKA_MATCHING:
-            while (!CM1CONbits.COUT && run_stop) {
-            }
-            break;
-        case FALL_AKA_STOP:
-        case RISE_AKA_START:
-            // edge polarity is configured in enable_analog_trigger()
-            while (!CM1CONbits.CEVT && run_stop) {
-            }
-            break;
-        default:
-            assert(0);
+        }
+        CNFB = 0;  // later edges latch again
+
+        // wait until the samples taken around these edges are recorded
+        s = get_sample_position();
+        do {
+            now = get_sample_position();
+        } while (run_stop && now - scope_same_epoch(s, now, CURRENT_REBASE) < INTERLEAVE);
+
+        // check the samples since the last check, but only those that can still hold these
+        // edges: the trigger must stay close enough to the newest samples for the pretrigger
+        // history (SCOPE_MAX_PRETRIGGER).  At interval 1 a masked bus that keeps changing can make
+        // the search fall behind sampling; the samples it then skips can hide a rise/fall.
+        from = scope_same_epoch(from, now, CURRENT_REBASE);
+        if (now-1 - from > TRIGGER_SEARCH) {
+            from = now-1 - TRIGGER_SEARCH;
+        }
+        s = scope_find_digital_edge(bitsbuffer[0], get_bitbuffer_length(), now-1, from, value, mask,
+                                    edge != FALL_AKA_STOP);
+        if (s >= 0) {
+            return s;
+        }
+        // a level match whose transition the search skipped still triggers, as it holds now; but
+        // if a masked pin changed since this batch began, the match may be newer than now-1 and
+        // the next batch locates it.  N.B. read PORTB before CNFB, so a change in between is seen.
+        if (level && (PORTB & mask) == value && ! (CNFB & mask)) {
+            return -1;
+        }
+        if (edge == AUTO && auto_expired()) {
+            return -1;
+        }
+        from = now-1;
     }
 }
 
-void
-wait_for_digital_trigger(TriggerEdge edge, int number2, int number3)
+// wait until scope_isr has copied all samples before end into adcbuffer
+static void
+wait_for_samples(int end)
 {
-    int i;
-    int r;
-    int loop;
-    int loops;
-
-    loops = 1000000;  // XXX -- tune this!
-
-    // delay a sub-ms random time to make a better demo with 1kHz test signal on auto/level trigger!
-    r = random_32()%blips_per_ms;
-    for (i = 0; i < r; i++) {
-        blip();
-    }
-
-    loop = 0;
-
-    // wait for trigger
-    int number2x;
-    int number3x;
-    bool value_found_now;
-    bool value_found_previously = -1;
-
-    number2x = vtopbits(number2);
-    number3x = vtopbits(number3);
-
-    switch (edge) {
-    case AUTO:
-        while ((PORTB & number3x) != number2x && loop++ <= loops && run_stop) {
-        }
-        break;
-    case LEVEL_AKA_MATCHING:
-        while ((PORTB & number3x) != number2x && run_stop) {
-        }
-        break;
-    case RISE_AKA_START:
-        value_found_now = (PORTB & number3x) == number2x;
-        value_found_previously = value_found_now;
-        while ((!value_found_now || value_found_previously == value_found_now) && run_stop) {
-            value_found_previously = value_found_now;
-            value_found_now = (PORTB & number3x) == number2x;
-        }
-        break;
-    case FALL_AKA_STOP:
-        value_found_now = (PORTB & number3x) == number2x;
-        value_found_previously = value_found_now;
-        while ((value_found_now || value_found_previously == value_found_now) && run_stop) {
-            value_found_previously = value_found_now;
-            value_found_now = (PORTB & number3x) == number2x;
-        }
-        break;
-    default:
-        assert(0);
-    }
-}
-
-void
-wait_for_end(uint wait_samples)
-{
-    int i;
-    int once;
-
-    once = 0;
-
-    if (pin_get(PIN_S1, pin_type_digital_input, 0) == 1) {
-        once = 1;
-    }
-
-    // wait for trigger and post samples; kill time and go easy on the bus
-    while (run_stop && get_current() < wait_samples+SAMPLES+EXTRA) {
+    // N.B. current stays below INT_MAX: it is rebased while waiting for the trigger
+    while (run_stop && (int)get_current() < end) {
         // XXX -- this causes possible power supply noise on 2.6 hacked to use unregulated +/-5V for op amp
         //__asm__("wait");
-        if (! once) {
-            // generate test pattern for loopback testing from a* to b*
-            for (i = 0; i < 9; i++) {
-                pin_set(PIN_A0+i, pin_type_digital_output, 0, 1);
-                pin_set(PIN_A0+i, pin_type_digital_output, 0, 0);
-            }
-            once = 1;
-
-            // resume timer interrupts
-            // XXX -- should this be after sample complete???
-            IEC0bits.T1IE = 1;
-        }
     }
+}
+
+// generate test pattern for loopback testing from a* to b* right after the trigger
+static void
+loopback_test_pattern()
+{
+    int i;
+
+    if (pin_get(PIN_S1, pin_type_digital_input, 0) == 1) {
+        return;
+    }
+
+    for (i = 0; i < 9; i++) {
+        pin_set(PIN_A0+i, pin_type_digital_output, 0, 1);
+        pin_set(PIN_A0+i, pin_type_digital_output, 0, 0);
+    }
+
+    // resume timer interrupts
+    // XXX -- should this be after sample complete???
+    IEC0bits.T1IE = 1;
+}
+
+// Return the sample at which the analog trigger crossing latched in CEVT happened.  detected is
+// the sample position when the poll loop noticed it, possibly late as scope_isr preempts the
+// poll loop; the crossing is searched for in the recorded data with the trigger's own condition.
+// N.B. samples up to detected+INTERLEAVE-1 must be in adcbuffer; no sample before lowest is used.
+static int
+locate_analog_crossing(int detected, int lowest, TriggerEdge edge, int trigger_value)
+{
+    int lo;
+    int s;
+
+    lo = detected-TRIGGER_SEARCH;
+    if (lo < lowest) {
+        lo = lowest;
+    }
+
+    // CM1 compares rb1 (also sampled by adc3) against dac3, which gets the 10 bit level << 2;
+    // auto and level triggers latch the crossing into the level (see enable_analog_trigger())
+    s = scope_find_analog_edge(get_adc_buffer(), get_adcbuffer_length(), detected+INTERLEAVE-1, lo,
+                               trigger_value << 2, edge != FALL_AKA_STOP);
+
+    // no crossing in the data (e.g. dac3/adc mismatch): fall back to the poll loop's position
+    return s < 0 ? detected : s;
 }
 
 void stop_capture_scope() {
@@ -336,17 +395,22 @@ void stop_capture_scope() {
     DCH2ECONbits.CABORT = 1;
     DCH3ECONbits.CABORT = 1;
     DCH4ECONbits.CABORT = 1;
+
+    // stop latching digital trigger edges
+    CNCONB = 0;
+    CNENB = 0;
+    CNNEB = 0;
 }
 
 void
-send_result(uint wait_samples)
+send_result(int start)
 {
     int i;
     int bits;
     short(* bitsbuffer)[2*128*10] = get_bits_buffer();
     short* adcbuffer = get_adc_buffer();
 
-    for (i = wait_samples; i < wait_samples+SAMPLES+EXTRA; i++) {
+    for (i = start; i < start+SAMPLES+EXTRA; i++) {
         bits = bitsbuffer[i%INTERLEAVE][(i/INTERLEAVE)%get_bitbuffer_length()];
         printf("%d,%x\n", adcbuffer[i%get_adcbuffer_length()], ptovbits(bits));
     }
@@ -372,8 +436,17 @@ undo_board_config()
 }
 
 // Entrypoint
+// delay_samples < 0 starts the reported window before the trigger (down to -SCOPE_MAX_PRETRIGGER)
 void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trigger_value, int bits_of_interest, int delay_samples)
 {
+    int trigger;
+    int detected;
+    int lowest;
+    int start;
+    bool crossed;
+
+    assert(delay_samples >= -SCOPE_MAX_PRETRIGGER);
+
     setup_board_scope();
     if (setup_capture_timer_scope(sample_length) < 0) {
         undo_board_config();
@@ -396,33 +469,63 @@ void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trig
     // temporarily turn off the timer interrupt
     IEC0bits.T1IE = 0;
 
+    // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
+    // we sample while waiting for the trigger, so the ring always holds the history before it;
+    // current may be rebased meanwhile, as the wait is unbounded
+    set_current_rebasable(true);
+    T3CONSET = _T3CON_ON_MASK;
+
+    // record the history a negative delay reports before arming the trigger
+    lowest = delay_samples < 0 ? -delay_samples : 0;
+    wait_for_samples(lowest);
+
+    trigger_holdoff();
+
+    crossed = false;
+    trigger = -1;
     switch (channel) {
     case ANALOG:
-        wait_for_analog_trigger(edge);
+        crossed = wait_for_analog_trigger(edge);
         break;
     case DIGITAL:
-        wait_for_digital_trigger(edge, trigger_value, bits_of_interest);
+        trigger = wait_for_digital_trigger(edge, trigger_value, bits_of_interest);
         break;
     default:
         assert(0);
     }
 
+    set_current_rebasable(false);
+
+    start = 0;
     if (run_stop) {
-        // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
-        T3CONSET = _T3CON_ON_MASK;
+        detected = get_sample_position();
 
         pin_set(PIN_E2, pin_type_digital_output, 0, 1);  // we have triggered
+        loopback_test_pattern();
+
+        if (crossed) {
+            // locate the crossing once the samples around it are in adcbuffer
+            wait_for_samples(detected+INTERLEAVE);
+            trigger = locate_analog_crossing(detected, lowest, edge, trigger_value);
+        } else if (trigger >= 0) {
+            trigger = scope_same_epoch(trigger, detected, CURRENT_REBASE);
+        } else {
+            // the trigger condition held when armed, or auto timed out
+            trigger = detected;
+        }
+        // N.B. trigger >= lowest, so the window does not start before the history we recorded
+        start = trigger + delay_samples;
     }
     pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger
 
-    wait_for_end(delay_samples);
+    wait_for_samples(start+SAMPLES+EXTRA);
     // resume timer interrupts
     IEC0bits.T1IE = 1;
 
     stop_capture_scope();
 
     if (run_stop) {
-        send_result(delay_samples);
+        send_result(start);
     }
 
     run_stop = false;
