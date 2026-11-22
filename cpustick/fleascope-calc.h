@@ -131,6 +131,42 @@ scope_find_digital_edge(const short *bits, int lane, int hi, int lo, int value, 
     return -1;
 }
 
+// The recorded PORTB sample s.
+static inline int
+scope_digital_sample(const short *bits, int lane, int s)
+{
+    return bits[(s % INTERLEAVE)*lane + (s / INTERLEAVE) % lane];
+}
+
+// Which change notification edges to latch for the digital trigger condition
+// (x & mask) == value, given the recorded sample x where we start watching.
+// While the condition is false it can only become true when a mismatching pin
+// moves to its value, so one mismatching pin, the blocker, is watched for its
+// edge towards it; changes of the other pins cannot complete the match.  A
+// blocker other than the `previous` one is preferred, so a busy pin that keeps
+// failing to complete the match is not watched again.  While the condition is
+// true, every masked pin is watched for its edge away from its value.  Returns
+// the watched pins; *rising and *falling get the pins for CNENB and CNNEB.
+static inline int
+scope_digital_watch(int x, int value, int mask, int previous, int *rising, int *falling)
+{
+    int pins;
+
+    if ((x & mask) == value) {
+        *rising = mask & ~value;
+        *falling = mask & value;
+    } else {
+        pins = (x ^ value) & mask;
+        if (pins & ~previous) {
+            pins &= ~previous;
+        }
+        pins &= -pins;  // the lowest one
+        *rising = pins & value;
+        *falling = pins & ~value;
+    }
+    return *rising | *falling;
+}
+
 // --------------------------------------------------------------- stream
 
 // True when the DMA sample counter `current` is ahead of `sent`.  Both are

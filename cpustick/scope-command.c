@@ -241,79 +241,110 @@ wait_for_analog_trigger(TriggerEdge edge)
     return CM1CONbits.CEVT;
 }
 
-// Wait for a digital trigger.  Change notification latches every edge of the masked pins in
-// CNFB, so none is missed while scope_isr preempts us; the recorded samples around each batch of
-// edges, which are exactly what the trigger condition tests, then tell whether and where it
-// triggered.  Returns the trigger sample, or -1 if the condition already held when armed or holds
-// after a batch without a located transition (level/auto), auto timed out or we were stopped.
+// Search the recorded samples (lo, hi] for the digital condition changing from `state`; see
+// scope_find_digital_edge().  Only the newest TRIGGER_SEARCH samples are searched, as the
+// trigger must stay close enough to them for the pretrigger history (SCOPE_MAX_PRETRIGGER).
+static int
+digital_change(int lo, int hi, int value, int mask, bool state)
+{
+    if (hi - lo > TRIGGER_SEARCH) {
+        lo = hi - TRIGGER_SEARCH;
+    }
+    return scope_find_digital_edge(get_bits_buffer()[0], get_bitbuffer_length(), hi, lo, value, mask, ! state);
+}
+
+// Wait for a digital trigger.  Change notification latches edges in CNFB, so none is missed while
+// scope_isr preempts us, but only of the pins that can change the condition next (see
+// scope_digital_watch()): busy masked pins that cannot complete or break the match cause no work.
+// Each latched edge is then located in the recorded samples, which are exactly what the condition
+// tests, and the watch moves on.  Returns the trigger sample, or -1 if the level condition held
+// when armed or without a located transition, auto timed out or we were stopped.
 static int
 wait_for_digital_trigger(TriggerEdge edge, int trigger_value, int bits_of_interest)
 {
     int value;
     int mask;
-    int from;
+    int ref;
+    int base;
     int now;
     int s;
+    int rising;
+    int falling;
+    int watched;
     bool level;
-    short(* bitsbuffer)[2*128*10] = get_bits_buffer();
+    bool to;
+    bool state;
+    const short *bits = get_bits_buffer()[0];
+    int lane = get_bitbuffer_length();
 
     value = vtopbits(trigger_value);
     mask = vtopbits(bits_of_interest);
     level = edge == AUTO || edge == LEVEL_AKA_MATCHING;
+    to = edge != FALL_AKA_STOP;  // the condition the trigger changes to
 
-    // latch rising and falling edges of the masked pins
-    CNENB = mask;
-    CNNEB = mask;
     CNCONB = _CNCONB_ON_MASK | _CNCONB_EDGEDETECT_MASK;
-    CNFB = 0;
     auto_arm();
 
-    // start looking for trigger now; the baseline is the last sample taken before arming, so
-    // every change after the check below is found in the samples after it
+    // start looking for trigger now, from the last sample taken
     do {
-        from = get_sample_position()-1;
-    } while (run_stop && from < 0);
+        ref = get_sample_position()-1;
+    } while (run_stop && ref < 0);
     if (level && (PORTB & mask) == value) {
         return -1;
     }
 
+    watched = 0;
     for (;;) {
-        while (! (CNFB & mask)) {
-            if (! run_stop || (edge == AUTO && auto_expired())) {
-                return -1;
-            }
-        }
-        CNFB = 0;  // later edges latch again
-
-        // wait until the samples taken around these edges are recorded
-        s = get_sample_position();
-        do {
-            now = get_sample_position();
-        } while (run_stop && now - scope_same_epoch(s, now, CURRENT_REBASE) < INTERLEAVE);
-
-        // check the samples since the last check, but only those that can still hold these
-        // edges: the trigger must stay close enough to the newest samples for the pretrigger
-        // history (SCOPE_MAX_PRETRIGGER).  At interval 1 a masked bus that keeps changing can make
-        // the search fall behind sampling; the samples it then skips can hide a rise/fall.
-        from = scope_same_epoch(from, now, CURRENT_REBASE);
-        if (now-1 - from > TRIGGER_SEARCH) {
-            from = now-1 - TRIGGER_SEARCH;
-        }
-        s = scope_find_digital_edge(bitsbuffer[0], get_bitbuffer_length(), now-1, from, value, mask,
-                                    edge != FALL_AKA_STOP);
-        if (s >= 0) {
-            return s;
-        }
-        // a level match whose transition the search skipped still triggers, as it holds now; but
-        // if a masked pin changed since this batch began, the match may be newer than now-1 and
-        // the next batch locates it.  N.B. read PORTB before CNFB, so a change in between is seen.
-        if (level && (PORTB & mask) == value && ! (CNFB & mask)) {
+        // ref is the newest sample checked
+        state = (scope_digital_sample(bits, lane, ref) & mask) == value;
+        if (level && state) {
+            // held without a located transition: it changed while we armed, or a search was
+            // clamped by TRIGGER_SEARCH
             return -1;
         }
+
+        // watch the pins that can change the condition next; changes before the watch was set
+        // up are in the samples after ref
+        watched = scope_digital_watch(scope_digital_sample(bits, lane, ref), value, mask, watched,
+                                      &rising, &falling);
+        CNENB = rising;
+        CNNEB = falling;
+        CNFB = 0;
+        base = get_sample_position()-1;
+        s = digital_change(scope_same_epoch(ref, base, CURRENT_REBASE), base, value, mask, state);
+
+        if (s < 0) {
+            while (! (CNFB & watched)) {
+                if (! run_stop || (edge == AUTO && auto_expired())) {
+                    return -1;
+                }
+            }
+
+            // wait until the samples taken around the edge are recorded
+            s = get_sample_position();
+            do {
+                now = get_sample_position();
+            } while (run_stop && now - scope_same_epoch(s, now, CURRENT_REBASE) < INTERLEAVE);
+
+            s = digital_change(scope_same_epoch(base, now, CURRENT_REBASE), now-1, value, mask, state);
+            if (s < 0) {
+                // the watched pin moved without changing the condition; watch another one
+                ref = now-1;
+                if (edge == AUTO && auto_expired()) {
+                    return -1;
+                }
+                continue;
+            }
+        }
+
+        if (state != to) {
+            return s;
+        }
+        // the condition first had to leave `to`, e.g. a rise armed while it held
+        ref = s;
         if (edge == AUTO && auto_expired()) {
             return -1;
         }
-        from = now-1;
     }
 }
 

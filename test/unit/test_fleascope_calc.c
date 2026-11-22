@@ -180,6 +180,42 @@ test_scope_same_epoch(void)
     TEST_ASSERT_EQUAL_INT((2*r + 500) % RING, scope_same_epoch(2*r + 500, r, r) % RING);
 }
 
+// while the pattern is false only one mismatching pin is watched, for its edge towards its value,
+// preferring one other than the previous blocker; while it holds, every masked pin is watched for
+// its edge away from its value; unmasked pins never matter
+static void
+test_scope_digital_watch(void)
+{
+    int rising;
+    int falling;
+    int mask = 0x0030;  // rb4, rb5
+
+    // want both high, rb4 high, rb5 low: wait for rb5 to rise
+    TEST_ASSERT_EQUAL_HEX(0x0020, scope_digital_watch(0x8010, 0x0030, mask, 0, &rising, &falling));
+    TEST_ASSERT_EQUAL_HEX(0x0020, rising);
+    TEST_ASSERT_EQUAL_HEX(0, falling);
+
+    // want rb4 high, rb5 low, both high: wait for rb5 to fall
+    scope_digital_watch(0x0030, 0x0010, mask, 0, &rising, &falling);
+    TEST_ASSERT_EQUAL_HEX(0, rising);
+    TEST_ASSERT_EQUAL_HEX(0x0020, falling);
+
+    // both mismatch: the lowest, unless it was the previous blocker
+    TEST_ASSERT_EQUAL_HEX(0x0010, scope_digital_watch(0, 0x0030, mask, 0, &rising, &falling));
+    TEST_ASSERT_EQUAL_HEX(0x0020, scope_digital_watch(0, 0x0030, mask, 0x0010, &rising, &falling));
+    TEST_ASSERT_EQUAL_HEX(0x0010, scope_digital_watch(0, 0x0030, mask, 0x0020, &rising, &falling));
+    // the only mismatching pin is watched again
+    TEST_ASSERT_EQUAL_HEX(0x0020, scope_digital_watch(0x0010, 0x0030, mask, 0x0020, &rising, &falling));
+
+    // the pattern holds: any masked pin leaving its value breaks it
+    TEST_ASSERT_EQUAL_HEX(0x0030, scope_digital_watch(0x8030, 0x0030, mask, 0x0020, &rising, &falling));
+    TEST_ASSERT_EQUAL_HEX(0, rising);
+    TEST_ASSERT_EQUAL_HEX(0x0030, falling);
+    scope_digital_watch(0x0010, 0x0010, mask, 0, &rising, &falling);
+    TEST_ASSERT_EQUAL_HEX(0x0020, rising);
+    TEST_ASSERT_EQUAL_HEX(0x0010, falling);
+}
+
 // ---- digital_stream Timer3 ----------------------------------------------
 
 static void
@@ -533,6 +569,7 @@ main(void)
     RUN_TEST(test_scope_find_edges);
     RUN_TEST(test_scope_find_edge_bounds);
     RUN_TEST(test_scope_same_epoch);
+    RUN_TEST(test_scope_digital_watch);
     RUN_TEST(test_ds_timer_limits);
     RUN_TEST(test_ds_timer_every_period_smallest_prescaler);
     RUN_TEST(test_ds_packet_sizing);
