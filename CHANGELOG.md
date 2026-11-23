@@ -32,20 +32,6 @@ All notable changes to the firmware are documented here.
   `make guest`/`make help`, `code.txt`/`qa.txt` and the BASIC documents in `doc/`.
   `make test` now runs the Unity unit tests only.
 
-### Fixed
-- **The firmware `.hex` can be installed with `upgrade` again.** Since the switch to XC32 6.00
-  and the root `Makefile`, xc32-bin2hex output had data records of 2, 9 and 11 bytes, which
-  `upgrade` rejects ("bad count"; it then aborts before writing anything). The build now
-  normalizes the file to whole words and checks it (`tools/normalize-hex.py`,
-  `tools/check-upgrade-hex.py`), including the configuration words.
-- **`scope` with an analog trigger no longer hangs.** Since 2025-09 it stopped the timer
-  interrupt before setting up the comparator, whose `delay()` waits on that interrupt, so the
-  device stopped responding, Ctrl-C included, until replugged.
-- **The device no longer comes up as WinUSB instead of a serial port after `scope` or
-  `stream`.** Both drive pin a0 low; at the next reset or `upgrade` the boot check read a0
-  before its pull-up had pulled it back up and chose the vendor-class (WinUSB) interface. The
-  check now waits 1 ms after enabling the pull-up.
-
 ### Added
 - **Command reference** ([docs/commands.md](docs/commands.md)): every command, its arguments
   and its replies byte for byte.
@@ -94,6 +80,18 @@ All notable changes to the firmware are documented here.
   line numbers that `ASSERT` embeds.
 
 ### Fixed
+- **The firmware `.hex` can be installed with `upgrade` again.** Since the switch to XC32 6.00
+  and the root `Makefile`, xc32-bin2hex output had data records of 2, 9 and 11 bytes, which
+  `upgrade` rejects ("bad count"; it then aborts before writing anything). The build now
+  normalizes the file to whole words and checks it (`tools/normalize-hex.py`,
+  `tools/check-upgrade-hex.py`), including the configuration words.
+- **`scope` with an analog trigger no longer hangs.** Since 2025-09 it stopped the timer
+  interrupt before setting up the comparator, whose `delay()` waits on that interrupt, so the
+  device stopped responding, Ctrl-C included, until replugged.
+- **The device no longer comes up as WinUSB instead of a serial port after `scope` or
+  `stream`.** Both drive pin a0 low; at the next reset or `upgrade` the boot check read a0
+  before its pull-up had pulled it back up and chose the vendor-class (WinUSB) interface. The
+  check now waits 1 ms after enabling the pull-up.
 - Stream: with `bitwidth` below the sample's bit count, near-full-scale readings rounded up
   to `1 << bitwidth` and were sent as 0, with the carry bit leaking into the next sample.
   The rounded sample now saturates at `(1 << bitwidth) - 1`.
