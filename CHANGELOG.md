@@ -58,6 +58,11 @@ All notable changes to the firmware are documented here.
   every format string is checked. `make lint` runs clang-tidy (`.clang-tidy`, with
   clang's own warnings) and cppcheck on the firmware sources with XC32's headers and
   macros, both pinned PyPI wheels run with `uvx`; both CIs run it after the build.
+- **GitHub releases.** When `VERSION` in `src/main.h` changes on `main`, the `release`
+  workflow builds and checks the firmware like CI, tags the commit `v<VERSION>` and publishes
+  a release with `fleascope-fw-<VERSION>.hex` (plus `.elf`, `.map`, `SHA256SUMS`), the
+  version's changelog section and the checksum `ver` reports. `tools/flash-checksum.py`
+  computes that checksum from the `.hex` and `.elf`.
 
 ### Changed
 - **Repository layout**: the firmware sources are in `src/` (`src/app/`, was `cpustick/`;
