@@ -86,13 +86,6 @@ const struct pin pins[] = {
     {"none", 0},
 };
 
-bool uart_armed[UART_INTS];
-
-const char * const uart_names[MAX_UARTS] = {
-    "1",
-    "2",
-};
-
 static byte freq[2];  // 0, pin_type_analog_output, pin_type_servo_output, pin_type_frequency_output
 
 #define FREQ_PRESCALE  256
@@ -922,43 +915,7 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
     return value;
 }
 
-
-// XXX -- could we uninitialize on run_clear()?
-// N.B. parity: 0 -> even; 1 -> odd; 2 -> none
-void
-pin_uart_configure(int uart, int baud, int data, byte parity, bool loopback)
-{
-    int divisor;
-
-    if (! uart) {
-        U1MODE &= ~(uint32_t)_U1MODE_UARTEN_MASK;
-
-        divisor = (int)(bus_frequency/(uint32)baud/16);
-        if (divisor >= 0x10000) {
-            divisor = 0xffff;
-        }
-        U1BRG = (uint32_t)divisor;
-
-        U1MODE = _U1MODE_UARTEN_MASK|(loopback?_U1MODE_LPBACK_MASK:0)|((data==8&&parity!=2)?(parity?_U1MODE_PDSEL1_MASK:_U1MODE_PDSEL0_MASK):0);
-
-        U1STA = _U1STA_URXEN_MASK|_U1STA_UTXEN_MASK;
-    } else {
-        U2MODE &= ~(uint32_t)_U2MODE_UARTEN_MASK;
-
-        divisor = (int)(bus_frequency/(uint32)baud/16);
-        if (divisor >= 0x10000) {
-            divisor = 0xffff;
-        }
-        U2BRG = (uint32_t)divisor;
-
-        U2MODE = _U2MODE_UARTEN_MASK|(loopback?_U2MODE_LPBACK_MASK:0)|((data==8&&parity!=2)?(parity?_U2MODE_PDSEL1_MASK:_U2MODE_PDSEL0_MASK):0);
-
-        U2STA = _U2STA_URXEN_MASK|_U2STA_UTXEN_MASK;
-    }
-    umask[uart] = data==8?0xff:0x7f;
-}
-
-bool
+static bool
 pin_uart_tx_ready(int uart)
 {
     uint32 usr;
@@ -984,7 +941,7 @@ pin_uart_tx_empty(int uart)
     return false;
 }
 
-bool
+static bool
 pin_uart_rx_ready(int uart)
 {
     uint32 usr;
@@ -1016,7 +973,6 @@ pin_uart_tx(int uart, byte value)
         U1TXREG = value;
     }
     ulasttx[uart] = value;
-    uart_armed[UART_INT(uart, true)] = true;
 
     splx(x);
 }
@@ -1041,8 +997,6 @@ pin_uart_rx(int uart)
     } else {
         value = 0;
     }
-
-    uart_armed[UART_INT(uart, false)] = true;
 
     splx(x);
 
