@@ -24,7 +24,7 @@ build:pic32:
 
 test:host:
   stage: test
-  image: gcc:14
+  image: gcc:16
   needs: []
   script:
     - make test

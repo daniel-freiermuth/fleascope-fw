@@ -11,6 +11,7 @@ All notable changes to the firmware are documented here.
   waveform untouched; before, any nonzero frequency up to 10 MHz but outside the shape's range
   (square 10 Hz – 4 MHz, sine/triangle/ekg 2 Hz – 40 kHz) silently stopped the generator.
   `wave <shape> 0` still stops it.
+- GitLab `test:host` runs on the `gcc:16` image (was `gcc:14`).
 
 ---
 
