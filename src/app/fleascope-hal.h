@@ -13,7 +13,8 @@ typedef enum {
 void
 scope_isr(void);
 
-void wave(WaveShape shape, int hz);
+bool wave(WaveShape shape, int hz);
+void wave_off(void);
 void scope_initialize(void);
 void configure_pmd_once(void);
 void reset_buffers(void);

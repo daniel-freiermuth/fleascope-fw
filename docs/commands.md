@@ -168,16 +168,17 @@ padded with zero bits to full size; then the prompt follows. Errors:
 ### `wave (square|sine|triangle|ekg) <hz>`
 
 Starts a waveform on the wave output and returns; it keeps running, also
-during captures, until the next `wave` command or reset.
+during captures, until the next `wave` command or reset. `wave <shape> 0`
+stops the waveform; the output keeps its last level.
 
 | Waveform | Frequency | Output |
 |---|---|---|
 | `square` | 10 Hz – 4 MHz | digital square wave |
 | `sine`, `triangle`, `ekg` | 2 Hz – 40 kHz | 12-bit DAC (0–3.3 V), 100 points per period |
 
-The command waits about 0.5 s before it starts the waveform. A frequency
-above 10 MHz is answered with `bad frequency`; any other frequency outside the
-range stops the current waveform without a message.
+The command waits about 0.5 s before it starts or stops the waveform. Any
+other frequency outside the range is answered with `bad frequency` at once
+and leaves the current waveform running.
 
 ## Device
 
