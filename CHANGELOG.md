@@ -6,6 +6,10 @@ All notable changes to the firmware are documented here.
 
 ## [Unreleased]
 
+---
+
+## [4.0.0] — 2026-11-23
+
 ### Breaking
 - **The StickOS BASIC interpreter is removed.** The firmware is a plain command line
   (`src/app/commands.c`) with `scope`, `stream`, `digital_stream`, `wave`, `ver`, `hostname`,
