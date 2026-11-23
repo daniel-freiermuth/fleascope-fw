@@ -8,7 +8,7 @@
 //   MINOR — backwards-compatible addition:
 //            new optional command or argument with a defined default
 //   PATCH — bug fix, no protocol change
-#define VERSION  "3.1.0"
+#define VERSION  "4.0.0"
 
 // debug assert()s and checks: `make SODEBUG=1`
 #ifndef SODEBUG
