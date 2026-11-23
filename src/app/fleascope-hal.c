@@ -342,7 +342,19 @@ static short triangle[] = {
 
 #define WAVES  100
 
+// Stops the waveform on RC10; the pin keeps its last level.
 void
+wave_off(void)
+{
+    delay(500);  // as wave(), so stopping takes as long as it always did
+
+    T2CONCLR = _T2CON_ON_MASK;
+    while (T2CONbits.ON);    // Wait until Timer2 is fully stopped
+}
+
+// Starts shape at hz on RC10. Returns false without touching the hardware,
+// so the running waveform keeps going, when hz is outside the shape's range.
+bool
 wave(WaveShape shape, int hz)
 {
     int t;
@@ -352,9 +364,19 @@ wave(WaveShape shape, int hz)
     bool square;
     volatile short *dacdat;
 
-    delay(500);  // this always takes a while!
-
     square = shape == WAVE_SQUARE;
+    if (square) {
+        min = 10;
+        max = 4000000;  // 4 MHz
+    } else {
+        min = 2;
+        max = 40000;  // 40 kHz
+    }
+    if (shape >= WAVE_COUNT || hz < min || hz > max) {
+        return false;
+    }
+
+    delay(500);  // this always takes a while!
 
     T2CONCLR = _T2CON_ON_MASK;
     while (T2CONbits.ON);    // Wait until Timer2 is fully stopped
@@ -364,8 +386,6 @@ wave(WaveShape shape, int hz)
         DAC2CONbits.ON = 0;  // no CDAC2 on RC10
         while(DAC2CONbits.ON);
         RPC10R = 9;  // OC11 on RC10
-        min = 10;
-        max = 4000000;  // 4 MHz
 
         // turn dma off
         DCH5CONbits.CHEN = 0;
@@ -376,12 +396,6 @@ wave(WaveShape shape, int hz)
         RPC10R = 0;  // no OC11 on RC10
         DAC2CONbits.ON = 1;  // CDAC2 on RC10
         hz *= WAVES;  // WAVES samples per waveform
-        min = 2*WAVES;
-        max = 40000*WAVES;  // 40 kHz
-    }
-
-    if (! hz || hz < min || hz > max) {
-        return;
     }
 
     if (hz > 2000) {
@@ -435,11 +449,11 @@ wave(WaveShape shape, int hz)
             DCH5SSA = (uint32)KVA_TO_PA(triangle);  // source address
             break;
         case WAVE_SQUARE:  // handled above
-        case WAVE_COUNT:
-            return;
+        case WAVE_COUNT:  // refused above
+            return false;
         default:  // -Wswitch-default; -Wswitch-enum still flags a missing case
             assert(0);
-            return;
+            return false;
         }
 
         // turn dma on
@@ -453,6 +467,7 @@ wave(WaveShape shape, int hz)
     }
 
     T2CONSET = _T2CON_ON_MASK;
+    return true;
 }
 
 void set_capturing_pin(bool capturing)

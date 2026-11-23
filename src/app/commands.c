@@ -250,11 +250,11 @@ command_wave(const char **text)
     if (shape == WAVE_COUNT || ! parse_const(text, &hz) || **text) {
         return false;
     }
-    if (hz > 10000000) {
+    if (hz == 0) {
+        wave_off();
+    } else if (! wave(shape, hz)) {
         printf("bad frequency\n");
-        return true;
     }
-    wave(shape, hz);
     return true;
 }
 
