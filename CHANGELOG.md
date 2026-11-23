@@ -27,6 +27,12 @@ All notable changes to the firmware are documented here.
   setting all its analog captures are rejected; x1 keeps working with its default calibration.
 - **`scope -<n>` (magnification) is removed.** It repeated each sample n times on the device;
   the original web GUI uses it for its 2×/5×/10× time bases.
+- **`stream` takes arguments and its default output changed:**
+  `stream [<ticks> [<averaging> [<bitwidth>]]]` (see [docs/commands.md](docs/commands.md)).
+  The defaults (2333 ticks ≈ 51.4 ksps, averaging 1, 16 bits) keep the rate and the
+  two-byte little-endian samples, but a plain `stream` now sends one 12-bit reading shifted
+  left by 4 instead of the rounded mean of 4 of the 5 interleaved readings: values are 16×
+  larger and unaveraged. Samples narrower than 8 bits are packed LSB-first across bytes.
 - Removed with BASIC: ZigFlea wireless support, the UART console, the I2C and QSPI drivers,
   the help-text compressor, the STICK_GUEST host build with its golden-output tests and
   `make guest`/`make help`, `code.txt`/`qa.txt` and the BASIC documents in `doc/`.
@@ -78,6 +84,11 @@ All notable changes to the firmware are documented here.
 - Only the PIC32MK0512GPK064 is supported: conditionals for the PIC32MK0512MCM064 and
   other parts are removed. Behavior is unchanged; the `.hex` differs only in the source
   line numbers that `ASSERT` embeds.
+- **`stream` is about 9× faster:** up to ~1.15 MB/s (USB full speed, 18 packets per 1 ms
+  frame) instead of ~120 kB/s. It writes 64-byte chunks instead of one `printf` per byte and
+  does no division or calls per sample. The USB serial port sends full 64-byte packets (ending
+  a transfer that fills its last packet with a zero-length packet), keeps two IN packets armed
+  (ping-pong) and polls for a free buffer instead of sleeping 1 ms. Replies are unchanged.
 
 ### Fixed
 - **The firmware `.hex` can be installed with `upgrade` again.** Since the switch to XC32 6.00
@@ -92,6 +103,19 @@ All notable changes to the firmware are documented here.
   `stream`.** Both drive pin a0 low; at the next reset or `upgrade` the boot check read a0
   before its pull-up had pulled it back up and chose the vendor-class (WinUSB) interface. The
   check now waits 1 ms after enabling the pull-up.
+- `stream` stopped sending data after its sample counter overflowed (after ~4 minutes at
+  70 ticks, ~2.3 hours at the default), and it ignored Ctrl-C while it was behind with sending.
+- `digital_stream`: an `n_samples_per_packet` that does not fit one 63-byte packet overflowed
+  a stack buffer; it is now rejected with the maximum in the reply. Periods above ~8.7 ms
+  were silently clamped to 8.7 ms; Timer3's prescalers up to 1:256 now reach 139808 µs, and
+  longer periods are rejected with that maximum instead of overflowing.
+- `scope` with an interval above 31457 programmed a truncated Timer3 period and sampled at a
+  rate unrelated to the request; such intervals are now rejected with the maximum.
+- `scope` cleared pin e3 (waiting for trigger) only when stopped with Ctrl-C, not when the
+  trigger fired.
+- USB setup packet fields (`wValue`, `wIndex`, `wLength`) were read as signed 16-bit values,
+  so values of 0x8000 and above were negative.
+- The command-error caret could write past its buffer for long lines in release builds.
 - Stream: with `bitwidth` below the sample's bit count, near-full-scale readings rounded up
   to `1 << bitwidth` and were sent as 0, with the carry bit leaking into the next sample.
   The rounded sample now saturates at `(1 << bitwidth) - 1`.
