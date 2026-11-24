@@ -18,6 +18,12 @@ All notable changes to the firmware are documented here.
   ordering, the terminating zero-length packet, waiting for a full ring, wraparound, the
   one-second discard and bus reset, with the usb driver faked. `src/platform/cdcacm.c` is now
   built for the host; host builds are the debug configuration (`SODEBUG` 1, live `assert()`).
+- **Host unit tests for the `upgrade` HEX parser** (`test/unit/test_flash_upgrade.c`): record
+  validation and its messages, data before the first `:04` record (08f25e6), the program and
+  boot flash staging ranges and their translation into the staging half, duplicate addresses,
+  the end-of-file checksum quirk and the install/fail decision. `src/platform/flash.c` is
+  compiled into the test with the NVM controller simulated and program flash mapped at its
+  firmware addresses.
 
 ### Removed
 - Unreachable pin modes in `src/platform/pin.c`: `pin_declare`, `pin_set` and `pin_get` handle
