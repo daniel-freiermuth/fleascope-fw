@@ -36,6 +36,10 @@ All notable changes to the firmware are documented here.
   `pin_timer_poll()` sampled from ports A–G every 4 ms in the timer interrupt, plus the
   `msecs_per_debounce` tick that scheduled it. The timer interrupt no longer reads those ports;
   pin register writes and reads are unchanged.
+- Unused StickOS helpers in `src/platform/util.c`/`util.h`: `write32`, `read32`, `write16`,
+  `read16`, `read_n_bytes`, `write_n_bytes`, `byteswap` with the `TF_BIG` macro, `tailtrim`,
+  `strncat`, `strstr`, `isalnum`, `isalpha`, `isupper`, `islower`, and the `get_sr`/`set_sr`
+  prototypes that had no definition. No behaviour change.
 
 ### Fixed
 - **Ctrl-C stops a capture when another line came in the same USB packet.** A complete
