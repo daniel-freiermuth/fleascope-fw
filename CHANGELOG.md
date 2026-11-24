@@ -26,6 +26,10 @@ All notable changes to the firmware are documented here.
   `pin_type_names`, `pin_qual_names` and `pin_qual_mask` tables are gone. So is the code only
   those branches called: the `pin_uart_*` helpers and their state, `adc_get_value()` and the
   `pin_analog` level loaded from the analog parameter. Digital pin behaviour is unchanged.
+- The write-only ADC result and debounce history in `src/platform/adc.c` (`adc_result`,
+  `adc_debounce`, `adc_debounce_set`) and the `debouncing` argument of `adc_timer_poll()`;
+  nothing read them after `adc_get_value()` went. The per-tick ADCDATA12–19 reads and the
+  GSWTRG scan trigger are unchanged.
 
 ---
 
