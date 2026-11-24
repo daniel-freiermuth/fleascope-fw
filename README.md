@@ -60,9 +60,10 @@ make test        # Unity unit tests (test/unit/test_*.c); needs only host GCC (H
 
 Unit tests use [Unity](https://github.com/ThrowTheSwitch/Unity) (vendored in `test/unity/`, v2.7.0). Each
 `test/unit/test_*.c` is built into its own executable and picked up automatically. Firmware modules without SFR
-access or I/O (`src/app/fleascope-calc.h`, `src/platform/params.c`) are compiled for the host and
-linked into the tests from an archive; a test provides fakes for what they call (e.g. a simulated flash), and
-`test/host/main.h` stands in for the firmware's `main.h`. Development is on Linux; on Windows, use WSL.
+access or I/O (`src/app/fleascope-calc.h`, `src/platform/params.c`, `src/platform/cdcacm.c`) are compiled for the
+host and linked into the tests from an archive; a test provides fakes for what they call (e.g. a simulated flash,
+the usb driver), and `test/host/main.h` stands in for the firmware's `main.h`. Development is on Linux; on Windows,
+use WSL.
 
 ## Static checks
 

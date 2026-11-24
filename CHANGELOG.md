@@ -14,6 +14,10 @@ All notable changes to the firmware are documented here.
 - GitLab `test:host` runs on the `gcc:16` image (was `gcc:14`).
 - **CI:** the GitHub `build`, `test` and `release` workflows run on `ubuntu-26.04` and
   GitLab's `build:pic32` on `ubuntu:26.04` (Resolute Raccoon), up from 24.04.
+- **Host unit tests for the CDC/ACM bulk-IN ring** (`test/unit/test_cdcacm.c`): packet
+  ordering, the terminating zero-length packet, waiting for a full ring, wraparound, the
+  one-second discard and bus reset, with the usb driver faked. `src/platform/cdcacm.c` is now
+  built for the host; host builds are the debug configuration (`SODEBUG` 1, live `assert()`).
 
 ### Removed
 - Unreachable pin modes in `src/platform/pin.c`: `pin_declare`, `pin_set` and `pin_get` handle
