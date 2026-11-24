@@ -30,14 +30,6 @@ enum pin_type {  // XXX -- should we allow skeleton to extend this?
     pin_type_last
 };
 
-// up to 8 bits
-enum pin_qual {  // XXX -- should we allow skeleton to extend this?
-    pin_qual_debounced,
-    pin_qual_inverted,
-    pin_qual_open_drain,
-    pin_qual_last
-};
-
 // N.B. pins marked with *** may affect zigflea or other system operation
 enum pin_number {  // skeleton may extend this
     PIN_A0,
@@ -78,22 +70,19 @@ extern const struct pin {
 
 // this function declares a pin variable!
 void
-pin_declare(IN int pin_number, IN int pin_type, IN int pin_qual);
+pin_declare(IN int pin_number, IN int pin_type);
 
 // this function sets a pin variable!
 void
-pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value);
+pin_set(IN int pin_number, IN int pin_type, IN int32 value);
 
 // this function gets a pin variable!
 int32
-pin_get(IN int pin_number, IN int pin_type, IN int pin_qual);
+pin_get(IN int pin_number, IN int pin_type);
 
 
 void
 pin_clear(void);
-
-void
-pin_timer_poll(void);
 
 void
 pin_assign(int assign, int pin);

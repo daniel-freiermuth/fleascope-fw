@@ -17,8 +17,6 @@ volatile int32 seconds;  // incremented by pit0 isr every second
 static volatile byte msecs_in_second;  // incremented by pit0 isr every millisecond
 static volatile byte eighths_in_second;  // incremented by pit0 isr 8 times per second
 
-enum { msecs_per_debounce = 4 }; // tunable
-
 // called by pit0 every tick
 void
 __ISR(_TIMER_1_VECTOR, PIC32IPL4)
@@ -37,11 +35,6 @@ timer_isr(void)
     if ((ticks & (ticks_per_msec - 1)) == 0) {
         msecs++;
         msecs_in_second++;
-
-        if ((msecs & (msecs_per_debounce - 1)) == 0) {
-            // poll debounced digital inputs.
-            pin_timer_poll();
-        }
 
         // if an an eighth of a second has elapsed...
         if (msecs_in_second == 125) {
@@ -74,7 +67,6 @@ void
 timer_initialize(void)
 {
     cassert(IS_POWER_OF_2(ticks_per_msec));
-    cassert(IS_POWER_OF_2(msecs_per_debounce));
 
     // configure t1 to interrupt every ticks times per msec.
     T1CONCLR = _T1CON_ON_MASK;

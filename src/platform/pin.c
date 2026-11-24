@@ -49,56 +49,9 @@ const struct pin pins[] = {
     {"none", 0},
 };
 
-// Debounce history for digital inputs.
-
-enum {
-    // Tunable depth of digital pin history saved for debouncing.  Currently, the history is used to elect a majority.
-    pin_digital_debounce_history_depth = 3
-};
-
-enum debounce_ports {
-    port_a,
-    port_b,
-    port_c,
-    port_d,
-    port_e,
-    port_f,
-    port_g,
-    port_max
-};
-
-// This structure records recent samples from digital pins.
-typedef uint16 pin_port_sample_t;
-
-static pin_port_sample_t pin_digital_debounce[pin_digital_debounce_history_depth][port_max];
-
-static int pin_digital_debounce_cycle; // indexes into pin_digital_debounce_data.
-
-// compute majority value of the pin's recently polled values.
-//
-// revisit -- find a way to rework and rename this to
-// pin_get_digital() and have it returned debounced or non-debounced
-// data based on pin_qual.  Also introduce a pin_set_digital() to
-// consolidate setting of pins.
-static int
-pin_get_digital_debounced(int port_offset, int pin_offset)
-{
-    int i;
-    int value;
-
-    assert((size_t)pin_offset < sizeof(pin_digital_debounce[0][0]) * 8);
-
-    value = 0;
-    for (i = 0; i < pin_digital_debounce_history_depth; i++) {
-        value += !!(pin_digital_debounce[i][port_offset] & (1 << pin_offset));
-    }
-    return value > pin_digital_debounce_history_depth/2;
-}
-
-
 static
 void
-pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN bool set, IN bool user)
+pin_declare_internal(IN int pin_number, IN int pin_type, IN bool user)
 {
     uint32 offset;
 
@@ -106,12 +59,6 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
     assert(pin_type == pin_type_digital_input || pin_type == pin_type_digital_output);
     if (user) {
         declared[pin_number/8] |= 1 << (pin_number%8);
-    }
-
-    if (! set && (pin_type == pin_type_digital_output) && (pin_qual & 1<<pin_qual_open_drain)) {
-        // on initial declaration, configure open_drain outputs as inputs
-        // N.B. this will be reconfigured as an output on pin_set to 0
-        pin_type = pin_type_digital_input;
     }
 
     // N.B. we do not enable pullups on any pins scanned by ADC because doing so causes other scanned ADCs
@@ -277,36 +224,23 @@ pin_declare_internal(IN int pin_number, IN int pin_type, IN int pin_qual, IN boo
 
 // this function declares a ram, flash, or pin variable!
 void
-pin_declare(IN int pin_number, IN int pin_type, IN int pin_qual)
+pin_declare(IN int pin_number, IN int pin_type)
 {
-    pin_declare_internal(pin_number, pin_type, pin_qual, false, true);
+    pin_declare_internal(pin_number, pin_type, true);
 }
 
 // this function sets a pin variable!
 void
-pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
+pin_set(IN int pin_number, IN int pin_type, IN int32 value)
 {
-    int32 value2;
     uint32 offset;
 
     if (pin_number == PIN_UNASSIGNED) {
         return;
     }
 
+    (void)pin_type;  // only checked by assert()
     assert(pin_type == pin_type_digital_input || pin_type == pin_type_digital_output);
-
-    if ((pin_qual & 1<<pin_qual_inverted) && pin_type == pin_type_digital_output) {
-        value2 = value;
-        value = ! value;
-        ASSERT(value != value2);  // catch CW bug
-    }
-
-    // If setting to 1, then disable the driver before setting the data value to 1.  This avoids having the processor drive the
-    // open_drain pin, which would be bad if the line is held high by another driver.
-    if (value && (pin_qual & 1<<pin_qual_open_drain)) {
-        assert(pin_type == pin_type_digital_output);
-        pin_declare_internal(pin_number, pin_type_digital_input, pin_qual, true, false);
-    }
 
     // set the PIC32 pin to value
     switch (pin_number) {
@@ -411,18 +345,11 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value)
             assert(0);
             break;
     }
-
-    // if setting to 0, then enable the pin driver after the pin data value has been set to 0.  This prevents the processor from
-    // driving a 1 (which the pin's latch may held at the start of this function).
-    if ((! value) && (pin_qual & 1<<pin_qual_open_drain)) {
-        assert(pin_type == pin_type_digital_output);
-        pin_declare_internal(pin_number, pin_type_digital_output, pin_qual, true, false);
-    }
 }
 
 // this function gets a pin variable!
 int32
-pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
+pin_get(IN int pin_number, IN int pin_type)
 {
     int32 value;
     uint32 offset;
@@ -443,12 +370,7 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
             // RB
             offset = 7;
             assert(offset == 7);
-            if (pin_qual & 1<<pin_qual_debounced) {
-                assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_b, (int)offset);
-            } else {
-              value = !! (PORTB & 1 << offset);
-            }
+            value = !! (PORTB & 1 << offset);
             break;
         case PIN_A1:
         case PIN_A2:
@@ -457,12 +379,7 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
             // RE
             offset = (uint32)(12 + pin_number - PIN_A1);
             assert(offset >= 12 && offset <= 15);
-            if (pin_qual & 1<<pin_qual_debounced) {
-                assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_e, (int)offset);
-            } else {
-                value = !! (PORTE & 1 << offset);
-            }
+            value = !! (PORTE & 1 << offset);
             break;
         case PIN_A5:
         case PIN_A6:
@@ -471,12 +388,7 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
             // RG
             offset = (uint32)(6 + PIN_A8 - pin_number);
             assert(offset >= 6 && offset <= 9);
-            if (pin_qual & 1<<pin_qual_debounced) {
-                assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_g, (int)offset);
-            } else {
-                value = !! (PORTG & 1 << offset);
-            }
+            value = !! (PORTG & 1 << offset);
             break;
         case PIN_B0:
         case PIN_B1:
@@ -484,12 +396,7 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
             // RB
             offset = (uint32)(4 + pin_number - PIN_B0);
             ASSERT(offset >= 4 && offset <= 6);
-            if (pin_qual & 1<<pin_qual_debounced) {
-                assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_b, (int)offset);
-            } else {
-                value = !! (PORTB & 1 << offset);
-            }
+            value = !! (PORTB & 1 << offset);
             break;
         case PIN_B3:
         case PIN_B4:
@@ -500,54 +407,30 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
             // RB
             offset = (uint32)(10 + pin_number - PIN_B3);
             assert(offset >= 10 && offset <= 15);
-            if (pin_qual & 1<<pin_qual_debounced) {
-                assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_b, (int)offset);
-            } else {
-                value = !! (PORTB & 1 << offset);
-            }
+            value = !! (PORTB & 1 << offset);
             break;
         case PIN_E1:
             // RC
             offset = 6;
             assert(offset == 6);
-            if (pin_qual & 1<<pin_qual_debounced) {
-                assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_c, (int)offset);
-            } else {
-                value = !! (PORTC & 1 << offset);
-            }
+            value = !! (PORTC & 1 << offset);
             break;
         case PIN_E2:
         case PIN_E3:
             // RA
             offset = (uint32)(4 + (pin_number - PIN_E2)*6);
             assert(offset == 4 || offset == 10);
-            if (pin_qual & 1<<pin_qual_debounced) {
-                assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_a, (int)offset);
-            } else {
-                value = !! (PORTA & 1 << offset);
-            }
+            value = !! (PORTA & 1 << offset);
             break;
         case PIN_S1:
             // RC
             offset = 7;
             assert(offset == 7);
-            if (pin_qual & 1<<pin_qual_debounced) {
-                assert(pin_type == pin_type_digital_input);
-                value = pin_get_digital_debounced(port_c, (int)offset);
-            } else {
-                value = !! (PORTC & 1 << offset);
-            }
+            value = !! (PORTC & 1 << offset);
             break;
         default:
             assert(0);
             break;
-    }
-
-    if (pin_qual & (1<<pin_qual_inverted)) {
-        value = ! value;
     }
 
     return value;
@@ -572,32 +455,8 @@ pin_clear(void)
     // reset all explicitly declared pins to digital input
     for (i = 0; i < PIN_UNASSIGNED; i++) {
         if ((declared[i/8] & (1 << (i%8))) && (pins[i].pin_type_mask & (1 << pin_type_digital_input))) {
-            pin_declare_internal(i, pin_type_digital_input, 0, false, false);
+            pin_declare_internal(i, pin_type_digital_input, false);
         }
-    }
-}
-
-// only called on debouncing ticks from timer_isr()
-void
-pin_timer_poll(void)
-{
-    pin_port_sample_t *sample;
-
-    sample = pin_digital_debounce[pin_digital_debounce_cycle];
-
-    // for each port...
-#ifdef PORTA
-    sample[port_a] = (pin_port_sample_t)PORTA;
-#endif
-    sample[port_b] = (pin_port_sample_t)PORTB;
-    sample[port_c] = (pin_port_sample_t)PORTC;
-    sample[port_d] = (pin_port_sample_t)PORTD;
-    sample[port_e] = (pin_port_sample_t)PORTE;
-    sample[port_f] = (pin_port_sample_t)PORTF;
-    sample[port_g] = (pin_port_sample_t)PORTG;
-
-    if (++pin_digital_debounce_cycle >= pin_digital_debounce_history_depth) {
-        pin_digital_debounce_cycle = 0;
     }
 }
 
@@ -618,9 +477,9 @@ pin_assign(int assign, int pin)
 
     if (pin < PIN_UNASSIGNED) {
         if (assign == pin_assignment_safemode) {
-            pin_declare_internal(pin, pin_type_digital_input, 0, false, false);
+            pin_declare_internal(pin, pin_type_digital_input, false);
         } else {
-            pin_declare_internal(pin, pin_type_digital_output, 0, false, false);
+            pin_declare_internal(pin, pin_type_digital_output, false);
         }
     }
 }
@@ -657,7 +516,6 @@ pin_initialize(void)
 
     cassert(PIN_LAST <= PIN_MAX);
     cassert(pin_type_last < (sizeof(uint16)*8));
-    cassert(pin_qual_last < (sizeof(byte)*8));
     cassert(LENGTHOF(pins) == PIN_LAST);
 
     // reset declared pins and the boot pin mapping

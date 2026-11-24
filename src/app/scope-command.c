@@ -34,21 +34,21 @@ setup_board_scope(void)
 {
     configure_pmd_once();
     
-    pin_declare(PIN_A0, pin_type_digital_output, 0);
-    pin_declare(PIN_A1, pin_type_digital_output, 0);
-    pin_declare(PIN_A2, pin_type_digital_output, 0);
-    pin_declare(PIN_A3, pin_type_digital_output, 0);
-    pin_declare(PIN_A4, pin_type_digital_output, 0);
-    pin_declare(PIN_A5, pin_type_digital_output, 0);
-    pin_declare(PIN_A6, pin_type_digital_output, 0);
-    pin_declare(PIN_A7, pin_type_digital_output, 0);
-    pin_declare(PIN_A8, pin_type_digital_output, 0);
+    pin_declare(PIN_A0, pin_type_digital_output);
+    pin_declare(PIN_A1, pin_type_digital_output);
+    pin_declare(PIN_A2, pin_type_digital_output);
+    pin_declare(PIN_A3, pin_type_digital_output);
+    pin_declare(PIN_A4, pin_type_digital_output);
+    pin_declare(PIN_A5, pin_type_digital_output);
+    pin_declare(PIN_A6, pin_type_digital_output);
+    pin_declare(PIN_A7, pin_type_digital_output);
+    pin_declare(PIN_A8, pin_type_digital_output);
 
-    pin_declare(PIN_E2, pin_type_digital_output, 0);
-    pin_declare(PIN_E3, pin_type_digital_output, 0);
+    pin_declare(PIN_E2, pin_type_digital_output);
+    pin_declare(PIN_E3, pin_type_digital_output);
 
-    pin_set(PIN_E2, pin_type_digital_output, 0, 0);  // we are waiting for trigger
-    pin_set(PIN_E3, pin_type_digital_output, 0, 1);  // we are waiting for trigger
+    pin_set(PIN_E2, pin_type_digital_output, 0);  // we are waiting for trigger
+    pin_set(PIN_E3, pin_type_digital_output, 1);  // we are waiting for trigger
 
     pin_oc_unroute();
 }
@@ -285,7 +285,7 @@ wait_for_end(uint wait_samples)
 
     once = 0;
 
-    if (pin_get(PIN_S1, pin_type_digital_input, 0) == 1) {
+    if (pin_get(PIN_S1, pin_type_digital_input) == 1) {
         once = 1;
     }
 
@@ -296,8 +296,8 @@ wait_for_end(uint wait_samples)
         if (! once) {
             // generate test pattern for loopback testing from a* to b*
             for (i = 0; i < 9; i++) {
-                pin_set(PIN_A0+i, pin_type_digital_output, 0, 1);
-                pin_set(PIN_A0+i, pin_type_digital_output, 0, 0);
+                pin_set(PIN_A0+i, pin_type_digital_output, 1);
+                pin_set(PIN_A0+i, pin_type_digital_output, 0);
             }
             once = 1;
 
@@ -357,8 +357,8 @@ undo_board_config(void)
 
     pin_oc_route();
 
-    pin_set(PIN_E2, pin_type_digital_output, 0, 0);  // we have no longer triggered
-    pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger
+    pin_set(PIN_E2, pin_type_digital_output, 0);  // we have no longer triggered
+    pin_set(PIN_E3, pin_type_digital_output, 0);  // we are no longer waiting for trigger
 }
 
 // Entrypoint
@@ -401,9 +401,9 @@ void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trig
         // N.B. THIS STARTS EVERYTHING GOING!!!  ADCs, ADC DMA, DIGITAL DMA, ETC.!
         T3CONSET = _T3CON_ON_MASK;
 
-        pin_set(PIN_E2, pin_type_digital_output, 0, 1);  // we have triggered
+        pin_set(PIN_E2, pin_type_digital_output, 1);  // we have triggered
     }
-    pin_set(PIN_E3, pin_type_digital_output, 0, 0);  // we are no longer waiting for trigger
+    pin_set(PIN_E3, pin_type_digital_output, 0);  // we are no longer waiting for trigger
 
     wait_for_end((uint)delay_samples);
     // resume timer interrupts
