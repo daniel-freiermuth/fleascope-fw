@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build-pic32:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       # Build and name the PR head (like GitLab's $CI_COMMIT_SHA), not GitHub's synthetic merge commit.
       - uses: actions/checkout@v7
