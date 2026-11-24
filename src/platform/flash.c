@@ -522,10 +522,3 @@ flash_upgrade(void)
     // we should not come back!
     ASSERT(0);  // stop!
 }
-
-// this function initializes the flash module.
-void
-flash_initialize(void)
-{
-}
-

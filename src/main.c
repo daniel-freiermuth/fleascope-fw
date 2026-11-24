@@ -222,9 +222,6 @@ main(void)  // NOLINT(misc-use-internal-linkage): we're called directly by start
     // configure leds
     led_initialize();
 
-    // initialize flash
-    flash_initialize();
-
     // initialize usb
     usb_initialize();
 

@@ -14,7 +14,3 @@ flash_upgrade(void);
 void
 __attribute__((noreturn))
 flash_upgrade_ram(void);
-
-void
-flash_initialize(void);
-
