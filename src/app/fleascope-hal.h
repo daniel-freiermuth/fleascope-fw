@@ -23,6 +23,8 @@ short(* get_bits_buffer(void))[2*128*10];
 short* get_adc_buffer(void);
 void start_T3(void);
 void stop_T3(void);
+void enable_adc_dma(void);
+void disable_adc_dma(void);
 void set_capturing_pin(bool capturing);
 void set_waiting_pin(bool waiting);
 int get_bitbuffer_length(void);

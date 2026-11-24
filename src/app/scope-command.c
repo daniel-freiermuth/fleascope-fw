@@ -126,12 +126,7 @@ prepare_dma_scope(void)
 
     TMR3 = 0;
 
-    ADCDSTATbits.DMAEN = 1;
-    ADCCON3bits.DIGEN0 = 1;      // Enable ADC
-    ADCCON3bits.DIGEN1 = 1;      // Enable ADC
-    ADCCON3bits.DIGEN2 = 1;      // Enable ADC
-    ADCCON3bits.DIGEN3 = 1;      // Enable ADC
-    ADCCON3bits.DIGEN4 = 1;      // Enable ADC
+    enable_adc_dma();
 
     DCH0CONbits.CHEN = 1;
     DCH1CONbits.CHEN = 1;
@@ -318,12 +313,7 @@ static void stop_capture_scope(void) {
     T3CONCLR = _T3CON_ON_MASK;
     g++;
 
-    ADCCON3bits.DIGEN0 = 0;      // Disable ADC
-    ADCCON3bits.DIGEN1 = 0;      // Disable ADC
-    ADCCON3bits.DIGEN2 = 0;      // Disable ADC
-    ADCCON3bits.DIGEN3 = 0;      // Disable ADC
-    ADCCON3bits.DIGEN4 = 0;      // Disable ADC
-    ADCDSTATbits.DMAEN = 0;
+    disable_adc_dma();
 
     CM1CONbits.ON = 0;
     g++;

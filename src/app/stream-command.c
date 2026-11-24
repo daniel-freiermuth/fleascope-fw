@@ -131,12 +131,7 @@ prepare_dma(void)
 
     TMR3 = 0;
 
-    ADCDSTATbits.DMAEN = 1;
-    ADCCON3bits.DIGEN0 = 1;      // Enable ADC
-    ADCCON3bits.DIGEN1 = 1;      // Enable ADC
-    ADCCON3bits.DIGEN2 = 1;      // Enable ADC
-    ADCCON3bits.DIGEN3 = 1;      // Enable ADC
-    ADCCON3bits.DIGEN4 = 1;      // Enable ADC
+    enable_adc_dma();
 }
 
 static void
@@ -203,12 +198,7 @@ static void stop_capture(void) {
     // N.B. THIS STOPS EVERYTHING!
     stop_T3();
 
-    ADCCON3bits.DIGEN0 = 0;      // Disable ADC
-    ADCCON3bits.DIGEN1 = 0;      // Disable ADC
-    ADCCON3bits.DIGEN2 = 0;      // Disable ADC
-    ADCCON3bits.DIGEN3 = 0;      // Disable ADC
-    ADCCON3bits.DIGEN4 = 0;      // Disable ADC
-    ADCDSTATbits.DMAEN = 0;
+    disable_adc_dma();
 }
 
 static void
