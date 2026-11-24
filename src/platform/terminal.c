@@ -92,6 +92,25 @@ static const struct keycode keycodes[] = {
 #define KEY_DELETE  "\033[P"
 #define KEY_CLEAR  "\033[K"
 
+// append s to the pending echo buffer
+static void
+echo_append(const char *s)
+{
+    strcat(echo, s);
+    assert(strlen(echo) < sizeof(echo));
+}
+
+// move the terminal cursor back to column 0 of the command line
+static void
+echo_cursor_home(void)
+{
+    if (cursor) {
+        sprintf(echo+strlen(echo), KEYS_LEFT, cursor);
+        assert(strlen(echo) < sizeof(echo));
+        cursor = 0;
+    }
+}
+
 // this function implements the command line editing functionality
 // of the console, by accumulating one character at a time from the
 // console.
@@ -108,13 +127,8 @@ accumulate(char c)
     assert(gpl() >= SPL_USB || gpl() >= SPL_IRQ4);
 
     if (c == '\003' || c == '\025') { // Clear line on ctrl-c or ctrl-u.
-        if (cursor) {
-            sprintf(echo+strlen(echo), KEYS_LEFT, cursor);
-            assert(strlen(echo) < sizeof(echo));
-            cursor = 0;
-        }
-        strcat(echo, KEY_CLEAR);
-        assert(strlen(echo) < sizeof(echo));
+        echo_cursor_home();
+        echo_append(KEY_CLEAR);
         command[0] = '\0';
         ki = 0;
         return;
@@ -140,15 +154,13 @@ accumulate(char c)
                 switch (keycodes[i].code) {
                     case KEY_RIGHT:
                         if ((size_t)cursor < strlen(command)) {
-                            strcat(echo, keycodes[KEY_RIGHT].keys);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_append(keycodes[KEY_RIGHT].keys);
                             cursor++;
                         }
                         break;
                     case KEY_LEFT:
                         if (cursor) {
-                            strcat(echo, keycodes[KEY_LEFT].keys);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_append(keycodes[KEY_LEFT].keys);
                             cursor--;
                         }
                         break;
@@ -176,27 +188,17 @@ accumulate(char c)
                             }
                         }
                         if (n != NHIST) {
-                            if (cursor) {
-                                sprintf(echo+strlen(echo), KEYS_LEFT, cursor);
-                                assert(strlen(echo) < sizeof(echo));
-                                cursor = 0;
-                            }
-                            strcat(echo, KEY_CLEAR);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_cursor_home();
+                            echo_append(KEY_CLEAR);
                             strcpy(command, history[hist_out]);
 
                             // reprint the line
-                            strcat(echo, command);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_append(command);
                             cursor = (int)strlen(command);
                         }
                         break;
                     case KEY_HOME:
-                        if (cursor) {
-                            sprintf(echo+strlen(echo), KEYS_LEFT, cursor);
-                            assert(strlen(echo) < sizeof(echo));
-                            cursor = 0;
-                        }
+                        echo_cursor_home();
                         break;
                     case KEY_END:
                         if ((int)strlen(command) != cursor) {
@@ -208,18 +210,15 @@ accumulate(char c)
                     case KEY_BS_DEL:
                     case KEY_BS:
                         if (cursor) {
-                            strcat(echo, keycodes[KEY_LEFT].keys);
-                            assert(strlen(echo) < sizeof(echo));
-                            strcat(echo, KEY_DELETE);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_append(keycodes[KEY_LEFT].keys);
+                            echo_append(KEY_DELETE);
                             cursor--;
                             memmove(command+cursor, command+cursor+1, sizeof(command)-(size_t)cursor-1);
                         }
                         break;
                     case KEY_DEL:
                         if (command[cursor]) {
-                            strcat(echo, KEY_DELETE);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_append(KEY_DELETE);
                             memmove(command+cursor, command+cursor+1, sizeof(command)-(size_t)cursor-1);
                         }
                         break;
@@ -316,8 +315,7 @@ terminal_receive_internal(byte *buffer, int length)
         if (! discard) {
             if (buffer[j] == '\r') {
                 // this is a delayed reprint
-                strcat(echo, tail);
-                assert(strlen(echo) < sizeof(echo));
+                echo_append(tail);
                 tail[0] = '\0';
 
                 if (strcmp(history[HISTWRAP(hist_in-1)], command) != 0) {
@@ -342,8 +340,7 @@ terminal_receive_internal(byte *buffer, int length)
     }
 
     // this is a delayed reprint
-    strcat(echo, tail);
-    assert(strlen(echo) < sizeof(echo));
+    echo_append(tail);
 
     // and back the cursor up
     if (strlen(tail)) {
