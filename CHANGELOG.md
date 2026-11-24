@@ -15,6 +15,15 @@ All notable changes to the firmware are documented here.
 - **CI:** the GitHub `build`, `test` and `release` workflows run on `ubuntu-26.04` and
   GitLab's `build:pic32` on `ubuntu:26.04` (Resolute Raccoon), up from 24.04.
 
+### Fixed
+- **USB: a GET_DESCRIPTOR(STRING) request for index 4 no longer reads past the string table.**
+  The index one past the last string descriptor counted as found: the firmware took the byte
+  after `cdcacm_string_descriptor[]` as a length and copied that many bytes (up to 255) into
+  the 80-byte EP0 buffer, halted on an `assert` in a `SODEBUG=1` build, or answered with stale
+  data. It now answers like any other missing index. The table walk is
+  `usb_string_descriptor_offset()` in `src/platform/usb-calc.h`, covered by
+  `test/unit/test_usb_calc.c`.
+
 ### Removed
 - Unreachable pin modes in `src/platform/pin.c`: `pin_declare`, `pin_set` and `pin_get` handle
   only digital input and output (every caller passes one of those); the analog, servo,

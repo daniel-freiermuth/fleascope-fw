@@ -3,6 +3,7 @@
 // sits on top of this module to implement a specific usb device.
 
 #include "main.h"
+#include "usb-calc.h"
 
 #define PA_TO_KVA  PA_TO_KVA0
 
@@ -321,18 +322,12 @@ usb_isr(void)
                         memcpy(endpoints[endpoint].data_buffer, configuration_descriptor, (size_t)endpoints[endpoint].data_length);
                     } else if ((value >> 8) == STRING_DESCRIPTOR) {
                         // #4
-                        int i;
                         int j;
                         const char *p;
 
                         // find the string descriptor
-                        i = value & 0xff;
-                        j = 0;
-                        while (i-- && j < string_descriptor_length) {
-                            j += string_descriptor[j];
-                        }
-                        if (i != -1) {
-                            assert(j == string_descriptor_length);
+                        j = usb_string_descriptor_offset(string_descriptor, string_descriptor_length, value & 0xff);
+                        if (j == -1) {
                             endpoints[endpoint].data_length = 0;  // what to return here?
                         } else {
                             assert(string_descriptor[j]);
