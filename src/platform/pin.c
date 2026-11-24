@@ -51,13 +51,6 @@ const struct pin pins[] = {
     {"none", 0},
 };
 
-bool uart_armed[UART_INTS];
-
-const char * const uart_names[MAX_UARTS] = {
-    "1",
-    "2",
-};
-
 // Debounce history for digital inputs.
 
 enum {
@@ -290,9 +283,6 @@ pin_declare(IN int pin_number, IN int pin_type, IN int pin_qual)
 {
     pin_declare_internal(pin_number, pin_type, pin_qual, false, true);
 }
-
-static byte ulasttx[MAX_UARTS];
-static byte umask[MAX_UARTS];
 
 // this function sets a pin variable!
 void
@@ -566,133 +556,6 @@ pin_get(IN int pin_number, IN int pin_type, IN int pin_qual)
 }
 
 
-// XXX -- could we uninitialize on run_clear()?
-// N.B. parity: 0 -> even; 1 -> odd; 2 -> none
-void
-pin_uart_configure(int uart, int baud, int data, byte parity, bool loopback)
-{
-    int divisor;
-
-    if (! uart) {
-        U1MODE &= ~(uint32_t)_U1MODE_UARTEN_MASK;
-
-        divisor = (int)(bus_frequency/(uint32)baud/16);
-        if (divisor >= 0x10000) {
-            divisor = 0xffff;
-        }
-        U1BRG = (uint32_t)divisor;
-
-        U1MODE = _U1MODE_UARTEN_MASK|(loopback?_U1MODE_LPBACK_MASK:0)|((data==8&&parity!=2)?(parity?_U1MODE_PDSEL1_MASK:_U1MODE_PDSEL0_MASK):0);
-
-        U1STA = _U1STA_URXEN_MASK|_U1STA_UTXEN_MASK;
-    } else {
-        U2MODE &= ~(uint32_t)_U2MODE_UARTEN_MASK;
-
-        divisor = (int)(bus_frequency/(uint32)baud/16);
-        if (divisor >= 0x10000) {
-            divisor = 0xffff;
-        }
-        U2BRG = (uint32_t)divisor;
-
-        U2MODE = _U2MODE_UARTEN_MASK|(loopback?_U2MODE_LPBACK_MASK:0)|((data==8&&parity!=2)?(parity?_U2MODE_PDSEL1_MASK:_U2MODE_PDSEL0_MASK):0);
-
-        U2STA = _U2STA_URXEN_MASK|_U2STA_UTXEN_MASK;
-    }
-    umask[uart] = data==8?0xff:0x7f;
-}
-
-bool
-pin_uart_tx_ready(int uart)
-{
-    uint32 usr;
-
-    // if the uart transmitter is ready...
-    usr = uart?U2STA:U1STA;
-    if (! (usr & _U1STA_UTXBF_MASK)) {
-        return true;
-    }
-    return false;
-}
-
-bool
-pin_uart_tx_empty(int uart)
-{
-    uint32 usr;
-
-    // if the uart transmitter is empty...
-    usr = uart?U2STA:U1STA;
-    if (usr & _U1STA_TRMT_MASK) {
-        return true;
-    }
-    return false;
-}
-
-bool
-pin_uart_rx_ready(int uart)
-{
-    uint32 usr;
-
-    // if the uart receiver is ready...
-    usr = uart?U2STA:U1STA;
-    if (usr & _U1STA_URXDA_MASK) {
-        return true;
-    }
-    return false;
-}
-
-void
-pin_uart_tx(int uart, byte value)
-{
-    int x;
-    x = splx(5);
-
-    while (! pin_uart_tx_ready(uart)) {
-        splx(x);
-        assert(gpl() < SPL_SERIAL);
-        // revisit -- poll?
-        x = splx(5);
-    }
-
-    if (uart) {
-        U2TXREG = value;
-    } else {
-        U1TXREG = value;
-    }
-    ulasttx[uart] = value;
-    uart_armed[UART_INT(uart, true)] = true;
-
-    splx(x);
-}
-
-byte
-pin_uart_rx(int uart)
-{
-    int x;
-    byte value;
-
-    x = splx(5);
-
-    if (pin_uart_rx_ready(uart)) {
-        if (uart) {
-            value = (byte)U2RXREG;
-            U2STACLR = _U2STA_OERR_MASK;
-        } else {
-            value = (byte)U1RXREG;
-            U1STACLR = _U1STA_OERR_MASK;
-        }
-        value = value & umask[uart];
-    } else {
-        value = 0;
-    }
-
-    uart_armed[UART_INT(uart, false)] = true;
-
-    splx(x);
-
-    return value;
-}
-
-
 void
 pin_clear(void)
 {
@@ -707,7 +570,6 @@ pin_clear(void)
     RPB4R = 4;  // SDO2 -> RB4
     SDI2R = 1;  // RB5 -> SDI2
     SS2R = 3;  // RB10 -> SS2
-    // XXX -- should we unconfigure uarts?
 
     // reset all explicitly declared pins to digital input
     for (i = 0; i < PIN_UNASSIGNED; i++) {
@@ -800,8 +662,6 @@ pin_initialize(void)
     cassert(pin_type_last < (sizeof(uint16)*8));
     cassert(pin_qual_last < (sizeof(byte)*8));
     cassert(LENGTHOF(pins) == PIN_LAST);
-
-    memset(umask, -1, sizeof(umask));
 
     // reset declared pins and the boot pin mapping
     pin_clear();
