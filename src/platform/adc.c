@@ -6,26 +6,9 @@
 
 static bool adc_initialized;
 
-enum {
-    adc_num_debounce_history = 3
-};
-
-// updated every tick
-static
-volatile uint16 adc_result[adc_num_channel];  // 0..4095
-
-// updated every "debouncing" tick, the rate is determined by timer_isr()
-static
-volatile uint16 adc_debounce[adc_num_channel][adc_num_debounce_history];
-
-// indexes into adc_debounce: adc_debounce[ch][adc_debounce_set].
-static
-int adc_debounce_set;
-
-
 // poll the analog-to-digital converters
 void
-adc_timer_poll(bool debouncing)
+adc_timer_poll(void)
 {
     int i;
 
@@ -33,24 +16,14 @@ adc_timer_poll(bool debouncing)
         return;
     }
 
-    assert(adc_debounce_set < adc_num_debounce_history);
-
+    // drain the previous scan's results; nothing consumes them, but the SFR reads are kept as-is.
     for (i = 0; i < adc_num_channel; i++) {
         // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound): ADCDATA12..19 are SFRs 16 bytes apart, not one object
-        adc_result[i] = ReadADC10(i);  // 0..4095
-        if (debouncing) {
-            adc_debounce[i][adc_debounce_set] = adc_result[i];
-        }
+        (void)ReadADC10(i);
     }
 
     // trigger adc scan now
     ADCCON3bits.GSWTRG = 1;
-
-
-    // if a debounced set if full, then advance the debouncing index to the next set.
-    if (debouncing && ++adc_debounce_set >= adc_num_debounce_history) {
-        adc_debounce_set = 0;
-    }
 }
 
 void

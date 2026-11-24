@@ -5,7 +5,7 @@ enum {
 };
 
 void
-adc_timer_poll(bool debouncing);
+adc_timer_poll(void);
 
 void
 adc_sleep(void);

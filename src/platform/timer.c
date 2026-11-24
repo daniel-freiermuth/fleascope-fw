@@ -24,8 +24,6 @@ void
 __ISR(_TIMER_1_VECTOR, PIC32IPL4)
 timer_isr(void)
 {
-    bool debouncing;
-
     assert(! timer_in_isr);
     debug_only(timer_in_isr = true);
     debug_only(timer_in_ticks = ticks);
@@ -40,9 +38,7 @@ timer_isr(void)
         msecs++;
         msecs_in_second++;
 
-        debouncing = (msecs & (msecs_per_debounce - 1)) == 0;
-
-        if (debouncing) {
+        if ((msecs & (msecs_per_debounce - 1)) == 0) {
             // poll debounced digital inputs.
             pin_timer_poll();
         }
@@ -61,13 +57,10 @@ timer_isr(void)
             // poll the LEDs 8 times a second
             led_timer_poll();
         }
-
-    } else {
-        debouncing = false;
     }
 
-    // poll the adc to occasionally record debouncing data and to record adc data every tick.
-    adc_timer_poll(debouncing);
+    // retrigger the shared adc scan every tick.
+    adc_timer_poll();
 
     assert(timer_in_isr);
     debug_only(timer_in_isr = false);
