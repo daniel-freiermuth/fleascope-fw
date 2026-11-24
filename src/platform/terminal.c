@@ -32,6 +32,38 @@ static char tail[BASIC_INPUT_LINE_SIZE];
 // terminal_poll().
 static char echo[BASIC_INPUT_LINE_SIZE*2];
 
+// where the screen's cursor was in the line when echo was last empty
+static int echo_origin;
+
+// a piece of echo did not fit: the rest of the packet's echo is dropped and
+// the line is redrawn by echo_redraw() once the packet is done
+static bool echo_lost;
+
+// queue s[0..n) to be echoed. keys that arrive before terminal_poll() runs
+// can queue more than echo holds; then this piece and every later one is
+// dropped, so the screen never shows a line the command does not hold.
+static void
+echo_addn(const char *s, size_t n)
+{
+    size_t len = strlen(echo);
+
+    if (echo_lost) {
+        return;
+    }
+    if (len + n < sizeof(echo)) {
+        memcpy(echo+len, s, n);
+        echo[len+n] = '\0';
+    } else {
+        echo_lost = true;
+    }
+}
+
+static void
+echo_add(const char *s)
+{
+    echo_addn(s, strlen(s));
+}
+
 void
 terminal_print(const byte *buffer, int length)
 {
@@ -92,6 +124,31 @@ static const struct keycode keycodes[] = {
 #define KEY_DELETE  "\033[P"
 #define KEY_CLEAR  "\033[K"
 
+// replace the queued echo with a redraw of the whole line, after echo_lost.
+// none of echo has reached the screen, so it still shows the line as it was
+// at echo_origin. the redraw is at most 5+3+71+5 bytes, so it always fits.
+// end leaves the cursor at the end of the line, as Enter does.
+static void
+echo_redraw(bool end)
+{
+    char seq[16];
+    int len;
+
+    echo[0] = '\0';
+    echo_lost = false;
+    if (echo_origin) {
+        snprintf(seq, sizeof(seq), KEYS_LEFT, echo_origin);
+        echo_add(seq);
+    }
+    echo_add(KEY_CLEAR);
+    echo_add(command);
+    len = (int)strlen(command);
+    if (! end && len != cursor) {
+        snprintf(seq, sizeof(seq), KEYS_LEFT, len-cursor);
+        echo_add(seq);
+    }
+}
+
 // this function implements the command line editing functionality
 // of the console, by accumulating one character at a time from the
 // console.
@@ -101,7 +158,7 @@ accumulate(char c)
 {
     int i;
     int n;
-    char *p;
+    char seq[16];
     int orig;
     int again;
 
@@ -109,12 +166,11 @@ accumulate(char c)
 
     if (c == '\003' || c == '\025') { // Clear line on ctrl-c or ctrl-u.
         if (cursor) {
-            sprintf(echo+strlen(echo), KEYS_LEFT, cursor);
-            assert(strlen(echo) < sizeof(echo));
+            snprintf(seq, sizeof(seq), KEYS_LEFT, cursor);
+            echo_add(seq);
             cursor = 0;
         }
-        strcat(echo, KEY_CLEAR);
-        assert(strlen(echo) < sizeof(echo));
+        echo_add(KEY_CLEAR);
         command[0] = '\0';
         ki = 0;
         return;
@@ -140,15 +196,13 @@ accumulate(char c)
                 switch (keycodes[i].code) {
                     case KEY_RIGHT:
                         if ((size_t)cursor < strlen(command)) {
-                            strcat(echo, keycodes[KEY_RIGHT].keys);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_add(keycodes[KEY_RIGHT].keys);
                             cursor++;
                         }
                         break;
                     case KEY_LEFT:
                         if (cursor) {
-                            strcat(echo, keycodes[KEY_LEFT].keys);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_add(keycodes[KEY_LEFT].keys);
                             cursor--;
                         }
                         break;
@@ -177,49 +231,44 @@ accumulate(char c)
                         }
                         if (n != NHIST) {
                             if (cursor) {
-                                sprintf(echo+strlen(echo), KEYS_LEFT, cursor);
-                                assert(strlen(echo) < sizeof(echo));
+                                snprintf(seq, sizeof(seq), KEYS_LEFT, cursor);
+                                echo_add(seq);
                                 cursor = 0;
                             }
-                            strcat(echo, KEY_CLEAR);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_add(KEY_CLEAR);
                             strcpy(command, history[hist_out]);
 
                             // reprint the line
-                            strcat(echo, command);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_add(command);
                             cursor = (int)strlen(command);
                         }
                         break;
                     case KEY_HOME:
                         if (cursor) {
-                            sprintf(echo+strlen(echo), KEYS_LEFT, cursor);
-                            assert(strlen(echo) < sizeof(echo));
+                            snprintf(seq, sizeof(seq), KEYS_LEFT, cursor);
+                            echo_add(seq);
                             cursor = 0;
                         }
                         break;
                     case KEY_END:
                         if ((int)strlen(command) != cursor) {
-                            sprintf(echo+strlen(echo), KEYS_RIGHT, (int)strlen(command)-cursor);
-                            assert(strlen(echo) < sizeof(echo));
+                            snprintf(seq, sizeof(seq), KEYS_RIGHT, (int)strlen(command)-cursor);
+                            echo_add(seq);
                             cursor = (int)strlen(command);
                         }
                         break;
                     case KEY_BS_DEL:
                     case KEY_BS:
                         if (cursor) {
-                            strcat(echo, keycodes[KEY_LEFT].keys);
-                            assert(strlen(echo) < sizeof(echo));
-                            strcat(echo, KEY_DELETE);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_add(keycodes[KEY_LEFT].keys);
+                            echo_add(KEY_DELETE);
                             cursor--;
                             memmove(command+cursor, command+cursor+1, sizeof(command)-(size_t)cursor-1);
                         }
                         break;
                     case KEY_DEL:
                         if (command[cursor]) {
-                            strcat(echo, KEY_DELETE);
-                            assert(strlen(echo) < sizeof(echo));
+                            echo_add(KEY_DELETE);
                             memmove(command+cursor, command+cursor+1, sizeof(command)-(size_t)cursor-1);
                         }
                         break;
@@ -257,9 +306,7 @@ accumulate(char c)
 
         if (cursor > orig) {
             // print the new characters
-            p = strchr(echo, '\0');
-            strncpy(p, command+orig, (size_t)(cursor-orig));
-            p[cursor-orig] = '\0';
+            echo_addn(command+orig, (size_t)(cursor-orig));
 
             // N.B. the remainder of the line still needs to be reprinted!
             strcpy(tail, command+cursor);
@@ -277,6 +324,7 @@ terminal_receive_internal(byte *buffer, int length)
     int i;
     int j;
     char c;
+    char seq[16];
     static byte term;
 
     led_unknown_progress();
@@ -316,9 +364,11 @@ terminal_receive_internal(byte *buffer, int length)
         if (! discard) {
             if (buffer[j] == '\r') {
                 // this is a delayed reprint
-                strcat(echo, tail);
-                assert(strlen(echo) < sizeof(echo));
+                echo_add(tail);
                 tail[0] = '\0';
+                if (echo_lost) {
+                    echo_redraw(true);
+                }
 
                 if (strcmp(history[HISTWRAP(hist_in-1)], command) != 0) {
                     strcpy(history[hist_in], command);
@@ -342,16 +392,18 @@ terminal_receive_internal(byte *buffer, int length)
     }
 
     // this is a delayed reprint
-    strcat(echo, tail);
-    assert(strlen(echo) < sizeof(echo));
+    echo_add(tail);
 
     // and back the cursor up
     if (strlen(tail)) {
-        sprintf(echo+strlen(echo), KEYS_LEFT, (int)strlen(tail));
-        assert(strlen(echo) < sizeof(echo));
+        snprintf(seq, sizeof(seq), KEYS_LEFT, (int)strlen(tail));
+        echo_add(seq);
     }
 
     tail[0] = '\0';
+    if (echo_lost) {
+        echo_redraw(false);
+    }
 
     return true;
 }
@@ -388,6 +440,7 @@ terminal_command_ack(bool edit)
         printf("%s", command);
         cursor = (int)strlen(command);
     }
+    echo_origin = cursor;
 
     // if we had extra left over from last time...
     if (extra[0]) {
@@ -468,6 +521,7 @@ terminal_poll(void)
     strcpy(copy, echo);
     assert(strlen(copy) < sizeof(copy));
     echo[0] = '\0';
+    echo_origin = cursor;
     splx(x);
 
     if (terminal_echo && copy[0]) {
