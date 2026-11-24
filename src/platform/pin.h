@@ -1,11 +1,5 @@
 // *** pin.h **********************************************************
 
-#define MAX_UARTS  2
-
-#define UART_INTS  (2*MAX_UARTS)
-
-#define UART_INT(uart, output)  ((uart)*2+(output))
-
 // assigned pins
 
 enum pin_assignment {  // XXX -- should we allow skeleton to extend this?
@@ -83,10 +77,6 @@ extern const struct pin {
     uint16 pin_type_mask;
 } pins[];  // indexed by pin_number
 
-extern const char * const uart_names[MAX_UARTS];
-
-extern bool uart_armed[UART_INTS];
-
 
 // this function declares a pin variable!
 void
@@ -99,25 +89,6 @@ pin_set(IN int pin_number, IN int pin_type, IN int pin_qual, IN int32 value);
 // this function gets a pin variable!
 int32
 pin_get(IN int pin_number, IN int pin_type, IN int pin_qual);
-
-
-void
-pin_uart_configure(int uart, int baud, int data, byte parity, bool loopback);
-
-bool
-pin_uart_tx_ready(int uart);
-
-bool
-pin_uart_tx_empty(int uart);
-
-bool
-pin_uart_rx_ready(int uart);
-
-void
-pin_uart_tx(int uart, byte value);
-
-byte
-pin_uart_rx(int uart);
 
 
 void
