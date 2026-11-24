@@ -54,6 +54,11 @@ All notable changes to the firmware are documented here.
   stopped receiving from the host: `stream` and `scope` with an edge or level trigger that never
   fired ran until a USB reset. That line is now discarded like everything else sent during a
   capture.
+- **A 31-character `hostname` no longer stalls the USB product string.** Its descriptor is
+  exactly 64 bytes, one full EP0 packet; the IN data stage never sent the zero-length packet
+  that ends a full-packet reply shorter than the host asked for, so the host's string read
+  (e.g. Linux, with wLength 255) NAKed until its control timeout. `usb_isr` now sends that
+  packet for any EP0 IN data stage ending on a packet boundary.
 
 ---
 

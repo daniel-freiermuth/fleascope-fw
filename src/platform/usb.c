@@ -464,6 +464,10 @@ XXX_SKIP2_XXX:;
                     if (endpoints[endpoint].data_offset != endpoints[endpoint].data_length) {
                         // send it
                         usb_device_enqueue(0, 1, endpoints[endpoint].data_buffer+endpoints[endpoint].data_offset, endpoints[endpoint].data_length-endpoints[endpoint].data_offset);
+                    } else if (bc == endpoints[endpoint].packetsize && endpoints[endpoint].data_length < TF_LITTLE(setup_buffer.length)) {
+                        // the data ended on a packet boundary but is shorter than
+                        // the host asked for; end it with a zero length packet
+                        usb_device_enqueue(0, 1, endpoints[endpoint].data_buffer+endpoints[endpoint].data_offset, 0);
                     } else {
                         // status uses data1
                         assert(endpoints[endpoint].toggle[0] == BD_FLAGS_DATA);
