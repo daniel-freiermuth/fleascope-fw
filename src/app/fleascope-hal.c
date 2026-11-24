@@ -498,3 +498,25 @@ void start_T3(void)
 {
     T3CONSET = _T3CON_ON_MASK;
 }
+
+// enable adc dma and all 5 interleaved adcs; dma first so no result is missed
+void enable_adc_dma(void)
+{
+    ADCDSTATbits.DMAEN = 1;
+    ADCCON3bits.DIGEN0 = 1;      // Enable ADC
+    ADCCON3bits.DIGEN1 = 1;      // Enable ADC
+    ADCCON3bits.DIGEN2 = 1;      // Enable ADC
+    ADCCON3bits.DIGEN3 = 1;      // Enable ADC
+    ADCCON3bits.DIGEN4 = 1;      // Enable ADC
+}
+
+// reverse of enable_adc_dma: stop the adcs, then their dma
+void disable_adc_dma(void)
+{
+    ADCCON3bits.DIGEN0 = 0;      // Disable ADC
+    ADCCON3bits.DIGEN1 = 0;      // Disable ADC
+    ADCCON3bits.DIGEN2 = 0;      // Disable ADC
+    ADCCON3bits.DIGEN3 = 0;      // Disable ADC
+    ADCCON3bits.DIGEN4 = 0;      // Disable ADC
+    ADCDSTATbits.DMAEN = 0;
+}
