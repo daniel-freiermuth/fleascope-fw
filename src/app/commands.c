@@ -10,6 +10,8 @@
 //
 // after each command line comes "> " (prompt on) or "done\n" (prompt off).
 
+#include <limits.h>
+
 #include "main.h"
 
 char *volatile main_command;
@@ -63,30 +65,47 @@ static bool
 parse_const(const char **text, int *value_out)
 {
     int value;
+    int digit;
+    bool overflow;
     char c;
 
     if (! isdigit((*text)[0])) {
         return false;
     }
     value = 0;
+    overflow = false;
     if ((*text)[0] == '0' && (*text)[1] == 'x') {
         *text += 2;
         for (;;) {
             c = (*text)[0];
             if (c >= 'a' && c <= 'f') {
-                value = value*16 + 10 + c - 'a';
+                digit = 10 + c - 'a';
             } else if (isdigit(c)) {
-                value = value*16 + c - '0';
+                digit = c - '0';
             } else {
                 break;
+            }
+            if (value > (INT_MAX - digit)/16) {
+                overflow = true;
+            } else {
+                value = value*16 + digit;
             }
             (*text)++;
         }
     } else {
         while (isdigit((*text)[0])) {
-            value = value*10 + (*text)[0] - '0';
+            digit = (*text)[0] - '0';
+            if (value > (INT_MAX - digit)/10) {
+                overflow = true;
+            } else {
+                value = value*10 + digit;
+            }
             (*text)++;
         }
+    }
+    if (overflow) {
+        // the caret goes after the number, as for an out-of-range value
+        return false;
     }
     *value_out = value;
     parse_trim(text);
