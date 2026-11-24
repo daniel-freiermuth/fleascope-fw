@@ -372,8 +372,7 @@ void scope(int sample_length, TriggerEdge edge, TriggerChannel channel, int trig
 
     run_stop = 1;
     main_command = NULL;
-    terminal_command_ack(false);
-    terminal_command_discard(true);
+    terminal_command_ack_discard();
 
     prepare_dma_scope();
 

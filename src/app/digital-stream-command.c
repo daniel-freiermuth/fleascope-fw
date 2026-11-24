@@ -144,8 +144,7 @@ digital_stream(int channel_mask, int us_per_sample, int n_samples_per_packet)
 
     run_stop = 1;
     main_command = NULL;
-    terminal_command_ack(false);
-    terminal_command_discard(true);
+    terminal_command_ack_discard();
 
     set_capturing_pin(true);
 

@@ -16,6 +16,9 @@ void
 terminal_command_ack(bool edit);
 
 void
+terminal_command_ack_discard(void);
+
+void
 terminal_command_error(int offset);
 
 void

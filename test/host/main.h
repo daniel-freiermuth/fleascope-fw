@@ -3,8 +3,9 @@
 // include "main.h" are compiled for the unit tests (test/host comes first on
 // the include path). It provides only what those modules use. Flash lives
 // in an array the test owns, so FLASH_START is its address; the sizes come
-// from the firmware's config.h. The usb driver, timer and interrupt level
-// functions declared here are faked by the tests that need them.
+// from the firmware's config.h. The usb driver, timer, interrupt level and
+// led functions declared here are faked by the tests that need them (e.g.
+// cdcacm_command_ack() for terminal.c).
 //
 // Host builds are the debug configuration: SODEBUG code is compiled and
 // assert() is <assert.h>'s, so a broken invariant aborts the test.
@@ -13,9 +14,11 @@
 #define MAIN_INCLUDED  1
 
 #include <assert.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #define SODEBUG  1
@@ -32,6 +35,9 @@ typedef uintptr_t uintptr;
 #define CASSERT(predicate)  _Static_assert(predicate, #predicate)
 #define MIN(a, b)  ((a) < (b) ? (a) : (b))
 #define ASSERT(x)  assert(x)
+#define os_yield()  // NULL
+
+#define BASIC_INPUT_LINE_SIZE  72
 
 #include "../../src/config.h"
 
@@ -43,7 +49,10 @@ extern byte *const host_flash;
 #include "params.h"
 #include "../../src/platform/flash.h"
 
-// util.h and timer.h, as far as the host-built modules use them
+// util.h, timer.h and led.h, as far as the host-built modules use them
+#define SPL_USB  4
+#define SPL_IRQ4  4
+
 int
 gpl(void);
 
@@ -55,7 +64,11 @@ delay(int32 ms);
 
 extern volatile int32 msecs;
 
+void
+led_unknown_progress(void);
+
 #include "usb.h"
+#include "terminal.h"
 #include "cdcacm.h"
 
 #endif
