@@ -11,6 +11,10 @@ All notable changes to the firmware are documented here.
   waveform untouched; before, any nonzero frequency up to 10 MHz but outside the shape's range
   (square 10 Hz – 4 MHz, sine/triangle/ekg 2 Hz – 40 kHz) silently stopped the generator.
   `wave <shape> 0` still stops it.
+- **`stream` no longer lights the red "waiting for trigger" LED (e3) or makes pins a0–a8 low
+  outputs.** Both were left over from `scope`'s setup; `stream` has no trigger and never uses
+  a0–a8. While streaming only the green LED (e2) is on, as with `digital_stream`, and a0–a8
+  keep their previous state.
 - GitLab `test:host` runs on the `gcc:16` image (was `gcc:14`).
 - **CI:** the GitHub `build`, `test` and `release` workflows run on `ubuntu-26.04` and
   GitLab's `build:pic32` on `ubuntu:26.04` (Resolute Raccoon), up from 24.04.

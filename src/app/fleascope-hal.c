@@ -210,8 +210,8 @@ scope_initialize(void)
     CNPUB = 0x0080;             // enable pullup only for a0(not AN0)/RB7
 
     // Let the pull-up charge the pin before reading it. Two Nop()s (17 ns)
-    // were not enough when a0 starts at 0 V: scope and stream drive it low as
-    // an output, so a reset or upgrade right after a capture read it as
+    // were not enough when a0 starts at 0 V: scope drives it low as an
+    // output, so a reset or upgrade right after a capture read it as
     // grounded and came up in WinUSB mode, without a serial port. 1 ms is far
     // longer than the pull-up needs. Interrupts are still off here, so delay()
     // busy-waits with the loop count main() just calibrated.

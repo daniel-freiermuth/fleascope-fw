@@ -101,7 +101,7 @@ without `0x` (`0`–`1ff`):
 After Ctrl-C nothing is printed but the prompt. If `interval` is above the
 maximum the reply is `sample interval too large (max 31457)`.
 
-`scope` (like `stream`) makes the general-purpose pins a0–a8 low outputs, and
+`scope` makes the general-purpose pins a0–a8 low outputs, and
 they stay so after the command ends, until reset.
 If pin s1 is held low, each of them is pulsed once after the trigger (a test
 pattern for a loopback from a* to b*). Pin e3 is high while waiting for the
@@ -128,7 +128,8 @@ after Ctrl-C.
   [*n*·`bitwidth`, (*n*+1)·`bitwidth`) of the stream, bit 0 of each byte
   first. With `bitwidth` 16 every sample is a little-endian 16-bit word.
 - Bits that do not fill a byte when the stream stops are dropped.
-- Like `scope`, `stream` leaves pins a0–a8 as low outputs until reset.
+- Pin e2 is high while streaming; e3 stays low. Pins a0–a8 are left as they
+  are.
 
 USB Full Speed bulk transfers carry at most 1216 kB/s by the specification
 (19 packets of 64 bytes per 1 ms frame); measured with a Linux host, `stream`
