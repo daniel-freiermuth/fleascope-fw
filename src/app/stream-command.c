@@ -86,41 +86,11 @@ static void setup_capture_timer(uint t) {
 
     // configure adc trigger output compares
 
-    // use 20% of T3 trigger for adc0
-    OC1CONbits.ON = 0;
-    while(OC1CONbits.ON);
-    OC1CONbits.OCTSEL = 1;  // timer 3
-    OC1CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC1R = 0;
-    OC1RS = 2;
-    OC1CONbits.ON = 1;
-
-    // use 40% of T3 trigger for adc1
-    OC2CONbits.ON = 0;
-    while(OC2CONbits.ON);
-    OC2CONbits.OCTSEL = 1;  // timer 3
-    OC2CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC2R = 0;
-    OC2RS = 2;
-    OC2CONbits.ON = 1;
-
-    // use 60% of T3 trigger for adc2
-    OC3CONbits.ON = 0;
-    while(OC3CONbits.ON);
-    OC3CONbits.OCTSEL = 1;  // timer 3
-    OC3CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC3R = 0;
-    OC3RS = 2;
-    OC3CONbits.ON = 1;
-
-    // use 80% of T3 trigger for adc3
-    OC4CONbits.ON = 0;
-    while(OC4CONbits.ON);
-    OC4CONbits.OCTSEL = 1;  // timer 3
-    OC4CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC4R = 0;
-    OC4RS = 2;
-    OC4CONbits.ON = 1;
+    // use 20%, 40%, 60%, 80% of T3 trigger for adc0..adc3
+    OC_PULSE_T3(1, 0, 2, while(OC1CONbits.ON));
+    OC_PULSE_T3(2, 0, 2, while(OC2CONbits.ON));
+    OC_PULSE_T3(3, 0, 2, while(OC3CONbits.ON));
+    OC_PULSE_T3(4, 0, 2, while(OC4CONbits.ON));
 }
 
 // prepare for DMA to capture samples imminently -- THIS IS EVERYTHING EXCEPT "T3CONSET = _T3CON_ON_MASK;"
