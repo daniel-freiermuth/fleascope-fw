@@ -1,7 +1,5 @@
 // *** pin.h **********************************************************
 
-extern int servo_hz;
-
 #define MAX_UARTS  2
 
 #define UART_INTS  (2*MAX_UARTS)
@@ -38,19 +36,13 @@ enum pin_type {  // XXX -- should we allow skeleton to extend this?
     pin_type_last
 };
 
-extern const char * const pin_type_names[];
-
-// up to 8 bits.  keep in-sync with pin_qual_names.
+// up to 8 bits
 enum pin_qual {  // XXX -- should we allow skeleton to extend this?
     pin_qual_debounced,
     pin_qual_inverted,
     pin_qual_open_drain,
     pin_qual_last
 };
-
-extern const byte pin_qual_mask[];
-
-extern const char * const pin_qual_names[];
 
 // N.B. pins marked with *** may affect zigflea or other system operation
 enum pin_number {  // skeleton may extend this
