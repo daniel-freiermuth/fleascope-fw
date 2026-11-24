@@ -30,6 +30,12 @@ All notable changes to the firmware are documented here.
   `adc_debounce`, `adc_debounce_set`) and the `debouncing` argument of `adc_timer_poll()`;
   nothing read them after `adc_get_value()` went. The per-tick ADCDATA12–19 reads and the
   GSWTRG scan trigger are unchanged.
+- The unused pin qualifiers: `pin_declare`, `pin_set` and `pin_get` lose their `pin_qual`
+  argument (every caller passed 0), and with it the inverted, open-drain and debounced paths,
+  `enum pin_qual`, `pin_get_digital_debounced()` and the debounce history that
+  `pin_timer_poll()` sampled from ports A–G every 4 ms in the timer interrupt, plus the
+  `msecs_per_debounce` tick that scheduled it. The timer interrupt no longer reads those ports;
+  pin register writes and reads are unchanged.
 
 ---
 

@@ -29,7 +29,7 @@ led_set(enum led n, int on)  // NOLINT(misc-no-recursion): only via a failed ass
     (void)n;  // only checked by assert()
     assert (n >= 0 && n < led_max);
 
-    pin_set(pin_assignments[pin_assignment_heartbeat], pin_type_digital_output, 0, on);
+    pin_set(pin_assignments[pin_assignment_heartbeat], pin_type_digital_output, on);
 }
 
 void
@@ -143,6 +143,6 @@ void
 led_initialize(void)
 {
     pin_assign(pin_assignment_heartbeat, pin_assignments[pin_assignment_heartbeat]);
-    pin_set(pin_assignments[pin_assignment_heartbeat], pin_type_digital_output, 0, true);
+    pin_set(pin_assignments[pin_assignment_heartbeat], pin_type_digital_output, true);
 }
 

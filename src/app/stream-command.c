@@ -41,18 +41,18 @@ setup_board_stream(void)
     configure_pmd_once();
     
     // Setup pins
-    pin_declare(PIN_A0, pin_type_digital_output, 0);
-    pin_declare(PIN_A1, pin_type_digital_output, 0);
-    pin_declare(PIN_A2, pin_type_digital_output, 0);
-    pin_declare(PIN_A3, pin_type_digital_output, 0);
-    pin_declare(PIN_A4, pin_type_digital_output, 0);
-    pin_declare(PIN_A5, pin_type_digital_output, 0);
-    pin_declare(PIN_A6, pin_type_digital_output, 0);
-    pin_declare(PIN_A7, pin_type_digital_output, 0);
-    pin_declare(PIN_A8, pin_type_digital_output, 0);
+    pin_declare(PIN_A0, pin_type_digital_output);
+    pin_declare(PIN_A1, pin_type_digital_output);
+    pin_declare(PIN_A2, pin_type_digital_output);
+    pin_declare(PIN_A3, pin_type_digital_output);
+    pin_declare(PIN_A4, pin_type_digital_output);
+    pin_declare(PIN_A5, pin_type_digital_output);
+    pin_declare(PIN_A6, pin_type_digital_output);
+    pin_declare(PIN_A7, pin_type_digital_output);
+    pin_declare(PIN_A8, pin_type_digital_output);
 
-    pin_declare(PIN_E2, pin_type_digital_output, 0);
-    pin_declare(PIN_E3, pin_type_digital_output, 0);
+    pin_declare(PIN_E2, pin_type_digital_output);
+    pin_declare(PIN_E3, pin_type_digital_output);
 
     set_waiting_pin(true);  // we are waiting for trigger
     set_capturing_pin(false);  // we are waiting for trigger

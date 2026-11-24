@@ -473,18 +473,18 @@ wave(WaveShape shape, int hz)
 void set_capturing_pin(bool capturing)
 {
     if (capturing) {
-        pin_set(PIN_E2, pin_type_digital_output, 0, 1);
+        pin_set(PIN_E2, pin_type_digital_output, 1);
     } else {
-        pin_set(PIN_E2, pin_type_digital_output, 0, 0);
+        pin_set(PIN_E2, pin_type_digital_output, 0);
     }
 }
 
 void set_waiting_pin(bool waiting)
 {
     if (waiting) {
-        pin_set(PIN_E3, pin_type_digital_output, 0, 1);
+        pin_set(PIN_E3, pin_type_digital_output, 1);
     } else {
-        pin_set(PIN_E3, pin_type_digital_output, 0, 0);
+        pin_set(PIN_E3, pin_type_digital_output, 0);
     }
 }
 
