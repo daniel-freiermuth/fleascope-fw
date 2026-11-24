@@ -49,13 +49,14 @@ led_timer_poll(void)
 }
 
 
-// this function displays a diagnostic code on a LED.
+// this function displays a diagnostic code on a LED, forever, one blink group
+// per digit of value in the given base, starting from top_divisor.
+static
 void
-led_line(int line)  // NOLINT(misc-no-recursion): led_set(led_red, ...) passes its assert(), so it does not recurse back
+led_blink_code(int value, int base, int top_divisor)  // NOLINT(misc-no-recursion): led_set(led_red, ...) passes its assert(), so it does not recurse back
 {
     int i;
     int j;
-    int n;
     int inv;
 
     if (debugger_attached) {
@@ -63,19 +64,15 @@ led_line(int line)  // NOLINT(misc-no-recursion): led_set(led_red, ...) passes i
     } else {
         splx(7);
 
-        n = 0;
         inv = 0;
         for (;;) {
-            if (n++ >= 10) {
-            }
-
-            for (i = 1000; i > 0; i /= 10) {
-                if (line < i) {
+            for (i = top_divisor; i > 0; i /= base) {
+                if (value < i) {
                     continue;
                 }
-                j = (line/i)%10;
+                j = (value/i)%base;
                 if (! j) {
-                    j = 10;
+                    j = base;
                 }
                 while (j--) {
                     led_set(led_red, 1^inv);
@@ -93,48 +90,18 @@ led_line(int line)  // NOLINT(misc-no-recursion): led_set(led_red, ...) passes i
     }
 }
 
-// this function displays a diagnostic code on a LED.
+// this function displays a decimal diagnostic code on a LED.
+void
+led_line(int line)  // NOLINT(misc-no-recursion): led_set(led_red, ...) passes its assert(), so it does not recurse back
+{
+    led_blink_code(line, 10, 1000);
+}
+
+// this function displays a hexadecimal diagnostic code on a LED.
 void
 led_hex(int hex)
 {
-    int i;
-    int j;
-    int n;
-    int inv;
-
-    if (debugger_attached) {
-        asm_halt();
-    } else {
-        splx(7);
-
-        n = 0;
-        inv = 0;
-        for (;;) {
-            if (n++ >= 10) {
-            }
-
-            for (i = 0x10000000; i > 0; i /= 16) {
-                if (hex < i) {
-                    continue;
-                }
-                j = (hex/i)%16;
-                if (! j) {
-                    j = 16;
-                }
-                while (j--) {
-                    led_set(led_red, 1^inv);
-                    delay(200);
-                    led_set(led_red, 0^inv);
-                    delay(200);
-                }
-                delay(1000);
-            }
-            delay(3000);
-            inv = ! inv;
-            led_set(led_red, 0^inv);
-            delay(3000);
-        }
-    }
+    led_blink_code(hex, 16, 0x10000000);
 }
 
 
