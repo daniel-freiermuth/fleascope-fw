@@ -1,6 +1,6 @@
 // *** adc.c **********************************************************
-// this file polls the analog-to-digital converters coupled with the
-// an0-an7 pins when used in analog input mode.
+// this file sets up and polls the analog-to-digital converters coupled
+// with the a1-a8 pins (AN12-AN19).
 
 #include "main.h"
 
@@ -56,39 +56,6 @@ adc_timer_poll(bool debouncing)
 void
 adc_sleep(void)
 {
-}
-
-int
-adc_get_value(int offset, int pin_qual)
-{
-    uint32 value;
-
-    assert(offset < adc_num_channel);
-
-    if (pin_qual & 1<<pin_qual_debounced) {
-        unsigned int min, max, sum, i;
-        min = ~0U;
-        max = 0;
-        sum = 0;
-
-        // Need at least 3 samples to exclude min and max.
-        cassert(adc_num_debounce_history > 2);
-
-        for (i = 0; i < adc_num_debounce_history; i++) {
-            // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound): offset < adc_num_channel (asserted above; callers pass pin_to_an()), only the assert-failed path is out of bounds
-            min = MIN(min, adc_debounce[offset][i]);
-            max = MAX(max, adc_debounce[offset][i]);
-            sum += adc_debounce[offset][i];
-        }
-        value = (sum-min-max)/(adc_num_debounce_history-2);
-    } else {
-        // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound): offset < adc_num_channel (asserted above; callers pass pin_to_an()), only the assert-failed path is out of bounds
-        value = adc_result[offset];
-    }
-
-    value = value*(uint32)pin_analog/4096;
-
-    return (int)value;
 }
 
 // this function initializes the adc module.

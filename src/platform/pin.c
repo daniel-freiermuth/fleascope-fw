@@ -19,8 +19,6 @@ byte pin_assignments[pin_assignment_max] = {
 
 int pin_last = PIN_LAST;
 
-int32 pin_analog = 3300;
-
 static byte declared[(PIN_UNASSIGNED+7)/8];
 
 #define DIO  (1<<pin_type_digital_output|1<<pin_type_digital_input)
@@ -656,7 +654,6 @@ pin_initialize(void)
 {
     int i;
     int32 pin;
-    int32 analog;
 
     cassert(PIN_LAST <= PIN_MAX);
     cassert(pin_type_last < (sizeof(uint16)*8));
@@ -687,12 +684,6 @@ pin_initialize(void)
             pin_assignments[i] = (byte)pin;
         }
         pin_assign(i, pin_assignments[i]);
-    }
-
-    // set our analog level
-    analog = params_get(PARAM_ANALOG);
-    if (analog >= 1000 && analog <= 5000) {
-        pin_analog = analog;
     }
 }
 
