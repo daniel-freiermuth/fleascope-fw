@@ -404,6 +404,18 @@ terminal_command_ack(bool edit)
     cdcacm_command_ack();
 }
 
+// this function acknowledges a capture command's line and discards what
+// the host sends until terminal_command_discard(false), except Ctrl-C.
+// discard is set first, so a line that came in the same packet as the
+// capture's is dropped instead of becoming the next command, and the
+// endpoint is re-armed, so Ctrl-C reaches the capture.
+void
+terminal_command_ack_discard(void)
+{
+    discard = true;
+    terminal_command_ack(false);
+}
+
 // this function is called by upper level code in response to an
 // FTDI command error.
 void

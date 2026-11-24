@@ -229,8 +229,7 @@ void stream(uint timer_period_ticks, uint averaging, uint bitwidth)
 
     run_stop = 1;
     main_command = NULL;
-    terminal_command_ack(false);
-    terminal_command_discard(true);
+    terminal_command_ack_discard();
 
     prepare_dma();
 

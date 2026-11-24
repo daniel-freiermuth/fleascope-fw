@@ -37,6 +37,14 @@ All notable changes to the firmware are documented here.
   `msecs_per_debounce` tick that scheduled it. The timer interrupt no longer reads those ports;
   pin register writes and reads are unchanged.
 
+### Fixed
+- **Ctrl-C stops a capture when another line came in the same USB packet.** A complete
+  line after `scope`, `stream` or `digital_stream` in one packet (e.g. `scope 10 +512\recho off\r`,
+  or a pasted pair of lines) became the next command when the capture started, and the device
+  stopped receiving from the host: `stream` and `scope` with an edge or level trigger that never
+  fired ran until a USB reset. That line is now discarded like everything else sent during a
+  capture.
+
 ---
 
 ## [4.0.0] — 2026-11-23
