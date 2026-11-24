@@ -70,8 +70,6 @@ enum pin_number {  // skeleton may extend this
 
 extern int pin_last;
 
-extern int32 pin_analog;
-
 extern const struct pin {
     const char *name;
     uint16 pin_type_mask;
