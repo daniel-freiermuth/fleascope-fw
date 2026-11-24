@@ -15,6 +15,14 @@ All notable changes to the firmware are documented here.
 - **CI:** the GitHub `build`, `test` and `release` workflows run on `ubuntu-26.04` and
   GitLab's `build:pic32` on `ubuntu:26.04` (Resolute Raccoon), up from 24.04.
 
+### Removed
+- Unreachable pin modes in `src/platform/pin.c`: `pin_declare`, `pin_set` and `pin_get` handle
+  only digital input and output (every caller passes one of those); the analog, servo,
+  frequency and UART branches, the servo-rate and timer-sharing state and the unused
+  `pin_type_names`, `pin_qual_names` and `pin_qual_mask` tables are gone. So is the code only
+  those branches called: the `pin_uart_*` helpers and their state, `adc_get_value()` and the
+  `pin_analog` level loaded from the analog parameter. Digital pin behaviour is unchanged.
+
 ---
 
 ## [4.0.0] — 2026-11-23
