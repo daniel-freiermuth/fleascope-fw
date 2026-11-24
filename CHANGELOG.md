@@ -12,6 +12,8 @@ All notable changes to the firmware are documented here.
   (square 10 Hz – 4 MHz, sine/triangle/ekg 2 Hz – 40 kHz) silently stopped the generator.
   `wave <shape> 0` still stops it.
 - GitLab `test:host` runs on the `gcc:16` image (was `gcc:14`).
+- **CI:** the GitHub `build`, `test` and `release` workflows run on `ubuntu-26.04` and
+  GitLab's `build:pic32` on `ubuntu:26.04` (Resolute Raccoon), up from 24.04.
 
 ---
 
