@@ -3,91 +3,6 @@
 
 #include "main.h"
 
-void
-write32(byte *addr, uint32 data)
-{
-    *(addr+0) = (byte)(data & 0xff);
-    *(addr+1) = (byte)((data>>8) & 0xff);
-    *(addr+2) = (byte)((data>>16) & 0xff);
-    *(addr+3) = (byte)((data>>24) & 0xff);
-}
-
-uint32
-read32(const byte *addr)
-{
-    return (uint32)*(addr+3) << 24 |
-           (uint32)*(addr+2) << 16 |
-           (uint32)*(addr+1) << 8 |
-           (uint32)*(addr+0);
-}
-
-void
-write16(byte *addr, uint16 data)
-{
-    *(addr+0) = (byte)(data & 0xff);
-    *(addr+1) = (byte)((data>>8) & 0xff);
-}
-
-uint16
-read16(const byte *addr)
-{
-    return (uint16)(*(addr+1) << 8 |
-                    *(addr+0));
-}
-
-uint32
-read_n_bytes(int size, const volatile void *addr)
-{
-    switch (size) {
-        case 4:
-            return *(const volatile uint32 *)addr;
-        case 2:
-            return *(const volatile uint16 *)addr;
-        case 1:
-            return *(const volatile uint8 *)addr;
-        default:
-            assert(0);
-            return 0;
-    }
-}
-
-void
-write_n_bytes(int size, volatile void *addr, uint32 value)
-{
-    switch (size) {
-        case 4:
-            *(volatile uint32 *)addr = value;
-            break;
-        case 2:
-            *(volatile uint16 *)addr = (uint16)value;
-            break;
-        case 1:
-            *(volatile uint8 *)addr = (uint8)value;
-            break;
-        default:
-            assert(0);
-            break;
-    }
-}
-
-uint32
-byteswap(uint32 x, uint32 size)
-{
-    // byteswap all bytes of x within size
-    switch (size) {
-        case 4:
-            return ((x)&0xff)<<24|((x)&0xff00)<<8|((x)&0xff0000)>>8|((x)&0xff000000)>>24;
-        case 2:
-            return ((x)&0xff)<<8|((x)&0xff00)>>8;
-        case 1:
-            return (x)&0xff;
-        default:
-            assert(0);
-            break;
-    }
-    return x;
-}
-
 // return the current interrupt mask level
 int
 gpl(void)
@@ -207,18 +122,6 @@ get2hex(char **p)
     return v1*16+v0;
 }
 
-void
-tailtrim(char *text)
-{
-    char *p;
-
-    p = strchr(text, '\0');
-    while (p > text && isspace(*(p-1))) {
-        p--;
-    }
-    *p = '\0';
-}
-
 void *
 memcpy(void *d,  const void *s, size_t n)
 {
@@ -324,22 +227,6 @@ strcat(char *dest, const char *src)
 }
 
 char *
-strncat(char *dest, const char *src, size_t n)
-{
-    char *orig_dest = dest;
-
-    while (*dest) {
-        dest++;
-    }
-    while (n-- && *src) {
-        *(dest++) = *(src++);
-    }
-    *dest = '\0';
-
-    return orig_dest;
-}
-
-char *
 strcpy(char *dest, const char *src)
 {
     char *orig_dest = dest;
@@ -403,25 +290,6 @@ strncmp(const char *s1, const char *s2, size_t n)
 }
 
 char *
-strstr(const char *s1, const char *s2)
-{
-    int len;
-
-    len = (int)strlen(s2);
-    while (*s1) {
-        if (! strncmp(s1, s2, (size_t)len)) {
-// the C library signature returns a non-const pointer into a const string
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-qual"
-            return (char *)s1;
-#pragma GCC diagnostic pop
-        }
-        s1++;
-    }
-    return NULL;
-}
-
-char *
 strchr(const char *s, int c)
 {
 // the C library signature returns a non-const pointer into a const string
@@ -449,30 +317,6 @@ int
 isspace(int c)
 {
     return (c == ' ') || (c == '\f') || (c == '\n') || (c == '\r') || (c == '\t') || (c == '\v');
-}
-
-int
-isupper(int c)
-{
-    return (c >= 'A') && (c <= 'Z');
-}
-
-int
-islower(int c)
-{
-    return (c >= 'a') && (c <= 'z');
-}
-
-int
-isalpha(int c)
-{
-    return isupper(c) || islower(c);
-}
-
-int
-isalnum(int c)
-{
-    return isalpha(c) || isdigit(c);
 }
 
 int
