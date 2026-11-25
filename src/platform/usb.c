@@ -413,6 +413,9 @@ XXX_SKIP2_XXX:;
             } else {
                 if (setup->requesttype & 0x80/*in*/) {
                     // host wants to receive data, get it from our caller!
+                    // it goes out of data_buffer: never more than it holds,
+                    // whatever wLength the host sends
+                    length = (uint16)MIN(length, sizeof(endpoints[endpoint].data_buffer));
                     assert(control_transfer_cbfn);
                     rv = control_transfer_cbfn(setup, endpoints[endpoint].data_buffer, length);
                     assert(rv >= 0);
@@ -445,7 +448,8 @@ XXX_SKIP2_XXX:;
                 }
             }
             assert((unsigned)endpoint < LENGTHOF(endpoints));
-            assert((size_t)endpoints[endpoint].data_length <= sizeof(endpoints[endpoint].data_buffer));
+            // an OUT data stage longer than data_buffer is received and dropped
+            assert(endpoints[endpoint].data_pid == TOKEN_OUT || (size_t)endpoints[endpoint].data_length <= sizeof(endpoints[endpoint].data_buffer));
         } else if (! endpoint) {
             assert(pid == TOKEN_IN || pid == TOKEN_OUT);
             data = (byte *)TF_LITTLE((int)PA_TO_KVA((uintptr)bdt->buffer));
@@ -483,14 +487,21 @@ XXX_SKIP2_XXX:;
 
                     // if there's more data to receive...
                     if (endpoints[endpoint].data_offset != endpoints[endpoint].data_length) {
-                        // receive it
-                        usb_device_enqueue(0, 0, endpoints[endpoint].data_buffer+endpoints[endpoint].data_offset, endpoints[endpoint].data_length-endpoints[endpoint].data_offset);
+                        // receive it; data_buffer can't hold a longer data
+                        // stage, so its packets all go to the start of it
+                        if ((size_t)endpoints[endpoint].data_length <= sizeof(endpoints[endpoint].data_buffer)) {
+                            usb_device_enqueue(0, 0, endpoints[endpoint].data_buffer+endpoints[endpoint].data_offset, endpoints[endpoint].data_length-endpoints[endpoint].data_offset);
+                        } else {
+                            usb_device_enqueue(0, 0, endpoints[endpoint].data_buffer, endpoints[endpoint].data_length-endpoints[endpoint].data_offset);
+                        }
                     } else {
-                        // put it to our caller!
-                        assert(control_transfer_cbfn);
-                        rv = control_transfer_cbfn(&setup_buffer, endpoints[endpoint].data_buffer, endpoints[endpoint].data_length);
-                        assert(rv != -1);
-                        (void)rv;  // only checked by assert()
+                        // put it to our caller, unless it was dropped!
+                        if ((size_t)endpoints[endpoint].data_length <= sizeof(endpoints[endpoint].data_buffer)) {
+                            assert(control_transfer_cbfn);
+                            rv = control_transfer_cbfn(&setup_buffer, endpoints[endpoint].data_buffer, endpoints[endpoint].data_length);
+                            assert(rv != -1);
+                            (void)rv;  // only checked by assert()
+                        }
 
                         // status uses data1
                         assert(endpoints[endpoint].toggle[1] == BD_FLAGS_DATA);

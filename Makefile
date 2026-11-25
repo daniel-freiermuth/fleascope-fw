@@ -245,6 +245,10 @@ $(HOST_DIR)/%: test/unit/%.c $(HOST_LIB)
 	@mkdir -p $(@D)
 	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -o $@ $< $(HOST_LIB)
 
+# usb.c keeps buffer addresses in 32-bit ints, as on the PIC32: link its test
+# below 2 GiB (private: the archive's objects are shared with the other tests)
+$(HOST_DIR)/test_usb: private HOST_CFLAGS += -no-pie
+
 test: unit-test
 
 unit-test: $(UNIT_BINS)
