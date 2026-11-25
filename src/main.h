@@ -109,12 +109,9 @@ extern uint16 flash_checksum;
 
 extern byte *end_of_static;
 
-extern uint32 cpu_frequency;
 extern uint32 bus_frequency;
-extern uint32 oscillator_frequency;
 
 extern bool debugger_attached;
-extern byte big_buffer[768];
 
 // exception handlers, called by the XC32 startup code
 void
