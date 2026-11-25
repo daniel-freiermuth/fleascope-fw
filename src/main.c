@@ -93,13 +93,9 @@ uint16 flash_checksum;
 
 byte *end_of_static;
 
-uint32 cpu_frequency;
-uint32 oscillator_frequency;
 uint32 bus_frequency;
 
 bool debugger_attached;
-// N.B. big_buffer may not be aligned; it is up to the caller to align it if needed.
-byte big_buffer[768];
 
 // symbols defined by the XC32 linker script and startup code
 extern int (_ebase_address)(void);  // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp): XC32 symbol name
@@ -188,8 +184,6 @@ main(void)  // NOLINT(misc-use-internal-linkage): we're called directly by start
     //PB6DIV = 3;
     SYSKEY = 0;
 
-    cpu_frequency = 120000000;
-    oscillator_frequency = 12000000;
     bus_frequency = 120000000;
 
     end_of_static = (byte *)(uintptr)_on_bootstrap;
