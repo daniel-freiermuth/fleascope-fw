@@ -43,9 +43,6 @@ timer_isr(void)
         }
     }
 
-    // retrigger the shared adc scan every tick.
-    adc_timer_poll();
-
     assert(timer_in_isr);
     debug_only(timer_in_isr = false);
     debug_only(timer_out_ticks = ticks);

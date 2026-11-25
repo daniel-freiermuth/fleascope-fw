@@ -40,8 +40,13 @@ All notable changes to the firmware are documented here.
   `pin_analog` level loaded from the analog parameter. Digital pin behaviour is unchanged.
 - The write-only ADC result and debounce history in `src/platform/adc.c` (`adc_result`,
   `adc_debounce`, `adc_debounce_set`) and the `debouncing` argument of `adc_timer_poll()`;
-  nothing read them after `adc_get_value()` went. The per-tick ADCDATA12–19 reads and the
-  GSWTRG scan trigger are unchanged.
+  nothing read them after `adc_get_value()` went.
+- The shared ADC7 scan of AN12–AN19 (pins a1–a8): `adc_initialize()` no longer calibrates,
+  enables or configures ADC7 and its GSWTRG scan, and the timer interrupt no longer calls
+  `adc_timer_poll()`, which read ADCDATA12–19 into nothing and retriggered the scan every tick.
+  `adc_num_channel` and the `ReadADC10` macro go with it. Those pins are digital
+  (`ANSELE`/`ANSELG` cleared); the scope and stream captures on dedicated ADC0–4 keep the ADC
+  clock and timing setup from `adc_initialize()`.
 - The unused pin qualifiers: `pin_declare`, `pin_set` and `pin_get` lose their `pin_qual`
   argument (every caller passed 0), and with it the inverted, open-drain and debounced paths,
   `enum pin_qual`, `pin_get_digital_debounced()` and the debounce history that
