@@ -12,10 +12,8 @@ static volatile int32 timer_max_ticks;
 
 volatile int32 ticks;  // incremented by pit0 isr every tick
 volatile int32 msecs;  // incremented by pit0 isr every millisecond
-volatile int32 seconds;  // incremented by pit0 isr every second
 
 static volatile byte msecs_in_second;  // incremented by pit0 isr every millisecond
-static volatile byte eighths_in_second;  // incremented by pit0 isr 8 times per second
 
 // called by pit0 every tick
 void
@@ -39,13 +37,6 @@ timer_isr(void)
         // if an an eighth of a second has elapsed...
         if (msecs_in_second == 125) {
             msecs_in_second = 0;
-
-            eighths_in_second++;
-
-            // if a second has elapsed...
-            if ((eighths_in_second&7) == 0) {
-                seconds++;
-            }
 
             // poll the LEDs 8 times a second
             led_timer_poll();
