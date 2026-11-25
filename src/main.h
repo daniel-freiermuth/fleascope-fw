@@ -38,15 +38,9 @@ typedef unsigned char byte;
 typedef unsigned int uint;
 
 #define IN
-#define OUT
-#define OPTIONAL
-#define VARIABLE  1
 #define MIN(a, b)  ((a) < (b) ? (a) : (b))
 #define MAX(a, b)  ((a) > (b) ? (a) : (b))
-#define ROUNDUP(n, s)  (((n)+(s)-1)&~((s)-1))  // N.B. s must be power of 2!
-#define ROUNDDOWN(n, s)  ((n)&~((s)-1))  // N.B. s must be power of 2!
 #define LENGTHOF(a)  (sizeof(a)/sizeof((a)[0]))
-#define OFFSETOF(t, f)  ((int)(intptr)(&((t *)0)->f))
 #define IS_POWER_OF_2(x) ((((x)-1)&(x))==0)
 
 #define BASIC_OUTPUT_LINE_SIZE  79
@@ -103,7 +97,6 @@ typedef unsigned int uint;
 #endif
 #define assert_ram(x)  do { if (! (x)) { asm_halt(); } } while (0)
 #define ASSERT(x)  do { if (! (x)) { led_line(__LINE__); } } while (0)
-#define ASSERT_RAM(x)  do { if (! (x)) { asm_halt(); } } while (0)
 
 extern uint16 flash_checksum;
 
