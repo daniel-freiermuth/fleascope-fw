@@ -70,6 +70,22 @@ ctrlc_cbfn(void)
     ctrlcs++;
 }
 
+// terminal.c's own C library calls, standing in for libc's: copies back to
+// front, as a block or word-at-a-time copy may, so a source and destination
+// that overlap (undefined behavior for strncpy) shows up as a corrupted line
+char *
+strncpy(char *dst, const char *src, size_t n)
+{
+    size_t len = strnlen(src, n);
+    size_t i;
+
+    memset(dst+len, 0, n-len);
+    for (i = len; i > 0; i--) {
+        dst[i-1] = src[i-1];
+    }
+    return dst;
+}
+
 // one packet from the host, delivered by the USB isr; returns whether the
 // endpoint stays armed
 static bool
@@ -121,6 +137,28 @@ test_pipelined_lines_run_in_order(void)
     TEST_ASSERT_EQUAL_INT(1, acks);
 }
 
+// a line pipelined behind a shorter one reaches the command loop intact
+// (terminal_command_ack() parses the leftover from extra into extra)
+static void
+test_pipelined_line_longer_than_previous_is_intact(void)
+{
+    TEST_ASSERT_FALSE(host_sends("ver\rh\rhelp\r"));
+    TEST_ASSERT_EQUAL_STRING("ver", line);
+
+    terminal_command_ack(false);
+    TEST_ASSERT_EQUAL_INT(2, lines);
+    TEST_ASSERT_EQUAL_STRING("h", line);
+
+    terminal_command_ack(false);
+    TEST_ASSERT_EQUAL_INT(3, lines);
+    TEST_ASSERT_EQUAL_STRING("help", line);
+    TEST_ASSERT_EQUAL_INT(0, acks);
+
+    terminal_command_ack(false);
+    TEST_ASSERT_EQUAL_INT(3, lines);
+    TEST_ASSERT_EQUAL_INT(1, acks);
+}
+
 // a capture command (scope, stream, digital_stream) acks its line when it
 // starts; the line pipelined after it is discarded and the endpoint is
 // re-armed, so the host's Ctrl-C reaches the capture
@@ -155,5 +193,6 @@ main(void)
     UNITY_BEGIN();
     RUN_TEST(test_pipelined_lines_run_in_order);
     RUN_TEST(test_capture_rearms_endpoint_and_discards_pipelined_line);
+    RUN_TEST(test_pipelined_line_longer_than_previous_is_intact);
     return UNITY_END();
 }
