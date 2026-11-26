@@ -325,9 +325,10 @@ terminal_receive_internal(byte *buffer, int length)
                     hist_in = HISTWRAP(hist_in+1);
                 }
 
-                // save extra for later
+                // save extra for later; buffer is extra itself when
+                // terminal_command_ack() parses it, so the copy may overlap
                 assert(length >= j+1);
-                strncpy(extra, (char *)buffer+j+1, (size_t)(length-(j+1)));
+                memmove(extra, buffer+j+1, (size_t)(length-(j+1)));
                 extra[length-(j+1)] = '\0';
 
                 assert(command_cbfn);
