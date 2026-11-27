@@ -338,8 +338,9 @@ usb_isr(void)
                             assert(string_descriptor[j]);
                             endpoints[endpoint].data_length = MIN(string_descriptor[j], length);
                             memcpy(endpoints[endpoint].data_buffer, string_descriptor+j, (size_t)endpoints[endpoint].data_length);
-                            if (endpoints[endpoint].data_buffer[2] == '@' || endpoints[endpoint].data_buffer[2] == '#') {
-                                if (endpoints[endpoint].data_buffer[2] == '@') {
+                            // decide on the template, not data_buffer: a read shorter than 3 bytes copies no character
+                            if (string_descriptor[j] > 2 && (string_descriptor[j+2] == '@' || string_descriptor[j+2] == '#')) {
+                                if (string_descriptor[j+2] == '@') {
                                     // patch in the hostname
                                     p = params_get_name();
                                 } else {

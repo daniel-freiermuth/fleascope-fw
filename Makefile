@@ -245,6 +245,10 @@ $(HOST_DIR)/%: test/unit/%.c $(HOST_LIB)
 	@mkdir -p $(@D)
 	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -o $@ $< $(HOST_LIB)
 
+# usb.c keeps buffer addresses in 32-bit ints (PIC32 physical addresses); a
+# position-dependent executable has its static data below 2 GiB
+$(HOST_DIR)/test_usb: private HOST_CFLAGS += -fno-pie -no-pie
+
 test: unit-test
 
 unit-test: $(UNIT_BINS)
