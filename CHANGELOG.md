@@ -63,6 +63,15 @@ All notable changes to the firmware are documented here.
   were matched as prefixes, so `help aboutx` and `help about me` printed the banner and
   `wave square100` started a 100 Hz square wave; they now report a syntax error, as `ver`
   and `echo on x` already did. The caret for `echo onx`/`prompt onx` now points at `onx`.
+- **A `hostname` longer than 11 characters is no longer cut short in the USB product string.**
+  A string descriptor read of 1 or 2 bytes (the length probe macOS always sends, and Linux
+  falls back to) decided whether to substitute the hostname or serial number on a byte the read
+  had not copied, so the probe reported the template's length (24 for the product, 52 for the
+  serial number) and the host's follow-up read of that many bytes got only the hostname's first
+  11 characters. `usb_isr` now decides on the template itself; this also stops a probe of an
+  unrelated string from being replaced by the serial number when the previous reply left `#`
+  there. Covered by new host unit tests (`test/unit/test_usb.c`, `src/platform/usb.c` compiled
+  in with the USB module simulated).
 
 ---
 
