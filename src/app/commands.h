@@ -15,7 +15,8 @@ stop(void);
 void
 parse_trim(const char **text);
 
-// matches word as a prefix of *text and skips it and following spaces
+// matches word, ending at a space or the end of the line, at *text and skips
+// it and following spaces
 bool
 parse_word(const char **text, const char *word);
 

@@ -482,6 +482,10 @@ test_help(void)
 
     setUp();
     assert_error_at("help scope", 5);
+    setUp();
+    assert_error_at("help aboutx", 5);
+    setUp();
+    assert_error_at("help about me", 11);
 }
 
 // ---- echo, prompt ----------------------------------------------------------
@@ -509,7 +513,7 @@ test_mode(const char *name, bool *var)
     setUp();
     *var = false;
     snprintf(line, sizeof(line), "%s onx", name);
-    assert_error_at(line, (int)strlen(name)+3);
+    assert_error_at(line, (int)strlen(name)+1);
     setUp();
     *var = false;
     snprintf(line, sizeof(line), "%s on x", name);
@@ -581,6 +585,9 @@ test_wave_rejects_bad_syntax(void)
     assert_error_at("wave sine", 9);
     setUp();
     assert_error_at("wave sine 100 x", 14);
+    setUp();
+    assert_error_at("wave square100", 5);
+    TEST_ASSERT_EQUAL_INT(0, wave_rec.calls);
 }
 
 // ---- error offset ----------------------------------------------------------
