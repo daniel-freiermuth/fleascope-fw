@@ -50,7 +50,7 @@ parse_word(const char **text, const char *word)
     size_t len;
 
     len = strlen(word);
-    if (strncmp(*text, word, len) != 0) {
+    if (strncmp(*text, word, len) != 0 || ((*text)[len] && (*text)[len] != ' ' && (*text)[len] != '\t')) {
         return false;
     }
     *text += len;
@@ -341,7 +341,10 @@ run(const char *text_in)
         }
     } else if (parse_command(&text, "help")) {
         if (parse_word(&text, "about")) {
-            print_lines(help_about);
+            ok = ! *text;
+            if (ok) {
+                print_lines(help_about);
+            }
         } else if (! *text) {
             print_lines(help_commands);
         } else {

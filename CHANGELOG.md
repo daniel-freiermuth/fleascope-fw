@@ -59,6 +59,10 @@ All notable changes to the firmware are documented here.
   that ends a full-packet reply shorter than the host asked for, so the host's string read
   (e.g. Linux, with wLength 255) NAKed until its control timeout. `usb_isr` now sends that
   packet for any EP0 IN data stage ending on a packet boundary.
+- **`help about` and `wave` keywords must end at a space or the end of the line.** Keywords
+  were matched as prefixes, so `help aboutx` and `help about me` printed the banner and
+  `wave square100` started a 100 Hz square wave; they now report a syntax error, as `ver`
+  and `echo on x` already did. The caret for `echo onx`/`prompt onx` now points at `onx`.
 
 ---
 
