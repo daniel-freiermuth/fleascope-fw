@@ -63,6 +63,16 @@ All notable changes to the firmware are documented here.
   were matched as prefixes, so `help aboutx` and `help about me` printed the banner and
   `wave square100` started a 100 Hz square wave; they now report a syntax error, as `ver`
   and `echo on x` already did. The caret for `echo onx`/`prompt onx` now points at `onx`.
+- **A class or vendor control request with wLength over 80 no longer overwrites the serial
+  port's endpoint state.** `usb_isr` ran the data stage in EP0's 80-byte buffer for as many
+  bytes as the host asked: an OUT request of 128 bytes wrote its second packet over the
+  interrupt and bulk endpoints that follow it, and an IN request such as
+  GET_ENCAPSULATED_RESPONSE with wLength 255 had the callback clear 255 bytes and sent them
+  back. An IN reply is now at most 80 bytes; an OUT data stage longer than the buffer is
+  received in full, packet by packet into the start of the buffer, and dropped without calling
+  the class or vendor handler, so the status stage still runs and EP0 takes the next request.
+  Host unit tests in `test/unit/test_usb.c`, with `src/platform/usb.c` compiled against a
+  simulated USB controller.
 
 ---
 
