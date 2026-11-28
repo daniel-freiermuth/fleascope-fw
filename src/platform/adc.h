@@ -8,8 +8,5 @@ void
 adc_timer_poll(void);
 
 void
-adc_sleep(void);
-
-void
 adc_initialize(void);
 

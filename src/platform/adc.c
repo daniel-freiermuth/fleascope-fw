@@ -26,11 +26,6 @@ adc_timer_poll(void)
     ADCCON3bits.GSWTRG = 1;
 }
 
-void
-adc_sleep(void)
-{
-}
-
 // this function initializes the adc module.
 void
 adc_initialize(void)
