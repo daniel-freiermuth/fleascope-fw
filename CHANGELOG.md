@@ -69,6 +69,14 @@ All notable changes to the firmware are documented here.
   were matched as prefixes, so `help aboutx` and `help about me` printed the banner and
   `wave square100` started a 100 Hz square wave; they now report a syntax error, as `ver`
   and `echo on x` already did. The caret for `echo onx`/`prompt onx` now points at `onx`.
+- **Line-editing keys in one USB packet no longer overrun the echo buffer.** The echo of
+  history recalls (Up/Down), Backspace, Ctrl-C/Ctrl-U and typed text was appended to a
+  144-byte buffer from the USB interrupt with only debug `assert()`s; keys the host buffered
+  while the device was busy (e.g. three Up/Down recalls of 60-character lines) wrote past it
+  into the neighbouring variables, and `terminal_poll()` then copied the overlong string into a
+  144-byte stack array. When the echo would not fit before the main loop sends it, the device
+  now drops it and redraws the whole input line instead, so the terminal shows the line that
+  Enter runs.
 
 ---
 

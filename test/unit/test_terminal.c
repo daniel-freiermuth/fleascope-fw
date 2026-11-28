@@ -44,11 +44,53 @@ led_unknown_progress(void)
 {
 }
 
+// the host terminal's input line as the echo draws it: the VT100 sequences
+// terminal.c sends, with the cursor at col
+static char screen[BASIC_INPUT_LINE_SIZE*2];
+static int col;
+
 void
 cdcacm_print(const byte *buffer, int length)
 {
-    (void)buffer;
-    (void)length;
+    int i;
+    int n;
+
+    i = 0;
+    while (i < length) {
+        if (buffer[i] != '\033') {
+            TEST_ASSERT_LESS_THAN_INT((int)sizeof(screen)-1, col);
+            screen[col++] = (char)buffer[i++];
+            continue;
+        }
+        TEST_ASSERT_TRUE(i+2 < length && buffer[i+1] == '[');
+        i += 2;
+        n = 0;
+        while (i < length && isdigit(buffer[i])) {
+            n = n*10 + buffer[i++] - '0';
+        }
+        if (! n) {
+            n = 1;  // a missing or zero count is 1
+        }
+        TEST_ASSERT_TRUE(i < length);
+        switch (buffer[i++]) {
+            case 'C':
+                col += n;
+                break;
+            case 'D':
+                col -= n;
+                break;
+            case 'K':
+                memset(screen+col, 0, sizeof(screen)-(size_t)col);
+                break;
+            case 'P':
+                memmove(screen+col, screen+col+1, sizeof(screen)-(size_t)col-1);
+                break;
+            default:
+                TEST_FAIL_MESSAGE("unexpected escape sequence");
+                break;
+        }
+        TEST_ASSERT_TRUE(col >= 0 && col < (int)sizeof(screen)-1);
+    }
 }
 
 void
@@ -91,6 +133,8 @@ setUp(void)
 {
     terminal_register(command_cbfn, ctrlc_cbfn);
     terminal_echo = false;
+    cdcacm_attached = false;
+    cdcacm_active = false;
     acks = 0;
     lines = 0;
     line[0] = '\0';
@@ -149,11 +193,94 @@ test_capture_rearms_endpoint_and_discards_pipelined_line(void)
     TEST_ASSERT_EQUAL_INT(2, acks);
 }
 
+// echo from here on draws on screen, which starts as an empty input line
+static void
+start_echoing(void)
+{
+    // an empty input line, whatever earlier tests left (echo is off)
+    TEST_ASSERT_TRUE(host_sends("\025"));
+    terminal_poll();
+    terminal_echo = true;
+    cdcacm_attached = true;
+    cdcacm_active = true;
+    memset(screen, 0, sizeof(screen));
+    col = 0;
+}
+
+// one packet from the host, then the main loop echoes it
+static void
+host_types(const char *text)
+{
+    TEST_ASSERT_TRUE(host_sends(text));
+    terminal_poll();
+}
+
+// Enter: the line the terminal shows is the one that runs; the command's
+// prompt starts a new, empty input line
+static void
+host_enters(const char *expected)
+{
+    TEST_ASSERT_FALSE(host_sends("\r"));
+    terminal_poll();
+    TEST_ASSERT_EQUAL_STRING(expected, line);
+    TEST_ASSERT_EQUAL_STRING(expected, screen);
+    terminal_command_ack(false);
+    memset(screen, 0, sizeof(screen));
+    col = 0;
+}
+
+// history recalls in one packet (keys the host buffered while the endpoint
+// was not armed) queue more echo than the echo buffer holds: the terminal
+// still shows the recalled line, and what is typed next edits that line
+static void
+test_history_recalls_that_overflow_echo_show_the_recalled_line(void)
+{
+    static const char l1[] = "hostname aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    static const char l2[] = "hostname bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    static const char l3[] = "hostname ccccccccccccccccccccccccccccccccccccccccccccccccccc";
+
+    start_echoing();
+    host_types(l1);
+    host_enters(l1);
+    host_types(l2);
+    host_enters(l2);
+    host_types(l3);
+    host_enters(l3);
+
+    // Up (l3), Up (l2), Up (l1): 63 + 68 + 68 bytes of echo
+    host_types("\033[A\033[A\033[A");
+    TEST_ASSERT_EQUAL_STRING(l1, screen);
+    TEST_ASSERT_EQUAL_INT(60, col);
+
+    host_types("x");
+    host_enters("hostname aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax");
+}
+
+// 30 Backspaces in one packet queue 180 bytes of echo: the terminal shows
+// the shortened line with the cursor at its end
+static void
+test_backspaces_that_overflow_echo_show_the_shortened_line(void)
+{
+    static const char typed[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX";
+    char bs[31];
+
+    start_echoing();
+    host_types(typed);
+    memset(bs, '\010', 30);
+    bs[30] = '\0';
+    host_types(bs);
+    TEST_ASSERT_EQUAL_STRING("0123456789abcdefghijklmnopqrst", screen);
+    TEST_ASSERT_EQUAL_INT(30, col);
+    host_enters("0123456789abcdefghijklmnopqrst");
+}
+
 int
 main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_pipelined_lines_run_in_order);
     RUN_TEST(test_capture_rearms_endpoint_and_discards_pipelined_line);
+    RUN_TEST(test_history_recalls_that_overflow_echo_show_the_recalled_line);
+    RUN_TEST(test_backspaces_that_overflow_echo_show_the_shortened_line);
     return UNITY_END();
 }
