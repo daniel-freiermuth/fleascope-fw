@@ -356,6 +356,21 @@ test_scope_boundaries(void)
     assert_error("scope 10 +5 0 1000001");
 }
 
+// numbers too big for an int are errors, not wrapped into range
+static void
+test_overflowing_constants_are_errors(void)
+{
+    assert_error("scope 4294967306");
+    setUp();
+    assert_error("scope 2147483648");
+    setUp();
+    assert_error("scope 10 0x100000001");
+    setUp();
+    assert_error("scope 10 +5 0 4294969629");
+    setUp();
+    assert_scope("scope 2147483647", 2147483647, LEVEL_AKA_MATCHING, ANALOG, -1, -1, 0);
+}
+
 static void
 test_scope_rejects_bad_syntax(void)
 {
@@ -627,5 +642,6 @@ main(void)
     RUN_TEST(test_wave_zero_stops_and_bad_frequency_is_reported);
     RUN_TEST(test_wave_rejects_bad_syntax);
     RUN_TEST(test_error_offset_counts_from_line_start);
+    RUN_TEST(test_overflowing_constants_are_errors);
     return UNITY_END();
 }
