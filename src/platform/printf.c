@@ -231,6 +231,15 @@ snprintf(char *buffer, size_t length, const char *format, ...)
     return n;
 }
 
+// sprintf/vsprintf callers supply no buffer length; this is the bound used.
+#define SPRINTF_UNBOUNDED  32767
+
+int
+vsprintf(char *buffer, const char *format, va_list ap)
+{
+    return vsnprintf(buffer, SPRINTF_UNBOUNDED, format, ap);
+}
+
 int
 sprintf(char *buffer, const char *format, ...)
 {
@@ -238,17 +247,8 @@ sprintf(char *buffer, const char *format, ...)
     va_list ap;
 
     va_start(ap, format);
-    n = vsnprintf(buffer, 32767, format, ap);
+    n = vsprintf(buffer, format, ap);
     va_end(ap);
-    return n;
-}
-
-int
-vsprintf(char *buffer, const char *format, va_list ap)
-{
-    int n;
-
-    n = vsnprintf(buffer, 32767, format, ap);
     return n;
 }
 
@@ -280,19 +280,14 @@ vprintf(const char *format, va_list ap)
 int
 printf(const char *format, ...)
 {
-    uint n;
+    int n;
     va_list ap;
 
-    assert(gpl() == 0);
-
     va_start(ap, format);
-    n = (uint)vsnprintf(printf_buffer, sizeof(printf_buffer), format, ap);
-    assert(! printf_buffer[sizeof(printf_buffer)-1]);
-    n = MIN(n, sizeof(printf_buffer)-1);
-    n = (uint)printf_write(printf_buffer, (int)n);
+    n = vprintf(format, ap);
     va_end(ap);
 
-    return (int)n;
+    return n;
 }
 
 #if IN_MEMORY_TRACE
