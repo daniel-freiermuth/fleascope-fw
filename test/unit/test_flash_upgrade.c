@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: Parity-7.0.0
 // Host unit tests for flash_upgrade() in src/platform/flash.c: the `upgrade`
 // command's Intel HEX parser, the only way to update a device without a
-// programmer. docs/commands.md (`upgrade`) is the contract for its messages
-// and for when it installs.
+// programmer, and flash_upgrade_ram(), which installs the staged image.
+// docs/commands.md (`upgrade`) is the contract for its messages and for when
+// it installs.
 //
 // flash.c is compiled into this test with the PIC32 registers it uses
-// simulated: the NVM controller erases a page to 0xFF and programs a word by
-// clearing bits, and programming a word that is not erased fails the test.
-// Program flash is mapped at the firmware's own addresses, FLASH_START (KSEG0)
-// and its KSEG1 alias, so the parser's address arithmetic (KVA_TO_PA,
-// PA_TO_KVA1, 32-bit vaddr/taddr) runs unchanged. The pasted lines come from a
-// fake terminal_poll(); delay(), first called after `paste done!`, ends the
-// run before the image would be installed.
+// simulated: the NVM controller erases a page to 0xFF and programs a word, or
+// a quad word in boot flash, by clearing bits; programming a word that is not
+// erased, a boot flash page still write-protected in NVMBWP, an address
+// outside program and boot flash, or any operation with interrupts enabled or
+// DMA running fails the test. Program flash is mapped at the firmware's own
+// addresses, FLASH_START (KSEG0) and its KSEG1 alias, and boot flash at
+// FLASH2_START, so the parser's address arithmetic (KVA_TO_PA, PA_TO_KVA1,
+// 32-bit vaddr/taddr) runs unchanged. The pasted lines come from a fake
+// terminal_poll(). run_upgrade() ends the run at delay(), first called after
+// `paste done!`, before the image would be installed; run_install() lets it
+// go on to the software reset that ends flash_upgrade_ram().
 
 #define _GNU_SOURCE  // memfd_create(), MAP_FIXED_NOREPLACE
 
@@ -36,6 +41,7 @@
 #define BOOT_STAGING  (FLASH_BYTES-FLASH2_BYTES)  // offset of staged boot flash data
 
 byte *const host_flash = (byte *)(uintptr)0x9D000000u;  // config.h's FLASH_START
+static byte *const host_boot = (byte *)(uintptr)0x9FC00000u;  // config.h's FLASH2_START
 
 // ---- what flash.c uses from the firmware's main.h and the XC32 headers
 
@@ -75,22 +81,124 @@ host_printf(const char *format, ...)
 #define _NVMCON_NVMOP_MASK      0x0000000Fu
 #define _NVMCON_NVMOP_POSITION  0
 
+#define _NVMBWP_LBWP0_MASK      0x00000100u  // LBWP0..4: boot flash pages 0..4
+
 static uint32 nvmcon;
 static uint32 nvmcon_set;
 static uint32 nvmcon_clr;
-static int nvm_programmed;  // words programmed since setUp()
+static uint32 nvmbwp;  // after reset all 5 boot flash pages are write-protected
+static uint32 nvmbwp_clr;
+static int nvm_programmed;  // words programmed since setUp(), 4 per quad word
+static int nvm_quads;  // quad words programmed since setUp()
+static int nvm_erased;  // pages erased since setUp()
+static int nvm_boot_erased;  // of which in boot flash
 
-static volatile uint32 NVMKEY;
+// NVMKEY and SYSKEY: a write of 0xAA996655 immediately followed by one of
+// 0x556699AA unlocks; any other write locks again. A write is seen at the
+// next access to the key or to the register it guards.
+struct unlock {
+    uint32 written;
+    bool pending;
+    int keys;  // 0, 1 after 0xAA996655, 2 when unlocked
+};
+
+static void
+unlock_settle(struct unlock *key)
+{
+    if (key->pending) {
+        if (key->written == 0xAA996655u) {
+            key->keys = 1;
+        } else if (key->written == 0x556699AAu && key->keys == 1) {
+            key->keys = 2;
+        } else {
+            key->keys = 0;
+        }
+        key->pending = false;
+    }
+}
+
+static uint32 *
+unlock_register(struct unlock *key)
+{
+    unlock_settle(key);
+    key->pending = true;
+    return &key->written;
+}
+
+static void
+unlock_reset(struct unlock *key)
+{
+    key->written = 0;
+    key->pending = false;
+    key->keys = 0;
+}
+
+// true if key was unlocked; the unlock is used up
+static bool
+unlock_consume(struct unlock *key)
+{
+    bool unlocked;
+
+    unlock_settle(key);
+    unlocked = key->keys == 2;
+    key->keys = 0;
+    return unlocked;
+}
+
+static struct unlock nvmkey;
+#define NVMKEY  (*unlock_register(&nvmkey))
+
 static volatile uint32 NVMADDR;
 static volatile uint32 NVMDATA0, NVMDATA1, NVMDATA2, NVMDATA3;
-static volatile uint32 NVMBWPCLR;
 
-// NVMCONSET/NVMCONCLR writes are applied at the next NVMCON access
+// ---- interrupt level and DMA, which every NVM operation needs held off
+
+#define _DMACON_SUSPEND_MASK  0x00001000u
+
+static int spl_level;
+static uint32 dmacon;
+static uint32 dmacon_set;
+static uint32 dmacon_clr;
+static struct {
+    uint32 SUSPEND;
+} DMACONbits = { 1 };
+
+// DMACONSET/DMACONCLR writes are applied at the next DMA register access
+static void
+dma_settle(void)
+{
+    dmacon = (dmacon & ~dmacon_clr) | dmacon_set;
+    dmacon_set = dmacon_clr = 0;
+}
+
+static uint32 *
+dma_register(uint32 *reg)
+{
+    dma_settle();
+    return reg;
+}
+
+#define DMACONSET  (*dma_register(&dmacon_set))
+#define DMACONCLR  (*dma_register(&dmacon_clr))
+
+static void
+assert_quiesced(const char *what)
+{
+    dma_settle();
+    TEST_ASSERT_EQUAL_INT_MESSAGE(7, spl_level, what);
+    TEST_ASSERT_TRUE_MESSAGE(dmacon & _DMACON_SUSPEND_MASK, what);
+}
+
+// NVMCONSET/NVMCONCLR/NVMBWPCLR writes are applied at the next NVM register
+// access
 static void
 nvm_settle(void)
 {
     nvmcon = (nvmcon & ~nvmcon_clr) | nvmcon_set;
     nvmcon_set = nvmcon_clr = 0;
+    nvmbwp &= ~nvmbwp_clr;
+    nvmbwp_clr = 0;
+    unlock_settle(&nvmkey);
 }
 
 static uint32 *
@@ -100,36 +208,71 @@ nvm_register(uint32 *reg)
     return reg;
 }
 
+static uint32 *
+nvm_bwpclr(void)
+{
+    nvm_settle();
+    TEST_ASSERT_TRUE_MESSAGE(unlock_consume(&nvmkey), "NVMBWPCLR without unlock sequence");
+    return &nvmbwp_clr;
+}
+
+// the simulated flash word at physical address pa, in program or boot flash
+static uint32 *
+nvm_word(uint32 pa)
+{
+    if (pa >= PROGRAM_PA && pa < PROGRAM_PA+FLASH_BYTES) {
+        return (uint32 *)(void *)(host_flash+(pa-PROGRAM_PA));
+    }
+    TEST_ASSERT_TRUE_MESSAGE(pa >= BOOT_PA && pa < BOOT_PA+FLASH2_BYTES, "NVM operation outside program and boot flash");
+    TEST_ASSERT_FALSE_MESSAGE(nvmbwp & (_NVMBWP_LBWP0_MASK<<((pa-BOOT_PA)/FLASH_PAGE_SIZE)), "boot flash page write-protected");
+    return (uint32 *)(void *)(host_boot+(pa-BOOT_PA));
+}
+
 // reading NVMCON after WR is set runs the operation and clears WR
 static uint32
 nvm_read(void)
 {
     uint32 pa;
     uint32 *word;
+    uint32 i;
 
     nvm_settle();
     if (nvmcon & _NVMCON_WR_MASK) {
         TEST_ASSERT_TRUE_MESSAGE(nvmcon & _NVMCON_WREN_MASK, "WR without WREN");
-        TEST_ASSERT_EQUAL_HEX32_MESSAGE(0x556699AA, NVMKEY, "WR without unlock sequence");
+        TEST_ASSERT_TRUE_MESSAGE(unlock_consume(&nvmkey), "WR without unlock sequence");
+        assert_quiesced("NVM operation with interrupts or DMA running");
         pa = NVMADDR;
-        TEST_ASSERT_TRUE_MESSAGE(pa >= PROGRAM_PA && pa < PROGRAM_PA+FLASH_BYTES, "NVM operation outside program flash");
-        word = (uint32 *)(void *)(host_flash+(pa-PROGRAM_PA));
+        word = nvm_word(pa);
         switch (nvmcon & _NVMCON_NVMOP_MASK) {
             case 0x4:  // page erase
                 TEST_ASSERT_EQUAL_UINT32(0, pa%FLASH_PAGE_SIZE);
                 memset(word, 0xFF, FLASH_PAGE_SIZE);
+                nvm_erased++;
+                nvm_boot_erased += pa >= BOOT_PA;
                 break;
-            case 0x1:  // word program
+            case 0x1:  // word program, program flash only
+                TEST_ASSERT_TRUE_MESSAGE(pa < BOOT_PA, "boot flash takes only quad word programs");
                 TEST_ASSERT_EQUAL_UINT32(0, pa%4);
                 TEST_ASSERT_EQUAL_HEX32_MESSAGE(0xFFFFFFFF, *word, "programming a word that is not erased");
                 *word &= NVMDATA0;
                 nvm_programmed++;
                 break;
+            case 0x2:  // quad word program
+                TEST_ASSERT_EQUAL_UINT32(0, pa%16);
+                for (i = 0; i < 4; i++) {
+                    TEST_ASSERT_EQUAL_HEX32_MESSAGE(0xFFFFFFFF, word[i], "programming a word that is not erased");
+                }
+                word[0] &= NVMDATA0;
+                word[1] &= NVMDATA1;
+                word[2] &= NVMDATA2;
+                word[3] &= NVMDATA3;
+                nvm_programmed += 4;
+                nvm_quads++;
+                break;
             default:
                 TEST_FAIL_MESSAGE("unexpected NVMOP");
         }
         nvmcon &= ~_NVMCON_WR_MASK;
-        NVMKEY = 0;
     }
     return nvmcon;
 }
@@ -137,17 +280,35 @@ nvm_read(void)
 #define NVMCONSET  (*nvm_register(&nvmcon_set))
 #define NVMCONCLR  (*nvm_register(&nvmcon_clr))
 #define NVMCON     nvm_read()
+#define NVMBWPCLR  (*nvm_bwpclr())
 
-// ---- DMA, reset
+// ---- software reset: reading RSWRST after SWRST is set ends the run
 
-#define _DMACON_SUSPEND_MASK  0x00001000u
-#define _RSWRST_SWRST_MASK    0x00000001u
+#define _RSWRST_SWRST_MASK  0x00000001u
 
-static volatile uint32 DMACONSET, DMACONCLR;
-static struct {
-    uint32 SUSPEND;
-} DMACONbits = { 1 };
-static volatile uint32 SYSKEY, RSWRSTSET, RSWRST;
+static struct unlock syskey;
+#define SYSKEY  (*unlock_register(&syskey))
+static uint32 rswrstset;
+static jmp_buf reset;
+
+static uint32 *
+rswrstset_register(void)
+{
+    TEST_ASSERT_TRUE_MESSAGE(unlock_consume(&syskey), "RSWRSTSET without SYSKEY unlock");
+    return &rswrstset;
+}
+
+static void
+__attribute__((noreturn))
+rswrst_read(void)
+{
+    TEST_ASSERT_EQUAL_HEX32_MESSAGE(_RSWRST_SWRST_MASK, rswrstset, "RSWRST read before SWRST set");
+    assert_quiesced("reset with interrupts or DMA running");
+    longjmp(reset, 1);
+}
+
+#define RSWRSTSET  (*rswrstset_register())
+#define RSWRST     (rswrst_read(), 0u)
 
 // ---- terminal, util and timer fakes
 
@@ -213,19 +374,27 @@ get2hex(char **p)
 int
 splx(int level)
 {
-    (void)level;
-    return 0;
+    int old;
+
+    old = spl_level;
+    spl_level = level;
+    return old;
 }
 
 static jmp_buf installing;
+static bool let_install;  // run_install(): delay() returns
+static int delays;
 
-// flash_upgrade() calls delay() first after `paste done!`, committed to install
+// flash_upgrade() calls delay() first after `paste done!`, committed to
+// install; run_upgrade() stops there
 void
-__attribute__((noreturn))
 delay(int32 ms)
 {
-    (void)ms;
-    longjmp(installing, 1);
+    TEST_ASSERT_EQUAL_INT(100, ms);
+    delays++;
+    if (! let_install) {
+        longjmp(installing, 1);
+    }
 }
 
 // flash.c's casts between 32-bit addresses and pointers are exact here: the
@@ -324,6 +493,22 @@ run_upgrade(void)
     return false;
 }
 
+// runs `upgrade` on the paste through the install; true if it ended in the
+// software reset
+static bool
+run_install(void)
+{
+    main_command = upgrade_command;
+    terminal_echo = true;
+    let_install = true;
+    if (setjmp(reset)) {
+        TEST_ASSERT_EQUAL_INT_MESSAGE(script_len, script_pos, "lines left after the end-of-file record");
+        return true;
+    }
+    flash_upgrade();
+    return false;
+}
+
 static uint32
 flash_word(uint32 offset)
 {
@@ -340,14 +525,25 @@ flash_word(uint32 offset)
 void
 setUp(void)
 {
-    // whatever a previous image left in the staging half
+    // whatever a previous image left in program flash and boot flash
     memset(host_flash, 0x00, FLASH_BYTES);
+    memset(host_boot, 0x00, FLASH2_BYTES);
     memset(script, 0, sizeof(script));
     script_len = script_pos = 0;
     acks = 0;
     output[0] = '\0';
-    nvm_programmed = 0;
-    nvmcon = 0;
+    end_of_static = (byte *)(uintptr)0x9D001000u;
+    nvm_programmed = nvm_quads = nvm_erased = nvm_boot_erased = 0;
+    nvmcon = nvmcon_set = nvmcon_clr = 0;
+    nvmbwp = 0x1F1F;
+    nvmbwp_clr = 0;
+    unlock_reset(&nvmkey);
+    spl_level = 0;
+    dmacon = dmacon_set = dmacon_clr = 0;
+    unlock_reset(&syskey);
+    rswrstset = 0;
+    let_install = false;
+    delays = 0;
 }
 
 void
@@ -384,6 +580,86 @@ test_stages_program_and_boot_words_and_installs(void)
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFF, flash_word(STAGING+16));
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFF, flash_word(BOOT_STAGING+4));
     TEST_ASSERT_EQUAL_HEX32(0x00000000, flash_word(0));
+}
+
+// the staged image replaces the running one: program flash up to
+// PROGRAM_END word for word from the staging half and erased above it, boot
+// flash in quad words from the last FLASH2_BYTES of staging once NVMBWP is
+// cleared, then the staging half is erased for the next upgrade and the MCU
+// reset; the simulation fails any word programmed twice without an erase
+static void
+test_install_replaces_program_and_boot_flash_with_staged_image(void)
+{
+    static const uint32 first[] = { 0x03020100, 0x07060504, 0x0B0A0908, 0x0F0E0D0C };
+    static const uint32 boot[] = { 0x0B000000, 0x11111111, 0x22222222, 0x33333333 };
+    static byte expected[FLASH_BYTES/2];
+
+    paste_extend(PROGRAM_PA>>16);
+    paste_words(0x0000, first, LENGTHOF(first));
+    paste_extend((PROGRAM_END-4)>>16);
+    paste_word((PROGRAM_END-4)&0xFFFF, 0xCAFEF00D);
+    paste_extend(BOOT_PA>>16);
+    paste_words(0x0000, boot, LENGTHOF(boot));
+    paste_word(FLASH2_BYTES-4, 0x12345678);
+    paste_eof();
+
+    TEST_ASSERT_TRUE(run_install());
+    TEST_ASSERT_EQUAL_STRING(HEADER ".." INSTALL, output);
+    TEST_ASSERT_EQUAL_INT(2, delays);
+
+    // program flash: the staged words, everything else erased
+    memset(expected, 0xFF, sizeof(expected));
+    memcpy(expected, first, sizeof(first));
+    memcpy(expected+(PROGRAM_END-4-PROGRAM_PA), &(uint32){ 0xCAFEF00D }, 4);
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, host_flash, FLASH_BYTES/2);
+
+    // boot flash: the staged boot words, everything else erased
+    memset(expected, 0xFF, FLASH2_BYTES);
+    memcpy(expected, boot, sizeof(boot));
+    memcpy(expected+FLASH2_BYTES-4, &(uint32){ 0x12345678 }, 4);
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, host_boot, FLASH2_BYTES);
+    TEST_ASSERT_EQUAL_HEX32(0, nvmbwp);
+
+    // the staging half is erased
+    memset(expected, 0xFF, sizeof(expected));
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, host_flash+STAGING, FLASH_BYTES/2);
+
+    // staging erase and 10 staged words, then the install: program flash
+    // erased and every word below PROGRAM_END programmed, boot flash erased
+    // and programmed a quad word at a time, the staging half erased
+    TEST_ASSERT_EQUAL_INT(3*(FLASH_BYTES/2/FLASH_PAGE_SIZE) + FLASH2_BYTES/FLASH_PAGE_SIZE, nvm_erased);
+    TEST_ASSERT_EQUAL_INT(FLASH2_BYTES/FLASH_PAGE_SIZE, nvm_boot_erased);
+    TEST_ASSERT_EQUAL_INT(FLASH2_BYTES/16, nvm_quads);
+    TEST_ASSERT_EQUAL_INT(10 + (FLASH_BYTES/2-FLASH2_BYTES)/4 + FLASH2_BYTES/4, nvm_programmed);
+}
+
+// flash_upgrade() refuses before touching flash when the running image
+// reaches past PROGRAM_END, where it could not be staged; at PROGRAM_END it
+// goes on
+static void
+test_code_exceeding_half_of_flash_is_refused(void)
+{
+    end_of_static = (byte *)(FLASH_START+FLASH_BYTES/2-FLASH2_BYTES+1);
+    paste_extend(PROGRAM_PA>>16);
+    paste_eof();
+    main_command = upgrade_command;
+    terminal_echo = true;
+
+    flash_upgrade();
+    TEST_ASSERT_EQUAL_STRING("code exceeds half of flash\n", output);
+    TEST_ASSERT_EQUAL_INT(0, script_pos);
+    TEST_ASSERT_EQUAL_INT(0, nvm_erased);
+    TEST_ASSERT_EQUAL_INT(0, nvm_programmed);
+    TEST_ASSERT_EQUAL_HEX32(0x00000000, flash_word(STAGING));
+    TEST_ASSERT_TRUE(terminal_echo);
+
+    setUp();
+    end_of_static = (byte *)(FLASH_START+FLASH_BYTES/2-FLASH2_BYTES);
+    paste_extend(PROGRAM_PA>>16);
+    paste_eof();
+
+    TEST_ASSERT_TRUE(run_upgrade());
+    TEST_ASSERT_EQUAL_STRING(HEADER INSTALL, output);
 }
 
 // regression for 08f25e6: before the first :04 record the upper address bits
@@ -622,9 +898,16 @@ main(void)
         perror("mapping simulated flash");
         return 1;
     }
+    // boot flash at FLASH2_START (KSEG0), where flash_upgrade_ram() writes it
+    if (mmap(host_boot, FLASH2_BYTES, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE, -1, 0) != host_boot) {
+        perror("mapping simulated boot flash");
+        return 1;
+    }
 
     UNITY_BEGIN();
     RUN_TEST(test_stages_program_and_boot_words_and_installs);
+    RUN_TEST(test_install_replaces_program_and_boot_flash_with_staged_image);
+    RUN_TEST(test_code_exceeding_half_of_flash_is_refused);
     RUN_TEST(test_data_before_first_extend_is_bad_address);
     RUN_TEST(test_program_flash_ends_below_staging_reserve);
     RUN_TEST(test_boot_flash_ends_at_flash2_bytes);
