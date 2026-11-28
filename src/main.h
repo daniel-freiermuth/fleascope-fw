@@ -51,8 +51,6 @@ typedef unsigned int uint;
 #define sprintf  mysprintf
 #define vsprintf  myvsprintf
 #define printf  myprintf
-#define sprintf_s mysprintf_s
-#define snprintf_s mysnprintf_s
 
 #include <stdarg.h>
 

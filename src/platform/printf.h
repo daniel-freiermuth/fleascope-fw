@@ -3,15 +3,6 @@
 int
 printf_write(char *buffer, int n);
 
-bool
-open_log_file(void);
-
-bool
-append_log_file(char *buffer);
-
-void
-flush_log_file(void);
-
 // main.h renames these to my*, so the compiler doesn't know them as the
 // printf family: declare their format strings for -Wformat. __printf__,
 // since main.h #defines printf.
