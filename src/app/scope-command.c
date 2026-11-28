@@ -79,41 +79,11 @@ static int setup_capture_timer_scope(int number1) {
 
     // configure adc trigger output compares
 
-    // use 20% of T3 trigger for adc0
-    OC1CONbits.ON = 0;
-    g++;
-    OC1CONbits.OCTSEL = 1;  // timer 3
-    OC1CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC1R = (uint32)(t/INTERLEAVE-1);
-    OC1RS = (uint32)(t/INTERLEAVE+1);
-    OC1CONbits.ON = 1;
-
-    // use 40% of T3 trigger for adc1
-    OC2CONbits.ON = 0;
-    g++;
-    OC2CONbits.OCTSEL = 1;  // timer 3
-    OC2CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC2R = (uint32)(2*t/INTERLEAVE-1);
-    OC2RS = (uint32)(2*t/INTERLEAVE+1);
-    OC2CONbits.ON = 1;
-
-    // use 60% of T3 trigger for adc2
-    OC3CONbits.ON = 0;
-    g++;
-    OC3CONbits.OCTSEL = 1;  // timer 3
-    OC3CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC3R = (uint32)(3*t/INTERLEAVE-1);
-    OC3RS = (uint32)(3*t/INTERLEAVE+1);
-    OC3CONbits.ON = 1;
-
-    // use 80% of T3 trigger for adc3
-    OC4CONbits.ON = 0;
-    g++;
-    OC4CONbits.OCTSEL = 1;  // timer 3
-    OC4CONbits.OCM = 5;  // initial low, continuous high pulses
-    OC4R = (uint32)(4*t/INTERLEAVE-1);
-    OC4RS = (uint32)(4*t/INTERLEAVE+1);
-    OC4CONbits.ON = 1;
+    // use 20%, 40%, 60%, 80% of T3 trigger for adc0..adc3
+    OC_PULSE_T3(1, (uint32)(t/INTERLEAVE-1), (uint32)(t/INTERLEAVE+1), g++);
+    OC_PULSE_T3(2, (uint32)(2*t/INTERLEAVE-1), (uint32)(2*t/INTERLEAVE+1), g++);
+    OC_PULSE_T3(3, (uint32)(3*t/INTERLEAVE-1), (uint32)(3*t/INTERLEAVE+1), g++);
+    OC_PULSE_T3(4, (uint32)(4*t/INTERLEAVE-1), (uint32)(4*t/INTERLEAVE+1), g++);
 
     return 0;
 }

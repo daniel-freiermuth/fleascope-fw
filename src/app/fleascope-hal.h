@@ -1,6 +1,20 @@
 #define MSPS  18  // approximate target sample rate
 #define INTERLEAVE  5  // we interleave results from 5 adcs
 
+// Configure output compare n as an adc trigger on timer 3: initial low,
+// continuous high pulses from compare value r to rs. settle runs after the
+// module is turned off and before it is reprogrammed.
+#define OC_PULSE_T3(n, r, rs, settle) \
+    do { \
+        OC##n##CONbits.ON = 0; \
+        settle; \
+        OC##n##CONbits.OCTSEL = 1;  /* timer 3 */ \
+        OC##n##CONbits.OCM = 5;  /* initial low, continuous high pulses */ \
+        OC##n##R = (r); \
+        OC##n##RS = (rs); \
+        OC##n##CONbits.ON = 1; \
+    } while (0)
+
 typedef enum {
     WAVE_SQUARE,
     WAVE_EKG,
