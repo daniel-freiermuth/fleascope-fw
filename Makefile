@@ -243,7 +243,11 @@ $(HOST_LIB): $(HOST_OBJS)
 
 $(HOST_DIR)/%: test/unit/%.c $(HOST_LIB)
 	@mkdir -p $(@D)
-	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -o $@ $< $(HOST_LIB)
+	$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -o $@ $< $(HOST_LIB) $(HOST_LDFLAGS)
+
+# test_usb compiles in usb.c, whose buffer descriptors hold 32-bit addresses
+# cast from pointers through int; without PIE its statics lie below 2 GiB
+$(HOST_DIR)/test_usb: HOST_LDFLAGS := -no-pie
 
 test: unit-test
 

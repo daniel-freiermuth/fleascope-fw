@@ -24,6 +24,12 @@ All notable changes to the firmware are documented here.
   the end-of-file checksum quirk and the install/fail decision. `src/platform/flash.c` is
   compiled into the test with the NVM controller simulated and program flash mapped at its
   firmware addresses.
+- **Host unit tests for the USB EP0 control transfers** (`test/unit/test_usb.c`): data stages
+  split into packets and truncated to wLength, the zero-length packet after a full last packet
+  shorter than wLength (0b2bb72) and none at exactly wLength, OUT data stages handed over
+  whole, data toggles, SET_ADDRESS taking effect after its status stage, SET_CONFIGURATION and
+  bus reset. `src/platform/usb.c` is compiled into the test with the USB controller and its
+  buffer descriptors simulated; the test is linked without PIE.
 
 ### Removed
 - Unreachable pin modes in `src/platform/pin.c`: `pin_declare`, `pin_set` and `pin_get` handle
